@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from './supabaseClient';
 const categories = [
   { id: 'helados', name: 'Helados' },
@@ -9,45 +9,306 @@ const categories = [
   { id: 'otros', name: 'Otros' }
 ];
 
+const getLocalDateString = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const formatQuantity = (cantidad, p) => {
+  if (cantidad === undefined || cantidad === null) return '-';
+  if (!p) return `${cantidad}`;
+  if (p.unidad_medida === 'peso') {
+    if (cantidad >= 1000) {
+      const kg = cantidad / 1000;
+      return `${kg.toLocaleString()} kg`;
+    }
+    return `${cantidad} g`;
+  }
+  
+  const cj = p.cant_por_caja || 24;
+  const pk = p.cant_por_pack;
+  
+  let remaining = cantidad;
+  let parts = [];
+  
+  if (cj > 0 && remaining >= cj) {
+    const cajas = Math.floor(remaining / cj);
+    parts.push(`${cajas} cj`);
+    remaining %= cj;
+  }
+  
+  if (pk > 0 && remaining >= pk) {
+    const packs = Math.floor(remaining / pk);
+    parts.push(`${packs} pk`);
+    remaining %= pk;
+  }
+  
+  if (remaining > 0 || parts.length === 0) {
+    parts.push(`${remaining} un`);
+  }
+  
+  return `${cantidad} u (${parts.join(', ')})`;
+};
+
+const formatQuantityShort = (cantidad, p) => {
+  if (cantidad === undefined || cantidad === null) return '-';
+  if (cantidad === 0) return '0';
+  if (!p) return `${cantidad}`;
+  if (p.unidad_medida === 'peso') {
+    if (cantidad >= 1000) {
+      const kg = cantidad / 1000;
+      return `${kg.toLocaleString()} kg`;
+    }
+    return `${cantidad} g`;
+  }
+  
+  const cj = p.cant_por_caja || 24;
+  const pk = p.cant_por_pack;
+  
+  let remaining = cantidad;
+  let parts = [];
+  
+  if (cj > 0 && remaining >= cj) {
+    const cajas = Math.floor(remaining / cj);
+    parts.push(`${cajas} cj`);
+    remaining %= cj;
+  }
+  
+  if (pk > 0 && remaining >= pk) {
+    const packs = Math.floor(remaining / pk);
+    parts.push(`${packs} pk`);
+    remaining %= pk;
+  }
+  
+  if (remaining > 0) {
+    parts.push(`${remaining} u`);
+  }
+  
+  return parts.join(' ');
+};
+
+const UnitCalculatorInput = ({ value, onChange, product, placeholder = "Cantidad", disabled = false, min = 0 }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [cajas, setCajas] = useState('');
+  const [packs, setPacks] = useState('');
+  const [unidades, setUnidades] = useState('');
+  
+  // Weight states (if product.unidad_medida === 'peso')
+  const [kg, setKg] = useState('');
+  const [g, setG] = useState('');
+
+  const isWeight = product?.unidad_medida === 'peso';
+  const cj = product?.cant_por_caja || 24;
+  const pk = product?.cant_por_pack;
+
+  // Synchronize external changes or calculate based on fields
+  const handleFieldChange = (field, val) => {
+    if (isWeight) {
+      let newKg = field === 'kg' ? val : kg;
+      let newG = field === 'g' ? val : g;
+      
+      if (field === 'kg') setKg(val);
+      if (field === 'g') setG(val);
+
+      const totalGrams = Math.round((parseFloat(newKg) || 0) * 1000 + (parseFloat(newG) || 0));
+      onChange(totalGrams);
+    } else {
+      let newCj = field === 'cajas' ? val : cajas;
+      let newPk = field === 'packs' ? val : packs;
+      let newUn = field === 'unidades' ? val : unidades;
+
+      if (field === 'cajas') setCajas(val);
+      if (field === 'packs') setPacks(val);
+      if (field === 'unidades') setUnidades(val);
+
+      const totalUnits = (parseInt(newCj) || 0) * cj + (parseInt(newPk) || 0) * (pk || 0) + (parseInt(newUn) || 0);
+      onChange(totalUnits);
+    }
+  };
+
+  const toggleOpen = () => {
+    setIsOpen(prev => {
+      const next = !prev;
+      if (!next) {
+        setCajas('');
+        setPacks('');
+        setUnidades('');
+        setKg('');
+        setG('');
+      }
+      return next;
+    });
+  };
+
+  const displayHelperText = () => {
+    if (!product || !value || value <= 0) return null;
+    return (
+      <div style={{ fontSize: '0.75rem', color: 'var(--primary)', marginTop: '0.2rem', fontWeight: 500 }}>
+        Equivale a: {formatQuantity(value, product)}
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', width: '100%' }}>
+      <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
+        <input
+          type="number"
+          className="form-control"
+          style={{ flex: 1 }}
+          value={value === undefined || value === null ? '' : value}
+          onChange={e => {
+            const val = e.target.value === '' ? '' : Math.max(min, parseFloat(e.target.value) || 0);
+            onChange(val);
+          }}
+          placeholder={isWeight ? `${placeholder} (g)` : `${placeholder} (u)`}
+          disabled={disabled}
+          min={min}
+        />
+        <button
+          type="button"
+          className={`btn btn-sm ${isOpen ? 'btn-primary' : 'btn-outline'}`}
+          style={{ padding: '0.4rem 0.6rem', minHeight: 'unset', fontSize: '0.8rem', borderRadius: '6px' }}
+          onClick={toggleOpen}
+          title="Calcular cantidad usando empaques / peso"
+        >
+          📐
+        </button>
+      </div>
+
+      {isOpen && (
+        <div style={{
+          background: 'rgba(0,0,0,0.03)',
+          border: '1px dashed rgba(0,0,0,0.15)',
+          borderRadius: '8px',
+          padding: '0.6rem',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.5rem',
+          marginTop: '0.2rem'
+        }}>
+          {isWeight ? (
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginBottom: '0.15rem' }}>Kilogramos (kg)</span>
+                <input
+                  type="number"
+                  className="form-control"
+                  style={{ padding: '0.3rem', fontSize: '0.85rem' }}
+                  value={kg}
+                  onChange={e => handleFieldChange('kg', e.target.value)}
+                  placeholder="0"
+                  min="0"
+                  step="0.001"
+                />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginBottom: '0.15rem' }}>Gramos (g)</span>
+                <input
+                  type="number"
+                  className="form-control"
+                  style={{ padding: '0.3rem', fontSize: '0.85rem' }}
+                  value={g}
+                  onChange={e => handleFieldChange('g', e.target.value)}
+                  placeholder="0"
+                  min="0"
+                />
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 50px' }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginBottom: '0.15rem' }}>Cajas (x{cj})</span>
+                <input
+                  type="number"
+                  className="form-control"
+                  style={{ padding: '0.3rem', fontSize: '0.85rem' }}
+                  value={cajas}
+                  onChange={e => handleFieldChange('cajas', e.target.value)}
+                  placeholder="0"
+                  min="0"
+                />
+              </div>
+              {pk && (
+                <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 50px' }}>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginBottom: '0.15rem' }}>Packs (x{pk})</span>
+                  <input
+                    type="number"
+                    className="form-control"
+                    style={{ padding: '0.3rem', fontSize: '0.85rem' }}
+                    value={packs}
+                    onChange={e => handleFieldChange('packs', e.target.value)}
+                    placeholder="0"
+                    min="0"
+                  />
+                </div>
+              )}
+              <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 50px' }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginBottom: '0.15rem' }}>Unidades (u)</span>
+                <input
+                  type="number"
+                  className="form-control"
+                  style={{ padding: '0.3rem', fontSize: '0.85rem' }}
+                  value={unidades}
+                  onChange={e => handleFieldChange('unidades', e.target.value)}
+                  placeholder="0"
+                  min="0"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      {displayHelperText()}
+    </div>
+  );
+};
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [usernameInput, setUsernameInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [toast, setToast] = useState(null);
   const [activeTab, setActiveTab] = useState('');
-  
+
   // Data states
   const [productos, setProductos] = useState([]);
   const [sucursales, setSucursales] = useState([]);
   const [stockData, setStockData] = useState([]);
   const [orders, setOrders] = useState([]);
   const [dashboardStats, setDashboardStats] = useState(null);
-  
+
   // Action/Form states
   const [loading, setLoading] = useState(false);
   const [selectedPedido, setSelectedPedido] = useState(null);
-  
+
   // Production form state
-  const [prodForm, setProdForm] = useState({ producto_id: '', cantidad: '', fecha: new Date().toISOString().slice(0, 10) });
+  const [prodForm, setProdForm] = useState({ producto_id: '', cantidad: '', fecha: getLocalDateString(), es_evento: false });
   const [prodWeights, setProdWeights] = useState([]);
   const [recentLotes, setRecentLotes] = useState([]);
   const [stockGroupFilter, setStockGroupFilter] = useState('Todos');
+  const [iceCreamFormatFilter, setIceCreamFormatFilter] = useState('Todos'); // 'Todos', 'Vasqueta', 'Balde'
   const [orderSubTab, setOrderSubTab] = useState('helados');
   const [adminStockTab, setAdminStockTab] = useState('helados');
   const [orderSearchQuery, setOrderSearchQuery] = useState('');
   const [branchOtrosForm, setBranchOtrosForm] = useState({ nombre: '', tipo: 'packaging' });
 
   // Admin historic production form state
-  const [adminHistForm, setAdminHistForm] = useState({ producto_id: '', cantidad: '', fecha: new Date().toISOString().slice(0, 10) });
+  const [adminHistForm, setAdminHistForm] = useState({ producto_id: '', cantidad: '', fecha: getLocalDateString(), es_evento: false });
   const [adminHistWeights, setAdminHistWeights] = useState([]);
   const [adminHistDefaultWeight, setAdminHistDefaultWeight] = useState('');
-  
+
   // Order creation form state
   const [orderItems, setOrderItems] = useState({});
   const [suggestions, setSuggestions] = useState([]);
-  
+  const [orderIsEvent, setOrderIsEvent] = useState(false);
+  const [pendingItems, setPendingItems] = useState([]);
+
   // Consumption form state
-  const [consumoForm, setConsumoForm] = useState({ producto_id: '', cantidad: '' });
+  const [consumoForm, setConsumoForm] = useState({ producto_id: '', cantidad: '', es_evento: false });
 
   // Driver load edit state
   const [loadItems, setLoadItems] = useState({});
@@ -59,7 +320,91 @@ export default function App() {
   const [receiveReasons, setReceiveReasons] = useState({});
 
   // Admin new product form
-  const [newProductForm, setNewProductForm] = useState({ nombre: '', categoria: 'helados', tipo: 'vasqueta_5_6k' });
+  const [newProductForm, setNewProductForm] = useState({
+    nombre: '',
+    categoria: 'helados',
+    tipo: 'vasqueta_5_6k',
+    proveedor_id: '',
+    unidad_medida: 'unidad',
+    cant_por_caja: 24,
+    cant_por_pack: ''
+  });
+
+  // Event stock toggle state
+  const [showEventStock, setShowEventStock] = useState(false);
+
+  // States for CRUD products
+  const [allProducts, setAllProducts] = useState([]);
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [showProductModal, setShowProductModal] = useState(false);
+
+  // States for catalog filters
+  const [catalogSearch, setCatalogSearch] = useState('');
+  const [catalogCategory, setCatalogCategory] = useState('Todos');
+  const [catalogSupplier, setCatalogSupplier] = useState('');
+  const [catalogFormat, setCatalogFormat] = useState('Todos');
+  const [catalogStatus, setCatalogStatus] = useState('Todos');
+
+  // Admin order builder state
+  const [adminOrderItems, setAdminOrderItems] = useState({});
+  const [adminOrderDestination, setAdminOrderDestination] = useState('');
+  const [adminOrderIsEvent, setAdminOrderIsEvent] = useState(false);
+  const [adminOrderSubTab, setAdminOrderSubTab] = useState('helados');
+  const [adminOrderSearch, setAdminOrderSearch] = useState('');
+  const [showEventStockDepot, setShowEventStockDepot] = useState(false);
+
+  // Suppliers state
+  const [proveedores, setProveedores] = useState([]);
+  const [showSupplierForm, setShowSupplierForm] = useState(false);
+  const [newSupplierName, setNewSupplierName] = useState('');
+  const [adminStockSupplierFilter, setAdminStockSupplierFilter] = useState('');
+  const [adminOrderSupplierFilter, setAdminOrderSupplierFilter] = useState('');
+
+  // Estados de Máquinas y Mantenimiento
+  const [maquinas, setMaquinas] = useState([]);
+  const [mantenimientos, setMantenimientos] = useState([]);
+  const [maintenanceSubTab, setMaintenanceSubTab] = useState('inventario');
+  const [selectedMaquinaFilter, setSelectedMaquinaFilter] = useState('Todos');
+  const [selectedSucursalFilter, setSelectedSucursalFilter] = useState('Todos');
+  const [selectedTipoEquipoFilter, setSelectedTipoEquipoFilter] = useState('Todos');
+
+  // Estados de Formulario de Máquinas
+  const [showMaquinaModal, setShowMaquinaModal] = useState(false);
+  const [editingMaquina, setEditingMaquina] = useState(null);
+  const [maquinaForm, setMaquinaForm] = useState({
+    nombre: '',
+    tipo_equipo: 'licuadora_horno_batidora_micro',
+    sucursal_id: '',
+    marca: '',
+    modelo: '',
+    numero_serie: '',
+    fecha_adquisicion: '',
+    estado: 'activo',
+    descripcion: ''
+  });
+
+  // Estados de Formulario de Mantenimiento
+  const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
+  const [editingMaintenance, setEditingMaintenance] = useState(null);
+  const [maintenanceForm, setMaintenanceForm] = useState({
+    maquina_id: '',
+    fecha: getLocalDateString(),
+    tipo: 'revision_tecnica',
+    descripcion: '',
+    cambio_repuesto: false,
+    repuesto_detalle: '',
+    costo: '',
+    realizado_por: '',
+    proxima_fecha: ''
+  });
+
+  // Helper to check category visibility based on user role
+  const isCategoryVisibleToRole = (category, role) => {
+    if (role === 'heladero') return category === 'helados';
+    if (role === 'pastelero_helado') return category === 'pasteleria_helada';
+    if (role === 'pastelero') return category === 'pasteleria' || category === 'viennoiserie';
+    return false;
+  };
 
   const getTiposPorCategoria = (categoria) => {
     switch (categoria) {
@@ -77,7 +422,8 @@ export default function App() {
           { value: 'paleta', label: 'Paleta' },
           { value: 'mini_paleta', label: 'Mini Paleta' },
           { value: 'lingote', label: 'Lingote' },
-          { value: 'mini_cake', label: 'Mini Cake' }
+          { value: 'mini_cake', label: 'Mini Cake' },
+          { value: 'sanguche_miga', label: 'Sánguches de Miga' }
         ];
       case 'pasteleria':
         return [
@@ -86,7 +432,8 @@ export default function App() {
           { value: 'mini_cheesecake', label: 'Mini Cheesecake' },
           { value: 'pirinea', label: 'Pirinea' },
           { value: 'mini_pirinea', label: 'Mini Pirinea' },
-          { value: 'torta', label: 'Torta' }
+          { value: 'torta', label: 'Torta' },
+          { value: 'alfajor', label: 'Alfajor' }
         ];
       case 'viennoiserie':
         return [
@@ -128,6 +475,8 @@ export default function App() {
     }
   };
 
+
+
   const flavorGroups = {
     'Dulces de leche': ['Chocotorta', 'Bicuí', 'Rogel', 'Granizado', 'Coco crunch'],
     'Chocolate': ['Chocolate con almendras', 'Marquise', 'Alfajor', 'Black', 'Patagonia', 'Blanco con maracuyá', 'Dubai'],
@@ -154,6 +503,30 @@ export default function App() {
     if (tipo === 'balde_4k') return 'Balde 5k';
     if (tipo === 'balde_8k') return 'Balde 10k';
     return tipo?.replace(/_/g, ' ');
+  };
+
+  const getProductOptionLabel = (p) => {
+    const formatted = formatTipo(p.tipo);
+    if (!formatted) return p.nombre;
+
+    const normNombre = p.nombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const normTipo = formatted.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+    // Check if the name already contains the type, or vice versa
+    if (normNombre.includes(normTipo) || normTipo.includes(normNombre)) {
+      return p.nombre;
+    }
+
+    // Check if the name contains the first word of the type (e.g., "sanguche" in "sanguches de miga")
+    const typeWords = normTipo.split(' ');
+    if (typeWords.length > 0 && typeWords[0].length > 3) {
+      const firstWordStem = typeWords[0].slice(0, 5);
+      if (normNombre.includes(firstWordStem)) {
+        return p.nombre;
+      }
+    }
+
+    return `${p.nombre} (${formatted})`;
   };
 
   const getFlavorGroup = (fullName) => {
@@ -194,13 +567,13 @@ export default function App() {
     }
   };
 
-  const getGroupedStock = () => {
-    const factoryStock = stockData.filter(s => s.sucursal_id === 1 && s.categoria === 'helados');
+  const getGroupedStock = (forEvent = false) => {
+    const factoryStock = stockData.filter(s => s.sucursal_id === 1 && s.categoria === 'helados' && (s.es_evento === forEvent));
     const grouped = {};
     factoryStock.forEach(s => {
       const flavor = getFlavorName(s.producto_nombre);
       const group = getFlavorGroup(s.producto_nombre);
-      
+
       if (!grouped[flavor]) {
         grouped[flavor] = {
           flavor,
@@ -213,7 +586,7 @@ export default function App() {
           balde_8k_id: null
         };
       }
-      
+
       if (s.tipo === 'vasqueta_5_6k') {
         grouped[flavor].vasqueta_qty += s.cantidad;
         grouped[flavor].vasqueta_id = s.producto_id;
@@ -283,7 +656,7 @@ export default function App() {
           `)
           .eq('email', usernameInput)
           .maybeSingle();
-        
+
         userData = emailData;
         userError = emailError;
       }
@@ -291,7 +664,7 @@ export default function App() {
       if (userError || !userData || userData.password !== passwordInput) {
         throw new Error('Usuario o contraseña incorrectos.');
       }
-            const sessionUser = {
+      const sessionUser = {
         id: userData.id,
         nombre: userData.nombre,
         rol: userData.rol,
@@ -301,10 +674,10 @@ export default function App() {
 
       setUser(sessionUser);
       showToast(`¡Bienvenido, ${sessionUser.nombre}!`);
-      
+
       // Set default tab based on role
       if (sessionUser.rol === 'admin') setActiveTab('matrix');
-      else if (sessionUser.rol === 'heladero' || sessionUser.rol === 'pastelero') setActiveTab('produccion');
+      else if (sessionUser.rol === 'heladero' || sessionUser.rol === 'pastelero' || sessionUser.rol === 'pastelero_helado') setActiveTab('produccion');
       else if (sessionUser.rol === 'transportista') setActiveTab('pedidos');
       else setActiveTab('pedido_nuevo');
     } catch (err) {
@@ -329,16 +702,30 @@ export default function App() {
   };
 
   // Fetch core data based on logged in user and tab
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!user) return;
     try {
-      // Fetch active products
-      const { data: pData, error: pErr } = await supabase
+      // Fetch active products (with suppliers join, fallback if migration not run yet)
+      let pData = [];
+      let { data: pDataJoin, error: pErrJoin } = await supabase
         .from('productos')
-        .select('*')
+        .select('*, proveedores(nombre)')
         .eq('activo', 1);
-      if (pErr) throw pErr;
-      setProductos(pData || []);
+      
+      if (pErrJoin) {
+        const { data: pDataSimple, error: pErrSimple } = await supabase
+          .from('productos')
+          .select('*')
+          .eq('activo', 1);
+        if (pErrSimple) throw pErrSimple;
+        pData = pDataSimple || [];
+      } else {
+        pData = (pDataJoin || []).map(p => ({
+          ...p,
+          proveedor_nombre: p.proveedores?.nombre
+        }));
+      }
+      setProductos(pData);
 
       // Fetch branches
       const { data: sData, error: sErr } = await supabase
@@ -346,6 +733,30 @@ export default function App() {
         .select('*');
       if (sErr) throw sErr;
       setSucursales(sData || []);
+
+      // Fetch suppliers
+      const { data: provData, error: provErr } = await supabase
+        .from('proveedores')
+        .select('*')
+        .order('nombre');
+      if (!provErr) {
+        setProveedores(provData || []);
+      }
+
+      // Fetch all products (active and inactive) for admin catalog management
+      if (user.rol === 'admin') {
+        const { data: allPData, error: allPErr } = await supabase
+          .from('productos')
+          .select('*, proveedores(nombre)')
+          .order('nombre');
+        if (!allPErr) {
+          const mappedAllP = (allPData || []).map(p => ({
+            ...p,
+            proveedor_nombre: p.proveedores?.nombre
+          }));
+          setAllProducts(mappedAllP);
+        }
+      }
 
       // Fetch recent production batches (lotes)
       const { data: lotesRaw, error: lotesErr } = await supabase
@@ -360,23 +771,45 @@ export default function App() {
         setRecentLotes(lotesRaw || []);
       }
 
-      // Fetch stock (filtered by sucursal if sucursal employee)
+      // Fetch stock (filtered by sucursal if sucursal employee, with supplier join fallback)
+      let rawStock = [];
       let stockQuery = supabase
         .from('stock_sucursales')
         .select(`
           sucursal_id,
           sucursales ( nombre ),
           producto_id,
-          productos ( nombre, tipo, categoria, activo ),
-          cantidad
+          productos ( nombre, tipo, categoria, activo, proveedor_id, proveedores(nombre) ),
+          cantidad,
+          es_evento
         `);
       if (user.rol === 'sucursal') {
         stockQuery = stockQuery.eq('sucursal_id', user.sucursal_id);
       }
-      const { data: rawStock, error: stockErr } = await stockQuery;
-      if (stockErr) throw stockErr;
-      
-      const stockD = (rawStock || [])
+      let { data: rawStockJoin, error: stockErrJoin } = await stockQuery;
+
+      if (stockErrJoin) {
+        let stockQuerySimple = supabase
+          .from('stock_sucursales')
+          .select(`
+            sucursal_id,
+            sucursales ( nombre ),
+            producto_id,
+            productos ( nombre, tipo, categoria, activo, proveedor_id ),
+            cantidad,
+            es_evento
+          `);
+        if (user.rol === 'sucursal') {
+          stockQuerySimple = stockQuerySimple.eq('sucursal_id', user.sucursal_id);
+        }
+        const { data: rawStockSimple, error: stockErrSimple } = await stockQuerySimple;
+        if (stockErrSimple) throw stockErrSimple;
+        rawStock = rawStockSimple || [];
+      } else {
+        rawStock = rawStockJoin || [];
+      }
+
+      const stockD = rawStock
         .filter(s => s.productos && s.productos.activo === 1)
         .map(s => ({
           sucursal_id: s.sucursal_id,
@@ -385,7 +818,10 @@ export default function App() {
           producto_nombre: s.productos?.nombre,
           tipo: s.productos?.tipo,
           categoria: s.productos?.categoria,
-          cantidad: s.cantidad
+          proveedor_id: s.productos?.proveedor_id,
+          proveedor_nombre: s.productos?.proveedores?.nombre,
+          cantidad: s.cantidad,
+          es_evento: s.es_evento
         }));
       setStockData(stockD);
 
@@ -404,7 +840,7 @@ export default function App() {
 
       if (user.rol === 'sucursal' && user.sucursal_id) {
         ordersQuery = ordersQuery.eq('sucursal_destino_id', user.sucursal_id);
-      } else if (user.rol === 'heladero' || user.rol === 'pastelero') {
+      } else if (user.rol === 'heladero' || user.rol === 'pastelero' || user.rol === 'pastelero_helado') {
         ordersQuery = ordersQuery.in('estado', ['solicitado', 'preparado']);
       } else if (user.rol === 'transportista') {
         ordersQuery = ordersQuery.in('estado', ['solicitado', 'preparado', 'en_transito', 'entregado']).neq('sucursal_destino_id', 4);
@@ -434,7 +870,8 @@ export default function App() {
             sucursales ( nombre ),
             producto_id,
             productos ( nombre, tipo, categoria, activo ),
-            cantidad
+            cantidad,
+            es_evento
           `);
         if (allStockErr) throw allStockErr;
         const stockAll = (rawAllStock || [])
@@ -446,7 +883,8 @@ export default function App() {
             producto_nombre: s.productos?.nombre,
             tipo: s.productos?.tipo,
             categoria: s.productos?.categoria,
-            cantidad: s.cantidad
+            cantidad: s.cantidad,
+            es_evento: s.es_evento
           }));
 
         // 2. Active orders count by status
@@ -510,7 +948,7 @@ export default function App() {
           groupedNeeded[prodId].cantidad_pendiente += (d.cantidad_solicitada - d.cantidad_preparada);
         });
 
-        const stockFabrica = stockAll.filter(s => s.sucursal_id === 1);
+        const stockFabrica = stockAll.filter(s => s.sucursal_id === 1 && !s.es_evento);
         const stockFabMap = {};
         stockFabrica.forEach(s => stockFabMap[s.producto_id] = s.cantidad);
 
@@ -529,16 +967,37 @@ export default function App() {
 
       // Fetch suggestions if in sucursal
       if (user.rol === 'sucursal' && activeTab === 'pedido_nuevo') {
+        const { data: pendsRaw, error: pendsErr } = await supabase
+          .from('items_pendientes')
+          .select(`
+            producto_id,
+            cantidad,
+            productos ( nombre, tipo, categoria )
+          `)
+          .eq('sucursal_id', user.sucursal_id)
+          .eq('es_evento', orderIsEvent);
+        if (pendsErr) throw pendsErr;
+
+        const pendsMapped = (pendsRaw || []).map(p => ({
+          producto_id: p.producto_id,
+          cantidad: p.cantidad,
+          nombre: p.productos?.nombre,
+          tipo: p.productos?.tipo,
+          categoria: p.productos?.categoria
+        }));
+        setPendingItems(pendsMapped);
+
         const { data: activeProds, error: apErr } = await supabase
           .from('productos')
-          .select('id, nombre, tipo, categoria')
+          .select('id, nombre, tipo, categoria, unidad_medida, cant_por_caja, cant_por_pack')
           .eq('activo', 1);
         if (apErr) throw apErr;
 
         const { data: localSt, error: lsErr } = await supabase
           .from('stock_sucursales')
           .select('producto_id, cantidad')
-          .eq('sucursal_id', user.sucursal_id);
+          .eq('sucursal_id', user.sucursal_id)
+          .eq('es_evento', orderIsEvent);
         if (lsErr) throw lsErr;
         const stockLocalMap = {};
         (localSt || []).forEach(s => stockLocalMap[s.producto_id] = s.cantidad);
@@ -546,7 +1005,8 @@ export default function App() {
         const { data: factorySt, error: fsErr } = await supabase
           .from('stock_sucursales')
           .select('producto_id, cantidad')
-          .eq('sucursal_id', 1);
+          .eq('sucursal_id', 1)
+          .eq('es_evento', orderIsEvent);
         if (fsErr) throw fsErr;
         const stockFabricaMap = {};
         (factorySt || []).forEach(s => stockFabricaMap[s.producto_id] = s.cantidad);
@@ -557,6 +1017,7 @@ export default function App() {
           .from('consumo_diario')
           .select('producto_id, cantidad')
           .eq('sucursal_id', user.sucursal_id)
+          .eq('es_evento', false)
           .gte('fecha', sevenDaysAgo.toISOString());
         if (cErr) throw cErr;
 
@@ -570,7 +1031,7 @@ export default function App() {
         const suggestionsD = (activeProds || []).map(prod => {
           const stockActual = stockLocalMap[prod.id] || 0;
           const stockFac = stockFabricaMap[prod.id] || 0;
-          
+
           const sum = consumosSum[prod.id] || 0;
           const count = consumosCount[prod.id] || 0;
           const promedioConsumo = count > 0 ? (sum / count) : 0;
@@ -607,14 +1068,61 @@ export default function App() {
     } catch (err) {
       console.error('Error fetching data:', err);
     }
-  };
+  }, [user, activeTab, orderIsEvent]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
     // Auto-refresh stats every 15 seconds to keep it live
     const interval = setInterval(fetchData, 15000);
     return () => clearInterval(interval);
-  }, [user, activeTab]);
+  }, [fetchData]);
+
+  const fetchMaquinasYMantenimientos = useCallback(async () => {
+    if (!user || user.rol !== 'admin') return;
+    try {
+      const { data: maqData, error: maqErr } = await supabase
+        .from('maquinas')
+        .select(`
+          *,
+          sucursales ( nombre )
+        `)
+        .order('nombre');
+      if (maqErr) throw maqErr;
+      
+      const mappedMaq = (maqData || []).map(m => ({
+        ...m,
+        sucursal_nombre: m.sucursales?.nombre || 'Sin Sucursal'
+      }));
+      setMaquinas(mappedMaq);
+
+      const { data: mantData, error: mantErr } = await supabase
+        .from('mantenimientos')
+        .select(`
+          *,
+          maquinas ( nombre, marca, modelo, tipo_equipo )
+        `)
+        .order('fecha', { ascending: false });
+      if (mantErr) throw mantErr;
+
+      const mappedMant = (mantData || []).map(m => ({
+        ...m,
+        maquina_nombre: m.maquinas?.nombre || 'Máquina Eliminada',
+        maquina_marca: m.maquinas?.marca || '',
+        maquina_modelo: m.maquinas?.modelo || '',
+        maquina_tipo_equipo: m.maquinas?.tipo_equipo || ''
+      }));
+      setMantenimientos(mappedMant);
+    } catch (err) {
+      console.error('Error fetching machines/maintenance:', err);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (activeTab === 'maquinas') {
+      fetchMaquinasYMantenimientos();
+    }
+  }, [activeTab, fetchMaquinasYMantenimientos]);
 
   // Production Form Submit
   const handleProductionSubmit = async (e) => {
@@ -625,7 +1133,7 @@ export default function App() {
       const pId = parseInt(prodForm.producto_id);
       const qty = parseInt(prodForm.cantidad);
       const pDate = prodForm.fecha ? new Date(prodForm.fecha) : new Date();
-      
+
       const dateStr = pDate.toISOString().slice(0, 10).replace(/-/g, '');
       const rand = Math.floor(1000 + Math.random() * 9000);
       const codigo_lote = `L-${dateStr}-${rand}`;
@@ -640,49 +1148,23 @@ export default function App() {
         }
       }
 
-      // Insert production batch
-      const { error: insErr } = await supabase
-        .from('lotes_produccion')
-        .insert({
-          codigo_lote,
-          producto_id: pId,
-          cantidad: qty,
-          pesos: pesosArray,
-          fecha_produccion: pDate.toISOString(),
-          creado_por: user.id
-        });
-      if (insErr) throw insErr;
+      // Business rule: ice cream vasquetas cannot be for events
+      const isEvent = selectedProd && selectedProd.categoria === 'helados' && selectedProd.tipo === 'vasqueta_5_6k' ? false : (prodForm.es_evento || false);
 
-      // Update Factory Stock (sucursal_id = 1)
-      const { data: currentStock, error: selectStockErr } = await supabase
-        .from('stock_sucursales')
-        .select('cantidad')
-        .eq('sucursal_id', 1)
-        .eq('producto_id', pId)
-        .maybeSingle();
-      
-      if (selectStockErr) throw selectStockErr;
-
-      if (currentStock) {
-        const { error: updErr } = await supabase
-          .from('stock_sucursales')
-          .update({ cantidad: currentStock.cantidad + qty })
-          .eq('sucursal_id', 1)
-          .eq('producto_id', pId);
-        if (updErr) throw updErr;
-      } else {
-        const { error: insStockErr } = await supabase
-          .from('stock_sucursales')
-          .insert({
-            sucursal_id: 1,
-            producto_id: pId,
-            cantidad: qty
-          });
-        if (insStockErr) throw insStockErr;
-      }
+      // Call RPC to insert production batch and update stock atomically
+      const { error: rpcErr } = await supabase.rpc('registrar_produccion', {
+        p_codigo_lote: codigo_lote,
+        p_producto_id: pId,
+        p_cantidad: qty,
+        p_pesos: pesosArray,
+        p_fecha_produccion: pDate.toISOString(),
+        p_creado_por: user.id,
+        p_es_evento: isEvent
+      });
+      if (rpcErr) throw rpcErr;
 
       showToast(`Producción registrada con Lote ${codigo_lote}. Stock de fábrica actualizado.`);
-      setProdForm({ producto_id: '', cantidad: '', fecha: new Date().toISOString().slice(0, 10) });
+      setProdForm({ producto_id: '', cantidad: '', fecha: getLocalDateString(), es_evento: false });
       setProdWeights([]);
       fetchData();
     } catch (err) {
@@ -701,7 +1183,7 @@ export default function App() {
       const pId = parseInt(adminHistForm.producto_id);
       const qty = parseInt(adminHistForm.cantidad);
       const pDate = new Date(adminHistForm.fecha);
-      
+
       const dateStr = pDate.toISOString().slice(0, 10).replace(/-/g, '');
       const rand = Math.floor(1000 + Math.random() * 9000);
       const codigo_lote = `L-${dateStr}-${rand}`;
@@ -716,49 +1198,23 @@ export default function App() {
         }
       }
 
-      // Insert production batch
-      const { error: insErr } = await supabase
-        .from('lotes_produccion')
-        .insert({
-          codigo_lote,
-          producto_id: pId,
-          cantidad: qty,
-          pesos: pesosArray,
-          fecha_produccion: pDate.toISOString(),
-          creado_por: user.id
-        });
-      if (insErr) throw insErr;
+      // Business rule: ice cream vasquetas cannot be for events
+      const isEvent = selectedProd && selectedProd.categoria === 'helados' && selectedProd.tipo === 'vasqueta_5_6k' ? false : (adminHistForm.es_evento || false);
 
-      // Update Factory Stock (sucursal_id = 1)
-      const { data: currentStock, error: selectStockErr } = await supabase
-        .from('stock_sucursales')
-        .select('cantidad')
-        .eq('sucursal_id', 1)
-        .eq('producto_id', pId)
-        .maybeSingle();
-      
-      if (selectStockErr) throw selectStockErr;
-
-      if (currentStock) {
-        const { error: updErr } = await supabase
-          .from('stock_sucursales')
-          .update({ cantidad: currentStock.cantidad + qty })
-          .eq('sucursal_id', 1)
-          .eq('producto_id', pId);
-        if (updErr) throw updErr;
-      } else {
-        const { error: insStockErr } = await supabase
-          .from('stock_sucursales')
-          .insert({
-            sucursal_id: 1,
-            producto_id: pId,
-            cantidad: qty
-          });
-        if (insStockErr) throw insStockErr;
-      }
+      // Call RPC to insert production batch and update stock atomically
+      const { error: rpcErr } = await supabase.rpc('registrar_produccion', {
+        p_codigo_lote: codigo_lote,
+        p_producto_id: pId,
+        p_cantidad: qty,
+        p_pesos: pesosArray,
+        p_fecha_produccion: pDate.toISOString(),
+        p_creado_por: user.id,
+        p_es_evento: isEvent
+      });
+      if (rpcErr) throw rpcErr;
 
       showToast(`Producción histórica registrada con Lote ${codigo_lote}. Stock de fábrica actualizado.`);
-      setAdminHistForm({ producto_id: '', cantidad: '', fecha: new Date().toISOString().slice(0, 10) });
+      setAdminHistForm({ producto_id: '', cantidad: '', fecha: getLocalDateString(), es_evento: false });
       setAdminHistWeights([]);
       setAdminHistDefaultWeight('');
       fetchData();
@@ -777,53 +1233,20 @@ export default function App() {
     try {
       const pId = parseInt(consumoForm.producto_id);
       const qty = parseInt(consumoForm.cantidad);
+      const isEvent = consumoForm.es_evento || false;
 
-      // Check current stock
-      const { data: stock, error: sErr } = await supabase
-        .from('stock_sucursales')
-        .select('cantidad')
-        .eq('sucursal_id', user.sucursal_id)
-        .eq('producto_id', pId)
-        .maybeSingle();
-
-      if (sErr) throw sErr;
-      if (!stock || stock.cantidad < qty) {
-        throw new Error('Stock insuficiente en la sucursal para registrar este consumo.');
-      }
-
-      // Decrease stock
-      const { error: updErr } = await supabase
-        .from('stock_sucursales')
-        .update({ cantidad: stock.cantidad - qty })
-        .eq('sucursal_id', user.sucursal_id)
-        .eq('producto_id', pId);
-      if (updErr) throw updErr;
-
-      // Log in consumption history
-      const { error: consErr } = await supabase
-        .from('consumo_diario')
-        .insert({
-          sucursal_id: user.sucursal_id,
-          producto_id: pId,
-          cantidad: qty
-        });
-      if (consErr) throw consErr;
-
-      // Log as discrepancy
-      const { error: discErr } = await supabase
-        .from('discrepancias')
-        .insert({
-          pedido_id: null,
-          producto_id: pId,
-          tipo: user.sucursal_id === 1 ? 'merma_fabrica' : 'merma_sucursal',
-          cantidad_perdida: qty,
-          motivo: 'Consumo registrado por sucursal',
-          reportado_por_id: user.id
-        });
-      if (discErr) throw discErr;
+      // Call RPC to register consumption atomically in database transaction
+      const { error: rpcErr } = await supabase.rpc('registrar_consumo', {
+        p_sucursal_id: user.sucursal_id,
+        p_producto_id: pId,
+        p_cantidad: qty,
+        p_es_evento: isEvent,
+        p_creado_por: user.id
+      });
+      if (rpcErr) throw rpcErr;
 
       showToast('Consumo registrado exitosamente.');
-      setConsumoForm({ producto_id: '', cantidad: '' });
+      setConsumoForm({ producto_id: '', cantidad: '', es_evento: false });
       fetchData();
     } catch (err) {
       showToast(err.message, 'error');
@@ -850,11 +1273,12 @@ export default function App() {
         .from('pedidos')
         .insert({
           sucursal_destino_id: user.sucursal_id,
-          creado_por_id: user.id
+          creado_por_id: user.id,
+          es_evento: orderIsEvent
         })
         .select('id')
         .single();
-      
+
       if (insErr) throw insErr;
       const pedido_id = newPedido.id;
 
@@ -869,11 +1293,63 @@ export default function App() {
       const { error: detErr } = await supabase
         .from('pedido_detalles')
         .insert(details);
-      
+
       if (detErr) throw detErr;
 
+      // Clean up re-ordered items from pending list
+      const orderedProdIds = items.map(item => item.producto_id);
+      const { error: delPendErr } = await supabase
+        .from('items_pendientes')
+        .delete()
+        .eq('sucursal_id', user.sucursal_id)
+        .eq('es_evento', orderIsEvent)
+        .in('producto_id', orderedProdIds);
+      if (delPendErr) throw delPendErr;
+
       showToast('Pedido solicitado a Fábrica.');
+      setOrderIsEvent(false);
+      setOrderItems({});
       setActiveTab('pedidos_lista');
+      fetchData();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Admin creates/builds prepared order
+  const handleAdminCreateOrder = async () => {
+    const items = Object.entries(adminOrderItems)
+      .map(([prodId, qty]) => ({ producto_id: parseInt(prodId), cantidad_solicitada: parseInt(qty) }))
+      .filter(item => item.cantidad_solicitada > 0);
+
+    if (!adminOrderDestination) {
+      showToast('Por favor, selecciona una sucursal o depósito de destino.', 'error');
+      return;
+    }
+
+    if (items.length === 0) {
+      showToast('Por favor, selecciona al menos 1 producto con cantidad mayor a 0.', 'error');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Call RPC to validate stock, deduct from factory, create order and details atomically
+      const { data: pedido_id, error: rpcErr } = await supabase.rpc('crear_y_preparar_pedido_admin', {
+        p_sucursal_destino_id: parseInt(adminOrderDestination),
+        p_creado_por_id: user.id,
+        p_es_evento: adminOrderIsEvent,
+        p_items: items
+      });
+      if (rpcErr) throw rpcErr;
+
+      showToast(`Pedido #${pedido_id} creado y preparado con éxito.`);
+      setAdminOrderItems({});
+      setAdminOrderDestination('');
+      setAdminOrderIsEvent(false);
+      setActiveTab('flujo'); // Redirect to order list
       fetchData();
     } catch (err) {
       showToast(err.message, 'error');
@@ -904,7 +1380,7 @@ export default function App() {
         `)
         .eq('id', pedidoId)
         .single();
-      
+
       if (oErr) throw oErr;
       if (!order) throw new Error('Pedido no encontrado.');
 
@@ -915,15 +1391,16 @@ export default function App() {
           productos ( nombre, tipo, categoria )
         `)
         .eq('pedido_id', pedidoId);
-      
+
       if (iErr) throw iErr;
 
       // Fetch stock at Factory (sucursal_id = 1) for each product
       const { data: factoryStock, error: fsErr } = await supabase
         .from('stock_sucursales')
         .select('producto_id, cantidad')
-        .eq('sucursal_id', 1);
-      
+        .eq('sucursal_id', 1)
+        .eq('es_evento', order.es_evento || false);
+
       if (fsErr) throw fsErr;
       const fsMap = {};
       (factoryStock || []).forEach(s => fsMap[s.producto_id] = s.cantidad);
@@ -945,7 +1422,7 @@ export default function App() {
       };
 
       setSelectedPedido(orderData);
-      
+
       // Initialize driver loading quantities
       const loads = {};
       itemsMapped.forEach(it => {
@@ -957,7 +1434,7 @@ export default function App() {
       const recs = {};
       const reasons = {};
       itemsMapped.forEach(it => {
-        recs[it.producto_id] = order.estado === 'solicitado' ? it.cantidad_solicitada : it.cantidad_cargada;
+        recs[it.producto_id] = it.cantidad_cargada > 0 ? it.cantidad_cargada : it.cantidad_preparada;
         reasons[it.producto_id] = '';
       });
       setReceiveItems(recs);
@@ -973,57 +1450,12 @@ export default function App() {
 
     setLoading(true);
     try {
-      // Check and deduct factory stock for each item
-      const { data: factorySt, error: fsErr } = await supabase
-        .from('stock_sucursales')
-        .select('producto_id, cantidad')
-        .eq('sucursal_id', 1);
-      
-      if (fsErr) throw fsErr;
-      const fsMap = {};
-      (factorySt || []).forEach(s => fsMap[s.producto_id] = s.cantidad);
-
-      for (let item of selectedPedido.items) {
-        const available = fsMap[item.producto_id] || 0;
-        if (available < item.cantidad_solicitada) {
-          throw new Error(`Stock insuficiente en fábrica para preparar la cantidad del sabor: ${item.producto_nombre}.`);
-        }
-      }
-
-      // Deduct stock from Factory and update prepared/loaded quantities
-      for (let item of selectedPedido.items) {
-        const available = fsMap[item.producto_id] || 0;
-        const qtyPrep = item.cantidad_solicitada;
-
-        const { error: updStockErr } = await supabase
-          .from('stock_sucursales')
-          .update({ cantidad: available - qtyPrep })
-          .eq('sucursal_id', 1)
-          .eq('producto_id', item.producto_id);
-        if (updStockErr) throw updStockErr;
-
-        const { error: updDetErr } = await supabase
-          .from('pedido_detalles')
-          .update({
-            cantidad_preparada: qtyPrep,
-            cantidad_cargada: qtyPrep
-          })
-          .eq('pedido_id', selectedPedido.id)
-          .eq('producto_id', item.producto_id);
-        if (updDetErr) throw updDetErr;
-      }
-
-      // Update order status
-      const { error: updOrderErr } = await supabase
-        .from('pedidos')
-        .update({
-          estado: 'preparado',
-          preparado_por_id: user.id,
-          fecha_preparacion: new Date().toISOString()
-        })
-        .eq('id', selectedPedido.id);
-      
-      if (updOrderErr) throw updOrderErr;
+      // Call RPC to prepare order, validating and deducting stock atomically
+      const { error: rpcErr } = await supabase.rpc('preparar_pedido', {
+        p_pedido_id: selectedPedido.id,
+        p_preparado_por_id: user.id
+      });
+      if (rpcErr) throw rpcErr;
 
       showToast('Pedido preparado y stock de fábrica reservado.');
       setSelectedPedido(null);
@@ -1046,57 +1478,13 @@ export default function App() {
 
     setLoading(true);
     try {
-      for (let item of items) {
-        const { error: updDetErr } = await supabase
-          .from('pedido_detalles')
-          .update({ cantidad_cargada: item.cantidad_cargada })
-          .eq('pedido_id', selectedPedido.id)
-          .eq('producto_id', item.producto_id);
-        if (updDetErr) throw updDetErr;
-
-        const origDetail = selectedPedido.items.find(it => it.producto_id === item.producto_id);
-        const diff = (origDetail?.cantidad_preparada || 0) - item.cantidad_cargada;
-        if (diff > 0) {
-          const { data: fsSt, error: fsErr } = await supabase
-            .from('stock_sucursales')
-            .select('cantidad')
-            .eq('sucursal_id', 1)
-            .eq('producto_id', item.producto_id)
-            .maybeSingle();
-          if (fsErr) throw fsErr;
-          
-          const currentQty = fsSt?.cantidad || 0;
-          const { error: updStockErr } = await supabase
-            .from('stock_sucursales')
-            .update({ cantidad: currentQty + diff })
-            .eq('sucursal_id', 1)
-            .eq('producto_id', item.producto_id);
-          if (updStockErr) throw updStockErr;
-
-          const { error: discErr } = await supabase
-            .from('discrepancias')
-            .insert({
-              pedido_id: selectedPedido.id,
-              producto_id: item.producto_id,
-              tipo: 'merma_fabrica',
-              cantidad_perdida: diff,
-              motivo: 'No cargado en camión / devuelto a stock de fábrica',
-              reportado_por_id: user.id
-            });
-          if (discErr) throw discErr;
-        }
-      }
-
-      const { error: updOrderErr } = await supabase
-        .from('pedidos')
-        .update({
-          estado: 'en_transito',
-          transportista_id: user.id,
-          fecha_despacho: new Date().toISOString()
-        })
-        .eq('id', selectedPedido.id);
-      
-      if (updOrderErr) throw updOrderErr;
+      // Call RPC to process loaded quantities, pending items, factory stock returns, and status updates atomically
+      const { error: rpcErr } = await supabase.rpc('confirmar_carga_pedido', {
+        p_pedido_id: selectedPedido.id,
+        p_transportista_id: user.id,
+        p_items: items
+      });
+      if (rpcErr) throw rpcErr;
 
       showToast('Pedido cargado en camión. Estado cambiado a En Tránsito.');
       setSelectedPedido(null);
@@ -1112,7 +1500,7 @@ export default function App() {
   const handleReportLoss = async (e) => {
     e.preventDefault();
     if (!transitLoss.producto_id || !transitLoss.cantidad_perdida) return;
-    
+
     setLoading(true);
     try {
       const pId = parseInt(transitLoss.producto_id);
@@ -1137,13 +1525,14 @@ export default function App() {
           tipo: 'transito',
           cantidad_perdida: qtyLost,
           motivo,
-          reportado_por_id: user.id
+          reportado_por_id: user.id,
+          es_evento: selectedPedido.es_evento || false
         });
       if (discErr) throw discErr;
 
       showToast('Merma en tránsito registrada exitosamente.');
       setShowLossModal(false);
-      
+
       setLoadItems(prev => ({
         ...prev,
         [pId]: Math.max(0, (prev[pId] || 0) - qtyLost)
@@ -1169,7 +1558,7 @@ export default function App() {
           fecha_entrega: new Date().toISOString()
         })
         .eq('id', selectedPedido.id);
-      
+
       if (updOrderErr) throw updOrderErr;
 
       showToast('Pedido marcado como entregado físicamente. Pendiente confirmación de sucursal.');
@@ -1194,116 +1583,56 @@ export default function App() {
 
     setLoading(true);
     try {
+      // Call RPC to handle physical receipt, update stock at destination, deduct from factory if needed, and log discrepancies
+      const { error: rpcErr } = await supabase.rpc('recibir_pedido', {
+        p_pedido_id: selectedPedido.id,
+        p_recibido_por_id: user.id,
+        p_items: items
+      });
+      if (rpcErr) throw rpcErr;
+
+      // Determine final status locally to show in toast based on difference values
       let hasDiscrepancies = false;
-
-      if (selectedPedido.estado === 'solicitado') {
-        const { data: factorySt, error: fsErr } = await supabase
-          .from('stock_sucursales')
-          .select('producto_id, cantidad')
-          .eq('sucursal_id', 1);
-        
-        if (fsErr) throw fsErr;
-        const fsMap = {};
-        (factorySt || []).forEach(s => fsMap[s.producto_id] = s.cantidad);
-
-        for (let item of items) {
-          const available = fsMap[item.producto_id] || 0;
-          if (available < item.cantidad_recibida) {
-            const prodName = selectedPedido.items.find(it => it.producto_id === item.producto_id)?.producto_nombre || 'Producto';
-            throw new Error(`Stock insuficiente en fábrica para preparar el sabor: ${prodName}.`);
-          }
-        }
-
-        for (let item of items) {
-          const available = fsMap[item.producto_id] || 0;
-          const { error: updStockErr } = await supabase
-            .from('stock_sucursales')
-            .update({ cantidad: available - item.cantidad_recibida })
-            .eq('sucursal_id', 1)
-            .eq('producto_id', item.producto_id);
-          if (updStockErr) throw updStockErr;
-
-          const { error: updDetErr } = await supabase
-            .from('pedido_detalles')
-            .update({
-              cantidad_preparada: item.cantidad_recibida,
-              cantidad_cargada: item.cantidad_recibida
-            })
-            .eq('pedido_id', selectedPedido.id)
-            .eq('producto_id', item.producto_id);
-          if (updDetErr) throw updDetErr;
-        }
-      }
-
       for (let item of items) {
-        const { error: updDetErr } = await supabase
-          .from('pedido_detalles')
-          .update({ cantidad_recibida: item.cantidad_recibida })
-          .eq('pedido_id', selectedPedido.id)
-          .eq('producto_id', item.producto_id);
-        if (updDetErr) throw updDetErr;
-
-        const { data: st, error: stErr } = await supabase
-          .from('stock_sucursales')
-          .select('cantidad')
-          .eq('sucursal_id', selectedPedido.sucursal_destino_id)
-          .eq('producto_id', item.producto_id)
-          .maybeSingle();
-        if (stErr) throw stErr;
-
-        if (st) {
-          const { error: updStockErr } = await supabase
-            .from('stock_sucursales')
-            .update({ cantidad: st.cantidad + item.cantidad_recibida })
-            .eq('sucursal_id', selectedPedido.sucursal_destino_id)
-            .eq('producto_id', item.producto_id);
-          if (updStockErr) throw updStockErr;
-        } else {
-          const { error: insStockErr } = await supabase
-            .from('stock_sucursales')
-            .insert({
-              sucursal_id: selectedPedido.sucursal_destino_id,
-              producto_id: item.producto_id,
-              cantidad: item.cantidad_recibida
-            });
-          if (insStockErr) throw insStockErr;
-        }
-
         const origDetail = selectedPedido.items.find(it => it.producto_id === item.producto_id);
-        const loadedQty = selectedPedido.estado === 'solicitado' ? item.cantidad_recibida : (origDetail ? origDetail.cantidad_cargada : 0);
-        const diff = loadedQty - item.cantidad_recibida;
-        
-        if (diff !== 0) {
+        const loadedQty = selectedPedido.estado === 'solicitado' ? item.cantidad_recibida : (origDetail ? (origDetail.cantidad_cargada > 0 ? origDetail.cantidad_cargada : origDetail.cantidad_preparada) : 0);
+        if (loadedQty - item.cantidad_recibida !== 0) {
           hasDiscrepancies = true;
-          const { error: discErr } = await supabase
-            .from('discrepancias')
-            .insert({
-              pedido_id: selectedPedido.id,
-              producto_id: item.producto_id,
-              tipo: 'recepcion',
-              cantidad_perdida: diff,
-              motivo: item.motivo_diferencia || 'Diferencia en recepción física',
-              reportado_por_id: user.id
-            });
-          if (discErr) throw discErr;
+          break;
         }
       }
-
       const finalEstado = hasDiscrepancies ? 'con_discrepancia' : 'entregado';
-      const { error: updOrderErr } = await supabase
-        .from('pedidos')
-        .update({
-          estado: finalEstado,
-          recibido_por_id: user.id,
-          fecha_entrega: selectedPedido.fecha_entrega || new Date().toISOString()
-        })
-        .eq('id', selectedPedido.id);
-      
-      if (updOrderErr) throw updOrderErr;
 
       showToast(`Pedido recibido. Estado final: ${finalEstado === 'entregado' ? 'Entregado OK' : 'Entregado con Discrepancias'}.`);
       setSelectedPedido(null);
       fetchData();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Admin creates new supplier inline
+  const handleCreateSupplier = async () => {
+    if (!newSupplierName.trim()) return;
+    setLoading(true);
+    try {
+      const { data: newProv, error: insErr } = await supabase
+        .from('proveedores')
+        .insert({ nombre: newSupplierName.trim() })
+        .select('*')
+        .single();
+
+      if (insErr) throw insErr;
+
+      showToast(`Proveedor "${newProv.nombre}" creado con éxito.`);
+      setNewSupplierName('');
+      setShowSupplierForm(false);
+
+      // Refresh local suppliers list and pre-select the new one
+      setProveedores(prev => [...prev, newProv].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+      setNewProductForm(prev => ({ ...prev, proveedor_id: newProv.id }));
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
@@ -1322,11 +1651,15 @@ export default function App() {
         .insert({
           nombre: newProductForm.nombre,
           categoria: newProductForm.categoria,
-          tipo: newProductForm.tipo
+          tipo: newProductForm.tipo,
+          proveedor_id: newProductForm.proveedor_id ? parseInt(newProductForm.proveedor_id) : null,
+          unidad_medida: newProductForm.unidad_medida,
+          cant_por_caja: newProductForm.cant_por_caja ? parseInt(newProductForm.cant_por_caja) : 24,
+          cant_por_pack: newProductForm.cant_por_pack ? parseInt(newProductForm.cant_por_pack) : null
         })
         .select('id')
         .single();
-      
+
       if (insErr) throw insErr;
       const newProductId = newProd.id;
 
@@ -1347,7 +1680,16 @@ export default function App() {
       if (sErr) throw sErr;
 
       showToast('Producto creado exitosamente.');
-      setNewProductForm({ nombre: '', categoria: 'helados', tipo: 'vasqueta_5_6k' });
+      setNewProductForm({
+        nombre: '',
+        categoria: 'helados',
+        tipo: 'vasqueta_5_6k',
+        proveedor_id: '',
+        unidad_medida: 'unidad',
+        cant_por_caja: 24,
+        cant_por_pack: ''
+      });
+      setShowProductModal(false);
       fetchData();
     } catch (err) {
       showToast(err.message, 'error');
@@ -1355,7 +1697,110 @@ export default function App() {
       setLoading(false);
     }
   };
- 
+
+  // Admin updates existing product
+  const handleUpdateProduct = async () => {
+    if (!newProductForm.nombre || !editingProduct) return;
+    setLoading(true);
+    try {
+      const { error: updErr } = await supabase
+        .from('productos')
+        .update({
+          nombre: newProductForm.nombre,
+          categoria: newProductForm.categoria,
+          tipo: newProductForm.tipo,
+          proveedor_id: newProductForm.proveedor_id ? parseInt(newProductForm.proveedor_id) : null,
+          unidad_medida: newProductForm.unidad_medida,
+          cant_por_caja: newProductForm.cant_por_caja ? parseInt(newProductForm.cant_por_caja) : 24,
+          cant_por_pack: newProductForm.cant_por_pack ? parseInt(newProductForm.cant_por_pack) : null
+        })
+        .eq('id', editingProduct.id);
+
+      if (updErr) throw updErr;
+
+      showToast('Producto actualizado exitosamente.');
+      setNewProductForm({
+        nombre: '',
+        categoria: 'helados',
+        tipo: 'vasqueta_5_6k',
+        proveedor_id: '',
+        unidad_medida: 'unidad',
+        cant_por_caja: 24,
+        cant_por_pack: ''
+      });
+      setEditingProduct(null);
+      setShowProductModal(false);
+      fetchData();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleProductFormSubmit = (e) => {
+    e.preventDefault();
+    if (editingProduct) {
+      handleUpdateProduct();
+    } else {
+      handleNewProductSubmit(e);
+    }
+  };
+
+  const startEditingProduct = (p) => {
+    setEditingProduct(p);
+    setNewProductForm({
+      nombre: p.nombre,
+      categoria: p.categoria,
+      tipo: p.tipo,
+      proveedor_id: p.proveedor_id ? String(p.proveedor_id) : '',
+      unidad_medida: p.unidad_medida || 'unidad',
+      cant_por_caja: p.cant_por_caja !== undefined && p.cant_por_caja !== null ? p.cant_por_caja : 24,
+      cant_por_pack: p.cant_por_pack !== undefined && p.cant_por_pack !== null ? String(p.cant_por_pack) : ''
+    });
+    setShowProductModal(true);
+  };
+
+  const cancelEditingProduct = () => {
+    setEditingProduct(null);
+    setNewProductForm({
+      nombre: '',
+      categoria: 'helados',
+      tipo: 'vasqueta_5_6k',
+      proveedor_id: '',
+      unidad_medida: 'unidad',
+      cant_por_caja: 24,
+      cant_por_pack: ''
+    });
+    setShowProductModal(false);
+  };
+
+  // Admin toggles active status of a product (soft delete / reactivate)
+  const handleToggleProductActive = async (prodId, currentActive) => {
+    setLoading(true);
+    try {
+      const nextActive = currentActive === 1 ? 0 : 1;
+      const { error: updErr } = await supabase
+        .from('productos')
+        .update({ activo: nextActive })
+        .eq('id', prodId);
+
+      if (updErr) throw updErr;
+
+      showToast(nextActive === 1 ? 'Producto reactivado.' : 'Producto desactivado / eliminado.');
+      
+      if (editingProduct && editingProduct.id === prodId) {
+        cancelEditingProduct();
+      }
+
+      fetchData();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleBranchCreateOtrosProduct = async (e) => {
     e.preventDefault();
     if (!branchOtrosForm.nombre) return;
@@ -1371,7 +1816,7 @@ export default function App() {
         })
         .select('id')
         .single();
-      
+
       if (insErr) throw insErr;
       const newProductId = newProd.id;
 
@@ -1394,7 +1839,7 @@ export default function App() {
 
       showToast('Producto personalizado creado en Otros.');
       setBranchOtrosForm({ nombre: '', tipo: 'packaging' });
-      
+
       // Refresh data
       await fetchData();
     } catch (err) {
@@ -1420,14 +1865,319 @@ export default function App() {
     return trans[state] || state;
   };
 
+  // ================= CRUD Y AYUDANTES DE MÁQUINAS Y MANTENIMIENTOS =================
+
+  const getMaintenanceOptionsForMachine = (maquinaId) => {
+    const maquina = maquinas.find(m => m.id === parseInt(maquinaId));
+    if (!maquina) return [{ value: 'otro', label: 'Otro' }];
+    
+    switch (maquina.tipo_equipo) {
+      case 'maquina_helado':
+        return [
+          { value: 'limpieza_circuito', label: 'Limpieza de circuito' },
+          { value: 'revision_tecnica', label: 'Revisión técnica por mal funcionamiento' },
+          { value: 'otro', label: 'Otro' }
+        ];
+      case 'frio_abatidor_heladera_camara':
+        return [
+          { value: 'limpieza_motor', label: 'Mantenimiento / Limpieza del motor' },
+          { value: 'revision_tecnica', label: 'Revisión técnica por mal funcionamiento' },
+          { value: 'otro', label: 'Otro' }
+        ];
+      case 'aire_acondicionado':
+        return [
+          { value: 'limpieza_filtros', label: 'Limpieza de filtros' },
+          { value: 'revision_tecnica', label: 'Revisión técnica por mal funcionamiento' },
+          { value: 'otro', label: 'Otro' }
+        ];
+      case 'licuadora_horno_batidora_micro':
+        return [
+          { value: 'revision_tecnica', label: 'Revisión técnica por mal funcionamiento' },
+          { value: 'otro', label: 'Otro' }
+        ];
+      default:
+        return [
+          { value: 'limpieza_circuito', label: 'Limpieza de circuito' },
+          { value: 'limpieza_motor', label: 'Mantenimiento / Limpieza del motor' },
+          { value: 'limpieza_filtros', label: 'Limpieza de filtros' },
+          { value: 'revision_tecnica', label: 'Revisión técnica por mal funcionamiento' },
+          { value: 'otro', label: 'Otro' }
+        ];
+    }
+  };
+
+  const getEquipoIcon = (type) => {
+    switch (type) {
+      case 'licuadora_horno_batidora_micro': return '🌪️';
+      case 'maquina_helado': return '🍦';
+      case 'frio_abatidor_heladera_camara': return '❄️';
+      case 'aire_acondicionado': return '💨';
+      default: return '⚙️';
+    }
+  };
+
+  const getEquipoTypeLabel = (type) => {
+    const labels = {
+      licuadora_horno_batidora_micro: 'Licuadora / Horno / Batidora / Microondas',
+      maquina_helado: 'Máquina de Helado',
+      frio_abatidor_heladera_camara: 'Abatidor / Heladera / Cámara (Frío)',
+      aire_acondicionado: 'Aire Acondicionado',
+      otro: 'Otro Equipo'
+    };
+    return labels[type] || type;
+  };
+
+  const getMaintenanceTypeLabel = (type) => {
+    const labels = {
+      limpieza_circuito: 'Limpieza de circuito',
+      limpieza_motor: 'Mantenimiento / Limpieza del motor',
+      limpieza_filtros: 'Limpieza de filtros',
+      revision_tecnica: 'Revisión técnica por mal funcionamiento',
+      otro: 'Otro Mantenimiento'
+    };
+    return labels[type] || type;
+  };
+
+  const getMaintenanceAlerts = () => {
+    const todayStr = getLocalDateString();
+    const today = new Date(todayStr);
+    const alerts = [];
+
+    // Group by machine and type to get the latest proxima_fecha
+    const latestScheduled = {};
+
+    mantenimientos.forEach(m => {
+      if (!m.proxima_fecha) return;
+      const key = `${m.maquina_id}-${m.tipo}`;
+      const current = latestScheduled[key];
+      
+      // If we haven't seen this machine/type combo yet, or this record is newer (by date of maintenance)
+      if (!current || new Date(m.fecha) > new Date(current.fecha)) {
+        latestScheduled[key] = m;
+      }
+    });
+
+    Object.values(latestScheduled).forEach(m => {
+      const proxDate = new Date(m.proxima_fecha);
+      const diffTime = proxDate - today;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      // Find machine details
+      const maquina = maquinas.find(maq => maq.id === m.maquina_id);
+      if (!maquina || maquina.estado === 'de_baja') return; // Skip if machine is discarded
+
+      if (diffDays < 0) {
+        alerts.push({
+          id: m.id,
+          maquina,
+          tipo_mantenimiento: m.tipo,
+          proxima_fecha: m.proxima_fecha,
+          dias: Math.abs(diffDays),
+          estado: 'vencido'
+        });
+      } else if (diffDays <= 30) {
+        alerts.push({
+          id: m.id,
+          maquina,
+          tipo_mantenimiento: m.tipo,
+          proxima_fecha: m.proxima_fecha,
+          dias: diffDays,
+          estado: 'proximo'
+        });
+      }
+    });
+
+    return alerts.sort((a, b) => new Date(a.proxima_fecha) - new Date(b.proxima_fecha));
+  };
+
+  const handleSaveMaquina = async (e) => {
+    e.preventDefault();
+    if (!maquinaForm.nombre || !maquinaForm.tipo_equipo || !maquinaForm.sucursal_id) {
+      showToast('Por favor, completa los campos requeridos.', 'error');
+      return;
+    }
+    setLoading(true);
+    try {
+      const dataToSave = {
+        nombre: maquinaForm.nombre,
+        tipo_equipo: maquinaForm.tipo_equipo,
+        sucursal_id: parseInt(maquinaForm.sucursal_id),
+        marca: maquinaForm.marca || null,
+        modelo: maquinaForm.modelo || null,
+        numero_serie: maquinaForm.numero_serie || null,
+        fecha_adquisicion: maquinaForm.fecha_adquisicion || null,
+        estado: maquinaForm.estado,
+        descripcion: maquinaForm.descripcion || null
+      };
+
+      if (editingMaquina) {
+        const { error } = await supabase
+          .from('maquinas')
+          .update(dataToSave)
+          .eq('id', editingMaquina.id);
+        if (error) throw error;
+        showToast('Máquina actualizada con éxito.');
+      } else {
+        const { error } = await supabase
+          .from('maquinas')
+          .insert(dataToSave);
+        if (error) throw error;
+        showToast('Máquina creada con éxito.');
+      }
+
+      setShowMaquinaModal(false);
+      setEditingMaquina(null);
+      setMaquinaForm({
+        nombre: '',
+        tipo_equipo: 'licuadora_horno_batidora_micro',
+        sucursal_id: '',
+        marca: '',
+        modelo: '',
+        numero_serie: '',
+        fecha_adquisicion: '',
+        estado: 'activo',
+        descripcion: ''
+      });
+      fetchMaquinasYMantenimientos();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditMaquina = (maq) => {
+    setEditingMaquina(maq);
+    setMaquinaForm({
+      nombre: maq.nombre || '',
+      tipo_equipo: maq.tipo_equipo || 'licuadora_horno_batidora_micro',
+      sucursal_id: maq.sucursal_id || '',
+      marca: maq.marca || '',
+      modelo: maq.modelo || '',
+      numero_serie: maq.numero_serie || '',
+      fecha_adquisicion: maq.fecha_adquisicion || '',
+      estado: maq.estado || 'activo',
+      descripcion: maq.descripcion || ''
+    });
+    setShowMaquinaModal(true);
+  };
+
+  const handleDeleteMaquina = async (id) => {
+    if (!window.confirm('¿Estás seguro de que deseas eliminar esta máquina? Se borrará también todo su historial de mantenimiento.')) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('maquinas')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      showToast('Máquina eliminada con éxito.');
+      fetchMaquinasYMantenimientos();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveMaintenance = async (e) => {
+    e.preventDefault();
+    if (!maintenanceForm.maquina_id || !maintenanceForm.fecha || !maintenanceForm.descripcion) {
+      showToast('Por favor, completa los campos requeridos.', 'error');
+      return;
+    }
+    setLoading(true);
+    try {
+      const dataToSave = {
+        maquina_id: parseInt(maintenanceForm.maquina_id),
+        fecha: maintenanceForm.fecha,
+        tipo: maintenanceForm.tipo,
+        descripcion: maintenanceForm.descripcion,
+        cambio_repuesto: maintenanceForm.cambio_repuesto,
+        repuesto_detalle: maintenanceForm.cambio_repuesto ? maintenanceForm.repuesto_detalle : null,
+        costo: maintenanceForm.costo ? parseFloat(maintenanceForm.costo) : 0,
+        realizado_por: maintenanceForm.realizado_por || null,
+        proxima_fecha: maintenanceForm.proxima_fecha || null
+      };
+
+      if (editingMaintenance) {
+        const { error } = await supabase
+          .from('mantenimientos')
+          .update(dataToSave)
+          .eq('id', editingMaintenance.id);
+        if (error) throw error;
+        showToast('Registro de mantenimiento actualizado.');
+      } else {
+        const { error } = await supabase
+          .from('mantenimientos')
+          .insert(dataToSave);
+        if (error) throw error;
+        showToast('Registro de mantenimiento creado.');
+      }
+
+      setShowMaintenanceModal(false);
+      setEditingMaintenance(null);
+      setMaintenanceForm({
+        maquina_id: '',
+        fecha: getLocalDateString(),
+        tipo: 'revision_tecnica',
+        descripcion: '',
+        cambio_repuesto: false,
+        repuesto_detalle: '',
+        costo: '',
+        realizado_por: '',
+        proxima_fecha: ''
+      });
+      fetchMaquinasYMantenimientos();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditMaintenance = (mant) => {
+    setEditingMaintenance(mant);
+    setMaintenanceForm({
+      maquina_id: mant.maquina_id || '',
+      fecha: mant.fecha || getLocalDateString(),
+      tipo: mant.tipo || 'revision_tecnica',
+      descripcion: mant.descripcion || '',
+      cambio_repuesto: mant.cambio_repuesto || false,
+      repuesto_detalle: mant.repuesto_detalle || '',
+      costo: mant.costo || '',
+      realizado_por: mant.realizado_por || '',
+      proxima_fecha: mant.proxima_fecha || ''
+    });
+    setShowMaintenanceModal(true);
+  };
+
+  const handleDeleteMaintenance = async (id) => {
+    if (!window.confirm('¿Estás seguro de que deseas eliminar este registro de mantenimiento?')) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('mantenimientos')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      showToast('Registro de mantenimiento eliminado.');
+      fetchMaquinasYMantenimientos();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Rendering login if not logged in
   if (!user) {
     return (
       <div className="login-wrapper">
         <div className="glass-card login-card">
           <div className="login-logo">
-            <h1>Biscui</h1>
-            <p>Trazabilidad y Control de Stock</p>
+            <img src="/logo.webp" alt="Biscui Logo" style={{ width: '280px', height: 'auto', marginTop: '-35px', marginBottom: '-85px', objectFit: 'contain' }} />
+            <p style={{ marginTop: '1px' }}>Trazabilidad y Control de Stock</p>
           </div>
 
           {toast && (
@@ -1449,34 +2199,34 @@ export default function App() {
               <span>{toast.message}</span>
             </div>
           )}
-          
+
           <form onSubmit={handleLogin}>
             <div className="form-group">
               <label htmlFor="username">Usuario o Email</label>
-              <input 
+              <input
                 id="username"
-                type="text" 
-                className="form-control" 
-                value={usernameInput} 
-                onChange={e => setUsernameInput(e.target.value)} 
-                required 
+                type="text"
+                className="form-control"
+                value={usernameInput}
+                onChange={e => setUsernameInput(e.target.value)}
+                required
                 placeholder="admin@biscui.com o admin"
               />
             </div>
-            
+
             <div className="form-group">
               <label htmlFor="password">Contraseña</label>
-              <input 
+              <input
                 id="password"
-                type="password" 
-                className="form-control" 
-                value={passwordInput} 
-                onChange={e => setPasswordInput(e.target.value)} 
+                type="password"
+                className="form-control"
+                value={passwordInput}
+                onChange={e => setPasswordInput(e.target.value)}
                 required
                 placeholder="••••••"
               />
             </div>
-            
+
             <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '0.5rem' }} disabled={loading}>
               {loading ? 'Ingresando...' : 'Iniciar Sesión'}
             </button>
@@ -1488,6 +2238,7 @@ export default function App() {
               <button className="btn btn-sm btn-outline" onClick={() => quickLogin('admin@biscui.com', 'admin')}>Admin</button>
               <button className="btn btn-sm btn-outline" onClick={() => quickLogin('heladero@biscui.com', '123')}>Heladero</button>
               <button className="btn btn-sm btn-outline" onClick={() => quickLogin('pastelero@biscui.com', '123')}>Pastelero</button>
+              <button className="btn btn-sm btn-outline" onClick={() => quickLogin('pastelero_helado@biscui.com', '123')}>Pastelero Helado</button>
               <button className="btn btn-sm btn-outline" onClick={() => quickLogin('driver@biscui.com', '123')}>Transportista</button>
               <button className="btn btn-sm btn-outline" onClick={() => quickLogin('empleado1@biscui.com', '123')}>Suc. Principal</button>
               <button className="btn btn-sm btn-outline" onClick={() => quickLogin('empleado2@biscui.com', '123')}>Suc. Centro</button>
@@ -1503,9 +2254,9 @@ export default function App() {
     <div className="app-container">
       <header className="header">
         <div className="header-brand">
-          <h1>Biscui</h1>
+          <img src="/logo.webp" alt="Biscui Logo" className="header-logo" />
         </div>
-        
+
         <div className="user-profile">
           <div className="user-info">
             <div className="name">{user.nombre}</div>
@@ -1516,24 +2267,44 @@ export default function App() {
       </header>
 
       <main className="main-content">
-        
+
         {/* ================= ADMIN VIEW ================= */}
         {user.rol === 'admin' && (
           <div>
             <div className="tabs">
               <button className={`tab-btn ${activeTab === 'matrix' ? 'active' : ''}`} onClick={() => setActiveTab('matrix')}>Stock de Sucursales</button>
               <button className={`tab-btn ${activeTab === 'flujo' ? 'active' : ''}`} onClick={() => setActiveTab('flujo')}>Flujo de Pedidos</button>
+              <button className={`tab-btn ${activeTab === 'armar_pedido' ? 'active' : ''}`} onClick={() => setActiveTab('armar_pedido')}>Armar Pedido</button>
               <button className={`tab-btn ${activeTab === 'discrepancias' ? 'active' : ''}`} onClick={() => setActiveTab('discrepancias')}>Historial de Pérdidas</button>
               <button className={`tab-btn ${activeTab === 'produccion_req' ? 'active' : ''}`} onClick={() => setActiveTab('produccion_req')}>Proyecciones de Fábrica</button>
               <button className={`tab-btn ${activeTab === 'carga_historica' ? 'active' : ''}`} onClick={() => setActiveTab('carga_historica')}>Carga Histórica</button>
-              <button className={`tab-btn ${activeTab === 'catalogo' ? 'active' : ''}`} onClick={() => setActiveTab('catalogo')}>Nuevo Sabor</button>
+              <button className={`tab-btn ${activeTab === 'catalogo' ? 'active' : ''}`} onClick={() => setActiveTab('catalogo')}>Productos</button>
+              <button className={`tab-btn ${activeTab === 'maquinas' ? 'active' : ''}`} onClick={() => setActiveTab('maquinas')}>Mantenimiento y Máquinas</button>
             </div>
 
             {activeTab === 'matrix' && (
               <div>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: '1.5rem', paddingLeft: '0.5rem' }}>
-                  Monitorea los niveles de inventario en tiempo real de cada sabor y producto en todas las locaciones físicas de Biscui.
-                </p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', margin: 0, paddingLeft: '0.5rem' }}>
+                    Monitorea los niveles de inventario en tiempo real de cada sabor y producto en todas las locaciones físicas de Biscui.
+                  </p>
+                  <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', padding: '4px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <button
+                      className={`btn btn-sm ${!showEventStock ? 'btn-primary' : 'btn-outline'}`}
+                      style={{ border: 'none', borderRadius: '8px', padding: '0.4rem 1rem', fontSize: '0.8rem', minHeight: 'unset' }}
+                      onClick={() => setShowEventStock(false)}
+                    >
+                      📦 Stock Común
+                    </button>
+                    <button
+                      className={`btn btn-sm ${showEventStock ? 'btn-primary' : 'btn-outline'}`}
+                      style={{ border: 'none', borderRadius: '8px', padding: '0.4rem 1rem', fontSize: '0.8rem', minHeight: 'unset' }}
+                      onClick={() => setShowEventStock(true)}
+                    >
+                      🎉 Stock de Eventos
+                    </button>
+                  </div>
+                </div>
 
                 {/* Category Selection Tabs */}
                 <div style={{ display: 'flex', gap: '0.4rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.6rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
@@ -1566,30 +2337,90 @@ export default function App() {
                   if (!selectedCat) return null;
 
                   let catProds = productos.filter(p => p.categoria === selectedCat.id);
-                  if (selectedCat.id === 'helados' && stockGroupFilter !== 'Todos') {
-                    catProds = catProds.filter(p => getFlavorGroup(p.nombre) === stockGroupFilter);
+                  if (adminStockSupplierFilter) {
+                    catProds = catProds.filter(p => p.proveedor_id === parseInt(adminStockSupplierFilter));
+                  }
+                  if (selectedCat.id === 'helados') {
+                    if (stockGroupFilter !== 'Todos') {
+                      catProds = catProds.filter(p => getFlavorGroup(p.nombre) === stockGroupFilter);
+                    }
+                    if (showEventStock) {
+                      catProds = catProds.filter(p => p.tipo !== 'vasqueta_5_6k');
+                    }
+                    if (iceCreamFormatFilter === 'Vasqueta') {
+                      catProds = catProds.filter(p => p.tipo === 'vasqueta_5_6k');
+                    } else if (iceCreamFormatFilter === 'Balde') {
+                      catProds = catProds.filter(p => p.tipo === 'balde_4k' || p.tipo === 'balde_8k');
+                    }
                   }
 
                   return (
                     <div className="glass-card">
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
                         <h3 className="section-title" style={{ margin: 0, border: 'none' }}>{selectedCat.name}</h3>
-                        {selectedCat.id === 'helados' && (
-                          <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
-                            {['Todos', 'Dulces de leche', 'Chocolate', 'Cremas', 'Sin gluten', 'Frutales al agua'].map(group => (
-                              <button
-                                key={group}
-                                className={`btn btn-sm ${stockGroupFilter === group ? 'btn-primary' : 'btn-outline'}`}
-                                style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', borderRadius: '4px' }}
-                                onClick={() => setStockGroupFilter(group)}
-                              >
-                                {group}
-                              </button>
-                            ))}
+                        
+                        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Proveedor:</span>
+                            <select
+                              className="form-control"
+                              style={{
+                                padding: '0.2rem 0.5rem',
+                                borderRadius: '6px',
+                                background: 'rgba(255,255,255,0.05)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                color: 'var(--text)',
+                                fontSize: '0.75rem',
+                                width: '160px',
+                                height: 'auto',
+                                minHeight: 'unset'
+                              }}
+                              value={adminStockSupplierFilter}
+                              onChange={e => setAdminStockSupplierFilter(e.target.value)}
+                            >
+                              <option value="">Todos</option>
+                              {proveedores.map(p => (
+                                <option key={p.id} value={p.id}>{p.nombre}</option>
+                              ))}
+                            </select>
                           </div>
-                        )}
+
+                          {selectedCat.id === 'helados' && (
+                            <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                              <div style={{ display: 'flex', gap: '0.3rem' }}>
+                                {[
+                                  { id: 'Todos', label: 'Todos' },
+                                  { id: 'Vasqueta', label: 'Vasquetas' },
+                                  { id: 'Balde', label: 'Baldes' }
+                                ].map(fmt => (
+                                  <button
+                                    key={fmt.id}
+                                    className={`btn btn-sm ${iceCreamFormatFilter === fmt.id ? 'btn-primary' : 'btn-outline'}`}
+                                    style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', borderRadius: '4px', fontWeight: 600 }}
+                                    onClick={() => setIceCreamFormatFilter(fmt.id)}
+                                  >
+                                    {fmt.label}
+                                  </button>
+                                ))}
+                              </div>
+                              <div style={{ width: '1px', height: '18px', background: 'rgba(255,255,255,0.1)' }}></div>
+                              <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                                {['Todos', 'Dulces de leche', 'Chocolate', 'Cremas', 'Sin gluten', 'Frutales al agua'].map(group => (
+                                  <button
+                                    key={group}
+                                    className={`btn btn-sm ${stockGroupFilter === group ? 'btn-primary' : 'btn-outline'}`}
+                                    style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', borderRadius: '4px' }}
+                                    onClick={() => setStockGroupFilter(group)}
+                                  >
+                                    {group}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      
+
                       {catProds.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-light)' }}>
                           <p style={{ margin: 0, fontWeight: 500 }}>No se encontraron productos en esta categoría.</p>
@@ -1601,19 +2432,13 @@ export default function App() {
                               <tr>
                                 <th>Producto / Sabor</th>
                                 <th>Tipo / Formato</th>
-                                <th>Fábrica</th>
-                                <th>Sucursal Principal</th>
-                                <th>Sucursal Centro</th>
-                                <th>Sucursal Shopping</th>
+                                {sucursales.map(s => (
+                                  <th key={s.id}>{s.nombre}</th>
+                                ))}
                               </tr>
                             </thead>
                             <tbody>
                               {catProds.map(prod => {
-                                const stockFab = stockData.find(s => s.producto_id === prod.id && s.sucursal_id === 1)?.cantidad || 0;
-                                const stockPrincipal = stockData.find(s => s.producto_id === prod.id && s.sucursal_id === 4)?.cantidad || 0;
-                                const stockCentro = stockData.find(s => s.producto_id === prod.id && s.sucursal_id === 2)?.cantidad || 0;
-                                const stockShop = stockData.find(s => s.producto_id === prod.id && s.sucursal_id === 3)?.cantidad || 0;
-                                
                                 const getCellClass = (qty) => {
                                   if (qty === 0) return 'matrix-cell-empty';
                                   if (qty < 5) return 'matrix-cell-low';
@@ -1624,10 +2449,14 @@ export default function App() {
                                   <tr key={prod.id}>
                                     <td><strong>{prod.nombre}</strong></td>
                                     <td><span style={{ fontSize: '0.8rem', textTransform: 'capitalize' }}>{formatTipo(prod.tipo)}</span></td>
-                                    <td className={getCellClass(stockFab)}>{stockFab}</td>
-                                    <td className={getCellClass(stockPrincipal)}>{stockPrincipal}</td>
-                                    <td className={getCellClass(stockCentro)}>{stockCentro}</td>
-                                    <td className={getCellClass(stockShop)}>{stockShop}</td>
+                                    {sucursales.map(s => {
+                                      const qty = stockData.find(st => st.producto_id === prod.id && st.sucursal_id === s.id && st.es_evento === showEventStock)?.cantidad || 0;
+                                      return (
+                                        <td key={s.id} className={getCellClass(qty)}>
+                                          {formatQuantityShort(qty, prod)}
+                                        </td>
+                                      );
+                                    })}
                                   </tr>
                                 );
                               })}
@@ -1638,6 +2467,314 @@ export default function App() {
                     </div>
                   );
                 })()}
+              </div>
+            )}
+
+            {activeTab === 'armar_pedido' && (
+              <div className="glass-card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+                  <div>
+                    <h3 className="section-title" style={{ margin: 0, border: 'none' }}>Armar y Preparar Pedido</h3>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: '0.25rem' }}>
+                      Crea un pedido desde Fábrica hacia cualquier sucursal o depósito. Se marcará como <strong>Preparado</strong> y descontará el stock de fábrica automáticamente.
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.05)', padding: '0.5rem 0.8rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                      <input
+                        type="checkbox"
+                        id="adminOrderIsEventCheck"
+                        checked={adminOrderIsEvent}
+                        onChange={e => {
+                          setAdminOrderIsEvent(e.target.checked);
+                          setAdminOrderItems({});
+                        }}
+                        style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                      />
+                      <label htmlFor="adminOrderIsEventCheck" style={{ margin: 0, cursor: 'pointer', userSelect: 'none', fontSize: '0.85rem', fontWeight: 600 }}>
+                        🚨 Pedido para EVENTO (Stock de Eventos)
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Destination and Actions bar */}
+                <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '2rem', background: 'rgba(255,255,255,0.02)', padding: '1.2rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                  <div style={{ flex: '1 1 250px' }}>
+                    <label style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: '0.5rem', display: 'block', fontWeight: 600 }}>
+                      📍 Seleccionar Sucursal o Depósito Destino:
+                    </label>
+                    <select
+                      className="form-control"
+                      value={adminOrderDestination}
+                      onChange={e => setAdminOrderDestination(e.target.value)}
+                      style={{
+                        background: 'rgba(255,255,255,0.08)',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        color: 'var(--text)',
+                        borderRadius: '8px',
+                        padding: '0.6rem',
+                        fontSize: '0.9rem',
+                        width: '100%',
+                        fontWeight: 600
+                      }}
+                    >
+                      <option value="">-- Seleccionar Destino --</option>
+                      {sucursales.filter(s => s.id !== 1).map(s => (
+                        <option key={s.id} value={s.id}>
+                          {s.nombre} {s.id === 5 ? '🚚 (Chofer)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div style={{ flex: '2 1 300px', display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                    <button
+                      className="btn btn-outline"
+                      onClick={() => {
+                        setAdminOrderItems({});
+                        setAdminOrderDestination('');
+                      }}
+                      style={{ padding: '0.6rem 1.2rem', borderRadius: '8px' }}
+                    >
+                      Limpiar Todo
+                    </button>
+                    <button
+                      className="btn btn-primary"
+                      onClick={handleAdminCreateOrder}
+                      disabled={loading}
+                      style={{ padding: '0.6rem 1.5rem', borderRadius: '8px', fontWeight: 600 }}
+                    >
+                      🚀 Crear y Preparar Pedido
+                    </button>
+                  </div>
+                </div>
+
+                {/* Sub-tabs and Search Bar */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', marginBottom: '2rem', background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <div style={{ position: 'relative', flex: '2 1 200px' }}>
+                      <input
+                        type="text"
+                        placeholder="🔍 Buscar producto o sabor..."
+                        className="form-control"
+                        style={{
+                          paddingLeft: '2.5rem',
+                          borderRadius: '10px',
+                          background: 'rgba(255,255,255,0.05)',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          color: 'var(--text)',
+                          fontSize: '0.95rem',
+                          width: '100%'
+                        }}
+                        value={adminOrderSearch}
+                        onChange={e => setAdminOrderSearch(e.target.value)}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: '1 1 180px' }}>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-light)', whiteSpace: 'nowrap' }}>Proveedor:</span>
+                      <select
+                        className="form-control"
+                        style={{
+                          borderRadius: '10px',
+                          background: 'rgba(255,255,255,0.05)',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          color: 'var(--text)',
+                          fontSize: '0.9rem',
+                          padding: '0.5rem',
+                          height: 'auto',
+                          minHeight: 'unset'
+                        }}
+                        value={adminOrderSupplierFilter}
+                        onChange={e => setAdminOrderSupplierFilter(e.target.value)}
+                      >
+                        <option value="">Todos</option>
+                        {proveedores.map(p => (
+                          <option key={p.id} value={p.id}>{p.nombre}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {adminOrderSubTab === 'helados' && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: '1 1 200px' }}>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-light)', whiteSpace: 'nowrap' }}>Formato:</span>
+                        <div style={{ display: 'flex', gap: '0.2rem' }}>
+                          {[
+                            { id: 'Todos', label: 'Todos' },
+                            { id: 'Vasqueta', label: 'Vasquetas' },
+                            { id: 'Balde', label: 'Baldes' }
+                          ].map(fmt => (
+                            <button
+                              key={fmt.id}
+                              type="button"
+                              className={`btn btn-sm ${iceCreamFormatFilter === fmt.id ? 'btn-primary' : 'btn-outline'}`}
+                              style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem', borderRadius: '6px', minHeight: 'unset', fontWeight: 600 }}
+                              onClick={() => setIceCreamFormatFilter(fmt.id)}
+                            >
+                              {fmt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '0.4rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.6rem', flexWrap: 'wrap' }}>
+                    {[
+                      { id: 'helados', label: '🍧 Helados' },
+                      { id: 'pasteleria_helada', label: '🍦 Pastelería Helada' },
+                      { id: 'pasteleria', label: '🍰 Pastelería Clásica' },
+                      { id: 'viennoiserie', label: '🥐 Viennoiserie' },
+                      { id: 'termicos', label: '📦 Térmicos' },
+                      { id: 'otros', label: '✨ Otros' }
+                    ].map(tab => (
+                      <button
+                        key={tab.id}
+                        className={`tab-btn ${adminOrderSubTab === tab.id ? 'active' : ''}`}
+                        style={{
+                          padding: '0.5rem 1rem',
+                          fontSize: '0.85rem',
+                          borderRadius: '8px',
+                          fontWeight: adminOrderSubTab === tab.id ? 600 : 400
+                        }}
+                        onClick={() => {
+                          setAdminOrderSubTab(tab.id);
+                          setAdminOrderSearch('');
+                        }}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {(() => {
+                  let filteredProds = productos.filter(p => p.categoria === adminOrderSubTab);
+                  
+                  if (adminOrderIsEvent && adminOrderSubTab === 'helados') {
+                    filteredProds = filteredProds.filter(p => p.tipo !== 'vasqueta_5_6k');
+                  }
+
+                  if (adminOrderSubTab === 'helados') {
+                    if (iceCreamFormatFilter === 'Vasqueta') {
+                      filteredProds = filteredProds.filter(p => p.tipo === 'vasqueta_5_6k');
+                    } else if (iceCreamFormatFilter === 'Balde') {
+                      filteredProds = filteredProds.filter(p => p.tipo === 'balde_4k' || p.tipo === 'balde_8k');
+                    }
+                  }
+
+                  if (adminOrderSearch) {
+                    filteredProds = filteredProds.filter(p =>
+                      p.nombre.toLowerCase().includes(adminOrderSearch.toLowerCase()) ||
+                      formatTipo(p.tipo).toLowerCase().includes(adminOrderSearch.toLowerCase())
+                    );
+                  }
+
+                  if (adminOrderSupplierFilter) {
+                    filteredProds = filteredProds.filter(p => p.proveedor_id === parseInt(adminOrderSupplierFilter));
+                  }
+
+                  if (filteredProds.length === 0) {
+                    return (
+                      <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-light)' }}>
+                        <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>🔍</div>
+                        <p style={{ margin: 0, fontWeight: 500 }}>No se encontraron productos.</p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="table-container">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Producto / Sabor</th>
+                            <th>Stock Fábrica</th>
+                            <th>Stock Destino</th>
+                            <th style={{ width: '120px' }}>Pedir Cantidad</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredProds.map(prod => {
+                            const qty = adminOrderItems[prod.id] || 0;
+                            const factoryStock = stockData.find(s => s.producto_id === prod.id && s.sucursal_id === 1 && s.es_evento === adminOrderIsEvent)?.cantidad || 0;
+                            
+                            let destStock = '-';
+                            if (adminOrderDestination) {
+                              destStock = stockData.find(s => s.producto_id === prod.id && s.sucursal_id === parseInt(adminOrderDestination) && s.es_evento === adminOrderIsEvent)?.cantidad || 0;
+                            }
+
+                            const isExceeding = qty > factoryStock;
+
+                            return (
+                              <tr key={prod.id}>
+                                <td>
+                                  <strong>{prod.nombre}</strong>
+                                  <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', textTransform: 'capitalize' }}>{formatTipo(prod.tipo)}</div>
+                                  {isExceeding && (
+                                    <div style={{ fontSize: '0.7rem', color: 'var(--danger)', fontWeight: 600, marginTop: '2px' }}>
+                                      ⚠️ Excede stock disponible en Fábrica ({factoryStock} disponibles)
+                                    </div>
+                                  )}
+                                </td>
+                                <td>
+                                  <span style={{
+                                    fontWeight: 600,
+                                    color: factoryStock > 0 ? 'var(--success)' : 'var(--danger)'
+                                  }}>
+                                    {formatQuantity(factoryStock, prod)}
+                                  </span>
+                                </td>
+                                <td>
+                                  <span style={{ fontWeight: 600 }}>
+                                    {destStock !== '-' ? formatQuantity(destStock, prod) : '-'}
+                                  </span>
+                                </td>
+                                <td>
+                                  <div style={{ width: '140px' }}>
+                                    <UnitCalculatorInput
+                                      value={qty || 0}
+                                      onChange={val => {
+                                        setAdminOrderItems(prev => ({ ...prev, [prod.id]: val }));
+                                      }}
+                                      product={prod}
+                                      placeholder="0"
+                                      min={0}
+                                    />
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()}
+
+                {Object.values(adminOrderItems).some(q => q > 0) && (
+                  <div style={{
+                    marginTop: '2rem',
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: '12px',
+                    padding: '1.2rem',
+                    boxShadow: '0 4px 15px rgba(0,0,0,0.05)'
+                  }}>
+                    <h4 style={{ margin: '0 0 0.8rem 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>📋 Resumen del Pedido {adminOrderIsEvent ? '(EVENTO)' : ''}</span>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>
+                        {Object.values(adminOrderItems).filter(q => q > 0).length} productos seleccionados
+                      </span>
+                    </h4>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '1.2rem' }}>
+                      {productos.filter(p => adminOrderItems[p.id] > 0).map(p => (
+                        <div key={p.id} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', padding: '0.4rem 0.8rem', borderRadius: '8px', fontSize: '0.85rem' }}>
+                          <strong>{p.nombre}</strong> ({formatTipo(p.tipo)}): <strong style={{ color: 'var(--primary)' }}>{adminOrderItems[p.id]} u.</strong>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1660,7 +2797,14 @@ export default function App() {
                     <tbody>
                       {orders.map(order => (
                         <tr key={order.id} style={{ cursor: 'pointer' }} onClick={() => viewOrderDetail(order.id)}>
-                          <td>#{order.id}</td>
+                          <td>
+                            #{order.id}
+                            {order.es_evento && (
+                              <span className="badge" style={{ background: 'var(--primary)', color: 'white', fontSize: '0.65rem', padding: '0.1rem 0.35rem', marginLeft: '0.3rem' }}>
+                                Evento
+                              </span>
+                            )}
+                          </td>
                           <td><strong>{order.destino_nombre}</strong></td>
                           <td><span className={getBadgeClass(order.estado)}>{translateState(order.estado)}</span></td>
                           <td>{order.fecha_solicitud ? new Date(order.fecha_solicitud).toLocaleDateString() : '-'}</td>
@@ -1696,15 +2840,14 @@ export default function App() {
                           <td>{new Date(disc.fecha_reporte).toLocaleDateString()}</td>
                           <td><strong>{disc.producto_nombre}</strong></td>
                           <td>
-                            <span className={`badge ${
-                              disc.tipo === 'transito' ? 'badge-en_transito' : 
-                              disc.tipo === 'recepcion' ? 'badge-con_discrepancia' : 'badge-solicitado'
-                            }`}>
-                              {disc.tipo === 'transito' ? 'En Tránsito' : 
-                               disc.tipo === 'recepcion' ? 'Recepción' : 'Merma Fábrica'}
+                            <span className={`badge ${disc.tipo === 'transito' ? 'badge-en_transito' :
+                                disc.tipo === 'recepcion' ? 'badge-con_discrepancia' : 'badge-solicitado'
+                              }`}>
+                              {disc.tipo === 'transito' ? 'En Tránsito' :
+                                disc.tipo === 'recepcion' ? 'Recepción' : 'Merma Fábrica'}
                             </span>
                           </td>
-                          <td style={{ color: 'var(--danger)', fontWeight: 600 }}>{disc.cantidad_perdida}</td>
+                          <td style={{ color: 'var(--danger)', fontWeight: 600 }}>{formatQuantity(disc.cantidad_perdida, productos.find(p => p.id === disc.producto_id))}</td>
                           <td>{disc.motivo}</td>
                           <td>{disc.reportado_por_nombre}</td>
                         </tr>
@@ -1793,7 +2936,7 @@ export default function App() {
                               <td><code style={{ background: 'rgba(0,0,0,0.05)', padding: '0.2rem 0.4rem', borderRadius: '4px', fontSize: '0.8rem' }}>{l.codigo_lote}</code></td>
                               <td><strong>{l.productos?.nombre}</strong></td>
                               <td style={{ textTransform: 'capitalize', fontSize: '0.85rem' }}>{formatTipo(l.productos?.tipo)}</td>
-                              <td><strong>{l.cantidad}</strong></td>
+                              <td><strong>{formatQuantity(l.cantidad, l.productos)}</strong></td>
                               <td>
                                 {isHelado && l.pesos && l.pesos.length > 0 ? (
                                   <span style={{ fontSize: '0.85rem' }}>
@@ -1829,48 +2972,478 @@ export default function App() {
             )}
 
             {activeTab === 'catalogo' && (
-              <div className="glass-card" style={{ maxWidth: '480px' }}>
-                <h3 className="section-title">Agregar Nuevo Producto</h3>
-                <form onSubmit={handleNewProductSubmit}>
-                  <div className="form-group">
-                    <label>Nombre del Sabor o Producto</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      value={newProductForm.nombre}
-                      onChange={e => setNewProductForm({...newProductForm, nombre: e.target.value})}
-                      required
-                      placeholder="Ej. Vasqueta Sabayón con Almendras"
-                    />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                
+                {/* Header with Title and Add Button */}
+                <div className="glass-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                  <div>
+                    <h3 className="section-title" style={{ margin: 0 }}>Catálogo de Productos</h3>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', margin: '0.2rem 0 0 0' }}>
+                      Administra todos los productos cargados en el sistema (activos e inactivos).
+                    </p>
                   </div>
-                  <div className="form-group">
-                    <label>Categoría</label>
-                    <select 
-                      className="form-control"
-                      value={newProductForm.categoria}
-                      onChange={e => handleCategoriaChange(e.target.value)}
-                    >
-                      {categories.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label>Tipo / Formato</label>
-                    <select 
-                      className="form-control"
-                      value={newProductForm.tipo}
-                      onChange={e => setNewProductForm({...newProductForm, tipo: e.target.value})}
-                    >
-                      {getTiposPorCategoria(newProductForm.categoria).map(t => (
-                        <option key={t.value} value={t.value}>{t.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <button type="submit" className="btn btn-primary" disabled={loading}>
-                    Agregar al Catálogo
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => {
+                      cancelEditingProduct();
+                      setShowProductModal(true);
+                    }}
+                  >
+                    ➕ Agregar Nuevo Producto
                   </button>
-                </form>
+                </div>
+
+                {/* Filter Controls Card */}
+                <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1.2rem' }}>
+                  <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                    
+                    {/* Search Bar */}
+                    <div style={{ position: 'relative', flex: '2 1 250px' }}>
+                      <input
+                        type="text"
+                        placeholder="🔍 Buscar producto o sabor..."
+                        className="form-control"
+                        style={{
+                          paddingLeft: '2.5rem',
+                          borderRadius: '10px',
+                          background: 'rgba(255,255,255,0.05)',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          color: 'var(--text-dark)',
+                          fontSize: '0.95rem',
+                          width: '100%'
+                        }}
+                        value={catalogSearch}
+                        onChange={e => setCatalogSearch(e.target.value)}
+                      />
+                    </div>
+
+                    {/* Supplier Filter */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: '1 1 200px' }}>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-light)', whiteSpace: 'nowrap' }}>Proveedor:</span>
+                      <select
+                        className="form-control"
+                        style={{
+                          borderRadius: '10px',
+                          background: 'rgba(255,255,255,0.05)',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          color: 'var(--text-dark)',
+                          fontSize: '0.9rem',
+                          padding: '0.5rem',
+                          height: 'auto',
+                          minHeight: 'unset'
+                        }}
+                        value={catalogSupplier}
+                        onChange={e => setCatalogSupplier(e.target.value)}
+                      >
+                        <option value="">Todos</option>
+                        {proveedores.map(p => (
+                          <option key={p.id} value={p.id}>{p.nombre}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Status Filter */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: '1 1 180px' }}>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-light)', whiteSpace: 'nowrap' }}>Estado:</span>
+                      <select
+                        className="form-control"
+                        style={{
+                          borderRadius: '10px',
+                          background: 'rgba(255,255,255,0.05)',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          color: 'var(--text-dark)',
+                          fontSize: '0.9rem',
+                          padding: '0.5rem',
+                          height: 'auto',
+                          minHeight: 'unset'
+                        }}
+                        value={catalogStatus}
+                        onChange={e => setCatalogStatus(e.target.value)}
+                      >
+                        <option value="Todos">Todos</option>
+                        <option value="Activos">Activos</option>
+                        <option value="Inactivos">Inactivos</option>
+                      </select>
+                    </div>
+
+                    {/* Format/Type Filter (for Helados / Todos) */}
+                    {(catalogCategory === 'helados' || catalogCategory === 'Todos') && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: '1 1 200px' }}>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-light)', whiteSpace: 'nowrap' }}>Formato:</span>
+                        <div style={{ display: 'flex', gap: '0.2rem' }}>
+                          {[
+                            { id: 'Todos', label: 'Todos' },
+                            { id: 'Vasqueta', label: 'Vasquetas' },
+                            { id: 'Balde', label: 'Baldes' }
+                          ].map(fmt => (
+                            <button
+                              key={fmt.id}
+                              type="button"
+                              className={`btn btn-sm ${catalogFormat === fmt.id ? 'btn-primary' : 'btn-outline'}`}
+                              style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem', borderRadius: '6px', minHeight: 'unset', fontWeight: 600 }}
+                              onClick={() => setCatalogFormat(fmt.id)}
+                            >
+                              {fmt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Categories Sub-Tabs */}
+                  <div style={{ display: 'flex', gap: '0.4rem', borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '0.8rem', flexWrap: 'wrap' }}>
+                    {[
+                      { id: 'Todos', label: '🌐 Todos' },
+                      { id: 'helados', label: '🍧 Helados' },
+                      { id: 'pasteleria_helada', label: '🍦 Pastelería Helada' },
+                      { id: 'pasteleria', label: '🍰 Pastelería Clásica' },
+                      { id: 'viennoiserie', label: '🥐 Viennoiserie' },
+                      { id: 'termicos', label: '📦 Térmicos' },
+                      { id: 'otros', label: '✨ Otros' }
+                    ].map(tab => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        className={`btn btn-sm ${catalogCategory === tab.id ? 'btn-primary' : 'btn-outline'}`}
+                        style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem', borderRadius: '8px', minHeight: 'unset', fontWeight: 600 }}
+                        onClick={() => {
+                          setCatalogCategory(tab.id);
+                          if (tab.id !== 'helados' && tab.id !== 'Todos') {
+                            setCatalogFormat('Todos');
+                          }
+                        }}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Full-width Product List */}
+                <div className="glass-card">
+                  <div className="table-container" style={{ maxHeight: '700px', overflowY: 'auto' }}>
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Producto / Sabor</th>
+                          <th>Formato / Tipo</th>
+                          <th>Proveedor</th>
+                          <th>Estado</th>
+                          <th style={{ width: '130px', textAlign: 'center' }}>Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          const filteredProductsList = allProducts.filter(p => {
+                            // Search filter
+                            if (catalogSearch.trim()) {
+                              const q = catalogSearch.toLowerCase().trim();
+                              if (!p.nombre.toLowerCase().includes(q)) return false;
+                            }
+                            // Category filter
+                            if (catalogCategory !== 'Todos' && p.categoria !== catalogCategory) {
+                              return false;
+                            }
+                            // Format/Type filter
+                            if (catalogCategory === 'helados' || catalogCategory === 'Todos') {
+                              if (catalogFormat === 'Vasqueta' && p.tipo !== 'vasqueta_5_6k') {
+                                return false;
+                              }
+                              if (catalogFormat === 'Balde' && p.tipo !== 'balde_4k' && p.tipo !== 'balde_8k') {
+                                return false;
+                              }
+                            }
+                            // Supplier filter
+                            if (catalogSupplier && p.proveedor_id !== parseInt(catalogSupplier)) {
+                              return false;
+                            }
+                            // Status filter
+                            if (catalogStatus === 'Activos' && p.activo !== 1) return false;
+                            if (catalogStatus === 'Inactivos' && p.activo !== 0) return false;
+                            
+                            return true;
+                          });
+
+                          if (filteredProductsList.length === 0) {
+                            return (
+                              <tr>
+                                <td colSpan="5" style={{ textAlign: 'center', color: 'var(--text-light)', padding: '2rem 1rem' }}>
+                                  {allProducts.length === 0
+                                    ? 'No hay productos registrados en el catálogo.'
+                                    : 'No hay productos que coincidan con los filtros seleccionados.'}
+                                </td>
+                              </tr>
+                            );
+                          }
+
+                          return filteredProductsList.map(p => (
+                            <tr key={p.id} style={{ opacity: p.activo === 0 ? 0.6 : 1 }}>
+                              <td>
+                                <strong>{p.nombre}</strong>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', textTransform: 'capitalize' }}>
+                                  Categoría: {p.categoria?.replace(/_/g, ' ')} | Medida: {p.unidad_medida === 'peso' ? 'Peso (g/kg)' : `Unidad (Cj: ${p.cant_por_caja || 24}${p.cant_por_pack ? `, Pk: ${p.cant_por_pack}` : ''})`}
+                                </div>
+                              </td>
+                              <td><span style={{ fontSize: '0.85rem' }}>{formatTipo(p.tipo)}</span></td>
+                              <td><span style={{ fontSize: '0.85rem', color: p.proveedor_nombre ? 'var(--text)' : 'var(--text-light)' }}>
+                                {p.proveedor_nombre || '-'}
+                              </span></td>
+                              <td>
+                                <span className={`badge ${p.activo === 1 ? 'badge-entregado' : 'badge-con_discrepancia'}`} style={{ fontSize: '0.7rem', padding: '0.15rem 0.4rem' }}>
+                                  {p.activo === 1 ? 'Activo' : 'Inactivo'}
+                                </span>
+                              </td>
+                              <td>
+                                <div style={{ display: 'flex', gap: '0.3rem', justifyContent: 'center' }}>
+                                  <button
+                                    className="btn btn-sm btn-outline"
+                                    style={{ padding: '0.25rem 0.5rem', minHeight: 'unset', fontSize: '0.75rem' }}
+                                    onClick={() => startEditingProduct(p)}
+                                    disabled={loading}
+                                    title="Editar"
+                                  >
+                                    ✏️
+                                  </button>
+                                  {p.activo === 1 ? (
+                                    <button
+                                      className="btn btn-sm btn-danger"
+                                      style={{ padding: '0.25rem 0.5rem', minHeight: 'unset', fontSize: '0.75rem', background: 'var(--danger)' }}
+                                      onClick={() => {
+                                        if (confirm(`¿Estás seguro de desactivar (eliminar) el producto "${p.nombre}"?`)) {
+                                          handleToggleProductActive(p.id, p.activo);
+                                        }
+                                      }}
+                                      disabled={loading}
+                                      title="Desactivar / Eliminar"
+                                    >
+                                      🗑️
+                                    </button>
+                                  ) : (
+                                    <button
+                                      className="btn btn-sm btn-success"
+                                      style={{ padding: '0.25rem 0.5rem', minHeight: 'unset', fontSize: '0.75rem', background: 'var(--success)' }}
+                                      onClick={() => handleToggleProductActive(p.id, p.activo)}
+                                      disabled={loading}
+                                      title="Reactivar"
+                                    >
+                                      🔄
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ));
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Form Modal */}
+                {showProductModal && (
+                  <div style={{
+                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                    background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center',
+                    alignItems: 'center', zIndex: 1100, padding: '1rem',
+                    backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)'
+                  }}>
+                    <div className="glass-card" style={{ maxWidth: '500px', width: '100%', background: 'rgba(255, 255, 255, 0.95)', color: '#000' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid rgba(0,0,0,0.1)', paddingBottom: '0.8rem' }}>
+                        <h3 className="section-title" style={{ margin: 0, color: 'var(--text-dark)' }}>
+                          {editingProduct ? 'Editar Producto' : 'Agregar Nuevo Producto'}
+                        </h3>
+                        <button
+                          className="btn btn-outline btn-sm"
+                          style={{ borderColor: 'rgba(0,0,0,0.2)', color: 'var(--text-dark)' }}
+                          onClick={() => {
+                            cancelEditingProduct();
+                            setShowProductModal(false);
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      <form onSubmit={handleProductFormSubmit}>
+                        <div className="form-group">
+                          <label style={{ color: 'var(--text-dark)' }}>Nombre del Sabor o Producto</label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={newProductForm.nombre}
+                            onChange={e => setNewProductForm({ ...newProductForm, nombre: e.target.value })}
+                            required
+                            placeholder="Ej. Vasqueta Sabayón con Almendras"
+                            style={{ border: '1px solid rgba(0,0,0,0.15)' }}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label style={{ color: 'var(--text-dark)' }}>Categoría</label>
+                          <select
+                            className="form-control"
+                            value={newProductForm.categoria}
+                            onChange={e => handleCategoriaChange(e.target.value)}
+                            style={{ border: '1px solid rgba(0,0,0,0.15)' }}
+                          >
+                            {categories.map(c => (
+                              <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="form-group">
+                          <label style={{ color: 'var(--text-dark)' }}>Tipo / Formato</label>
+                          <select
+                            className="form-control"
+                            value={newProductForm.tipo}
+                            onChange={e => setNewProductForm({ ...newProductForm, tipo: e.target.value })}
+                            style={{ border: '1px solid rgba(0,0,0,0.15)' }}
+                          >
+                            {getTiposPorCategoria(newProductForm.categoria).map(t => (
+                              <option key={t.value} value={t.value}>{t.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                        
+                        <div className="form-group">
+                          <label style={{ color: 'var(--text-dark)' }}>Proveedor (Opcional)</label>
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <select
+                              className="form-control"
+                              value={newProductForm.proveedor_id || ''}
+                              onChange={e => setNewProductForm({ ...newProductForm, proveedor_id: e.target.value })}
+                              style={{ flex: 1, border: '1px solid rgba(0,0,0,0.15)' }}
+                            >
+                              <option value="">-- Sin Proveedor / General --</option>
+                              {proveedores.map(p => (
+                                <option key={p.id} value={p.id}>{p.nombre}</option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              className="btn btn-outline"
+                              style={{ padding: '0.4rem 0.8rem', minHeight: 'unset', display: 'flex', alignItems: 'center', justifyContent: 'center', borderColor: 'rgba(0,0,0,0.2)', color: 'var(--text-dark)' }}
+                              onClick={() => setShowSupplierForm(!showSupplierForm)}
+                              title="Agregar Nuevo Proveedor"
+                            >
+                              ＋
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="form-group">
+                          <label style={{ color: 'var(--text-dark)' }}>Tipo de Medición</label>
+                          <select
+                            className="form-control"
+                            value={newProductForm.unidad_medida}
+                            onChange={e => setNewProductForm({ ...newProductForm, unidad_medida: e.target.value })}
+                            style={{ border: '1px solid rgba(0,0,0,0.15)' }}
+                          >
+                            <option value="unidad">Unidades (cj, pk, un)</option>
+                            <option value="peso">Peso (kg, g)</option>
+                          </select>
+                        </div>
+
+                        {newProductForm.unidad_medida === 'unidad' && (
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <div className="form-group" style={{ flex: 1 }}>
+                              <label style={{ color: 'var(--text-dark)' }}>Unidades por Caja/Cartón</label>
+                              <input
+                                type="number"
+                                className="form-control"
+                                value={newProductForm.cant_por_caja}
+                                onChange={e => setNewProductForm({ ...newProductForm, cant_por_caja: e.target.value === '' ? '' : parseInt(e.target.value) || 0 })}
+                                style={{ border: '1px solid rgba(0,0,0,0.15)' }}
+                                min="1"
+                                required
+                              />
+                            </div>
+                            <div className="form-group" style={{ flex: 1 }}>
+                              <label style={{ color: 'var(--text-dark)' }}>Unidades por Pack</label>
+                              <select
+                                className="form-control"
+                                value={newProductForm.cant_por_pack || ''}
+                                onChange={e => setNewProductForm({ ...newProductForm, cant_por_pack: e.target.value === '' ? '' : parseInt(e.target.value) || null })}
+                                style={{ border: '1px solid rgba(0,0,0,0.15)' }}
+                              >
+                                <option value="">Sin Pack</option>
+                                <option value="6">Pack de 6</option>
+                                <option value="12">Pack de 12</option>
+                              </select>
+                            </div>
+                          </div>
+                        )}
+
+                        {showSupplierForm && (
+                          <div style={{
+                            marginTop: '0.5rem',
+                            marginBottom: '1.2rem',
+                            background: 'rgba(0,0,0,0.03)',
+                            border: '1px dashed rgba(0,0,0,0.15)',
+                            borderRadius: '8px',
+                            padding: '0.8rem',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.6rem'
+                          }}>
+                            <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-dark)' }}>
+                              ➕ Agregar Nuevo Proveedor Inline
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                              <input
+                                type="text"
+                                placeholder="Nombre del proveedor"
+                                className="form-control"
+                                value={newSupplierName}
+                                onChange={e => setNewSupplierName(e.target.value)}
+                                style={{ fontSize: '0.85rem', padding: '0.4rem', border: '1px solid rgba(0,0,0,0.15)' }}
+                              />
+                              <button
+                                type="button"
+                                className="btn btn-primary btn-sm"
+                                onClick={handleCreateSupplier}
+                                disabled={loading}
+                                style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', minHeight: 'unset' }}
+                              >
+                                Guardar
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-outline btn-sm"
+                                onClick={() => {
+                                  setShowSupplierForm(false);
+                                  setNewSupplierName('');
+                                }}
+                                style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', minHeight: 'unset', borderColor: 'rgba(0,0,0,0.2)', color: 'var(--text-dark)' }}
+                              >
+                                Cancelar
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.5rem' }}>
+                          <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={loading}>
+                            {editingProduct ? 'Guardar Cambios' : 'Agregar al Catálogo'}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-outline"
+                            onClick={() => {
+                              cancelEditingProduct();
+                              setShowProductModal(false);
+                            }}
+                            disabled={loading}
+                            style={{ borderColor: 'rgba(0,0,0,0.2)', color: 'var(--text-dark)' }}
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                )}
+
               </div>
             )}
 
@@ -1884,12 +3457,19 @@ export default function App() {
                   <form onSubmit={handleAdminHistSubmit}>
                     <div className="form-group">
                       <label>Seleccionar Producto / Sabor</label>
-                      <select 
+                      <select
                         className="form-control"
                         value={adminHistForm.producto_id}
                         onChange={e => {
                           const pId = e.target.value;
-                          setAdminHistForm({ ...adminHistForm, producto_id: pId, cantidad: '' });
+                          const selectedProd = productos.find(p => p.id === parseInt(pId));
+                          const isVasqueta = selectedProd && selectedProd.categoria === 'helados' && selectedProd.tipo === 'vasqueta_5_6k';
+                          setAdminHistForm({
+                            ...adminHistForm,
+                            producto_id: pId,
+                            cantidad: '',
+                            es_evento: isVasqueta ? false : adminHistForm.es_evento
+                          });
                           setAdminHistWeights([]);
                         }}
                         required
@@ -1902,7 +3482,7 @@ export default function App() {
                             return (
                               <optgroup key={cat.id} label={cat.name}>
                                 {catProds.map(p => (
-                                  <option key={p.id} value={p.id}>{p.nombre} ({formatTipo(p.tipo)})</option>
+                                  <option key={p.id} value={p.id}>{getProductOptionLabel(p)}</option>
                                 ))}
                               </optgroup>
                             );
@@ -1913,8 +3493,8 @@ export default function App() {
 
                     <div className="form-group">
                       <label>Fecha de Fabricación Histórica</label>
-                      <input 
-                        type="date" 
+                      <input
+                        type="date"
                         className="form-control"
                         value={adminHistForm.fecha}
                         onChange={e => setAdminHistForm({ ...adminHistForm, fecha: e.target.value })}
@@ -1922,17 +3502,34 @@ export default function App() {
                       />
                     </div>
 
+                    {/* Event Checkbox */}
+                    {(() => {
+                      const selectedProd = productos.find(p => p.id === parseInt(adminHistForm.producto_id));
+                      const isVasqueta = selectedProd && selectedProd.categoria === 'helados' && selectedProd.tipo === 'vasqueta_5_6k';
+                      if (!selectedProd || isVasqueta) return null;
+                      return (
+                        <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.8rem 0' }}>
+                          <input
+                            type="checkbox"
+                            id="adminHistEsEvento"
+                            checked={adminHistForm.es_evento}
+                            onChange={e => setAdminHistForm({ ...adminHistForm, es_evento: e.target.checked })}
+                            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                          />
+                          <label htmlFor="adminHistEsEvento" style={{ margin: 0, cursor: 'pointer', userSelect: 'none', fontSize: '0.85rem', fontWeight: 600 }}>
+                            Destinar a Stock de Eventos (Separado del stock inicial)
+                          </label>
+                        </div>
+                      );
+                    })()}
+
                     <div className="form-group">
-                      <label>Cantidad Fabricada (unidades)</label>
-                      <input 
-                        type="number" 
-                        min="1"
-                        className="form-control"
+                      <label>Cantidad Fabricada</label>
+                      <UnitCalculatorInput
                         value={adminHistForm.cantidad}
-                        onChange={e => {
-                          const val = e.target.value;
-                          const qty = parseInt(val) || 0;
+                        onChange={val => {
                           setAdminHistForm({ ...adminHistForm, cantidad: val });
+                          const qty = parseInt(val) || 0;
                           setAdminHistWeights(prev => {
                             const next = [...prev];
                             if (next.length < qty) {
@@ -1943,8 +3540,9 @@ export default function App() {
                             return next;
                           });
                         }}
-                        required
+                        product={productos.find(p => p.id === parseInt(adminHistForm.producto_id))}
                         placeholder="Ej. 5"
+                        min={1}
                       />
                     </div>
 
@@ -1955,7 +3553,7 @@ export default function App() {
                           Pesos Individuales (Balanza)
                         </h4>
                         <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: 'var(--text-light)' }}>
-                          Envase: <strong style={{color:'var(--text)'}}>{formatTipo(productos.find(p => p.id === parseInt(adminHistForm.producto_id))?.tipo)}</strong> | Tara: <strong style={{color:'var(--text)'}}>{getTareByTipo(productos.find(p => p.id === parseInt(adminHistForm.producto_id))?.tipo).toFixed(3)} kg</strong>
+                          Envase: <strong style={{ color: 'var(--text)' }}>{formatTipo(productos.find(p => p.id === parseInt(adminHistForm.producto_id))?.tipo)}</strong> | Tara: <strong style={{ color: 'var(--text)' }}>{getTareByTipo(productos.find(p => p.id === parseInt(adminHistForm.producto_id))?.tipo).toFixed(3)} kg</strong>
                         </div>
 
                         {/* Autofill helper input for bulk entry */}
@@ -1964,9 +3562,9 @@ export default function App() {
                             Autocompletar Peso Bruto Unitario (kg)
                           </label>
                           <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <input 
-                              type="number" 
-                              step="0.001" 
+                            <input
+                              type="number"
+                              step="0.001"
                               min="0.001"
                               className="form-control"
                               style={{ padding: '0.35rem 0.5rem', fontSize: '0.85rem' }}
@@ -2004,11 +3602,11 @@ export default function App() {
                             const tare = getTareByTipo(productos.find(p => p.id === parseInt(adminHistForm.producto_id))?.tipo);
                             const gross = parseFloat(w) || 0;
                             const net = Math.max(0, gross - tare);
-                            
+
                             return (
                               <div key={idx} className="form-group" style={{ margin: 0 }}>
                                 <label style={{ fontSize: '0.75rem', marginBottom: '2px', display: 'block' }}># {idx + 1} (Peso Bruto)</label>
-                                <input 
+                                <input
                                   type="number"
                                   step="0.001"
                                   min="0.001"
@@ -2071,11 +3669,11 @@ export default function App() {
                                     <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '2px' }}>
                                       Pesos: {l.pesos.map(w => `${parseFloat(w).toFixed(2)}kg`).join(', ')}
                                       <br />
-                                      Neto total: <strong style={{color:'var(--success)'}}>{netKilos.toFixed(2)} kg</strong>
+                                      Neto total: <strong style={{ color: 'var(--success)' }}>{netKilos.toFixed(2)} kg</strong>
                                     </div>
                                   )}
                                 </td>
-                                <td><strong>{l.cantidad}</strong></td>
+                                <td><strong>{formatQuantity(l.cantidad, l.productos)}</strong></td>
                                 <td style={{ fontSize: '0.8rem' }}>{new Date(l.fecha_produccion).toLocaleDateString()}</td>
                               </tr>
                             );
@@ -2087,15 +3685,331 @@ export default function App() {
                 </div>
               </div>
             )}
+
+            {activeTab === 'maquinas' && (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+                  <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', padding: '4px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <button
+                      className={`tab-btn ${maintenanceSubTab === 'inventario' ? 'active' : ''}`}
+                      style={{ border: 'none', padding: '0.4rem 1.2rem', fontSize: '0.95rem', minHeight: 'unset' }}
+                      onClick={() => setMaintenanceSubTab('inventario')}
+                    >
+                      📋 Inventario de Equipos
+                    </button>
+                    <button
+                      className={`tab-btn ${maintenanceSubTab === 'mantenimiento' ? 'active' : ''}`}
+                      style={{ border: 'none', padding: '0.4rem 1.2rem', fontSize: '0.95rem', minHeight: 'unset' }}
+                      onClick={() => setMaintenanceSubTab('mantenimiento')}
+                    >
+                      🔧 Mantenimientos y Alertas
+                    </button>
+                  </div>
+
+                  {maintenanceSubTab === 'inventario' ? (
+                    <button className="btn btn-primary btn-sm" onClick={() => { setEditingMaquina(null); setMaquinaForm({ nombre: '', tipo_equipo: 'licuadora_horno_batidora_micro', sucursal_id: sucursales.length > 0 ? sucursales[0].id : '', marca: '', modelo: '', numero_serie: '', fecha_adquisicion: '', estado: 'activo', descripcion: '' }); setShowMaquinaModal(true); }}>
+                      ➕ Registrar Equipo
+                    </button>
+                  ) : (
+                    <button className="btn btn-primary btn-sm" onClick={() => { setEditingMaintenance(null); setMaintenanceForm({ maquina_id: maquinas.length > 0 ? maquinas[0].id : '', fecha: getLocalDateString(), tipo: maquinas.length > 0 ? getMaintenanceOptionsForMachine(maquinas[0].id)[0].value : 'revision_tecnica', descripcion: '', cambio_repuesto: false, repuesto_detalle: '', costo: '', realizado_por: '', proxima_fecha: '' }); setShowMaintenanceModal(true); }}>
+                      ➕ Registrar Mantenimiento
+                    </button>
+                  )}
+                </div>
+
+                {maintenanceSubTab === 'inventario' && (
+                  <div>
+                    {/* Filtros */}
+                    <div className="glass-card" style={{ padding: '1.2rem', marginBottom: '1.5rem', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                      <div style={{ flex: '1 1 200px' }}>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Filtrar por Sucursal</span>
+                        <select className="form-control" value={selectedSucursalFilter} onChange={e => setSelectedSucursalFilter(e.target.value)}>
+                          <option value="Todos">Todas las sucursales</option>
+                          {sucursales.map(s => (
+                            <option key={s.id} value={s.id}>{s.nombre}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div style={{ flex: '1 1 200px' }}>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Filtrar por Tipo de Equipo</span>
+                        <select className="form-control" value={selectedTipoEquipoFilter} onChange={e => setSelectedTipoEquipoFilter(e.target.value)}>
+                          <option value="Todos">Todos los tipos</option>
+                          <option value="licuadora_horno_batidora_micro">Licuadoras / Hornos / Batidoras / Microondas</option>
+                          <option value="maquina_helado">Máquinas de Helado</option>
+                          <option value="frio_abatidor_heladera_camara">Abatidores / Heladeras / Cámaras (Frío)</option>
+                          <option value="aire_acondicionado">Aires Acondicionados</option>
+                          <option value="otro">Otros Equipos</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Grilla de Equipos */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem' }}>
+                      {maquinas
+                        .filter(m => selectedSucursalFilter === 'Todos' || m.sucursal_id === parseInt(selectedSucursalFilter))
+                        .filter(m => selectedTipoEquipoFilter === 'Todos' || m.tipo_equipo === selectedTipoEquipoFilter)
+                        .map(m => {
+                          const icon = getEquipoIcon(m.tipo_equipo);
+                          const stateColors = {
+                            activo: { bg: 'rgba(16, 185, 129, 0.15)', text: 'var(--success)' },
+                            inactiva: { bg: 'rgba(107, 114, 128, 0.15)', text: 'var(--text-light)' },
+                            inactivo: { bg: 'rgba(107, 114, 128, 0.15)', text: 'var(--text-light)' },
+                            en_mantenimiento: { bg: 'rgba(245, 158, 11, 0.15)', text: 'var(--warning)' },
+                            de_baja: { bg: 'rgba(239, 68, 68, 0.15)', text: 'var(--danger)' }
+                          };
+                          const stColor = stateColors[m.estado] || { bg: 'rgba(0,0,0,0.05)', text: 'var(--text-dark)' };
+
+                          return (
+                            <div key={m.id} className="glass-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '1.5rem', position: 'relative' }}>
+                              <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.8rem' }}>
+                                  <div style={{ fontSize: '1.8rem' }}>{icon}</div>
+                                  <span style={{
+                                    padding: '0.2rem 0.6rem',
+                                    borderRadius: '12px',
+                                    fontSize: '0.7rem',
+                                    fontWeight: 700,
+                                    textTransform: 'uppercase',
+                                    backgroundColor: stColor.bg,
+                                    color: stColor.text
+                                  }}>
+                                    {m.estado.replace('_', ' ')}
+                                  </span>
+                                </div>
+
+                                <h4 style={{ fontSize: '1.25rem', marginBottom: '0.4rem', fontFamily: 'Outfit', color: 'var(--text-dark)' }}>{m.nombre}</h4>
+                                <div style={{ display: 'inline-block', backgroundColor: 'rgba(24, 144, 255, 0.08)', color: 'var(--secondary)', fontSize: '0.75rem', fontWeight: 600, padding: '0.15rem 0.5rem', borderRadius: '4px', marginBottom: '0.8rem' }}>
+                                  📍 {m.sucursal_nombre}
+                                </div>
+
+                                <div style={{ fontSize: '0.82rem', display: 'flex', flexDirection: 'column', gap: '0.25rem', color: 'var(--text-light)', marginBottom: '0.8rem', borderTop: '1px solid rgba(0,0,0,0.04)', paddingTop: '0.6rem' }}>
+                                  <span><strong>Tipo:</strong> {getEquipoTypeLabel(m.tipo_equipo)}</span>
+                                  {m.marca && <span><strong>Marca:</strong> {m.marca}</span>}
+                                  {m.modelo && <span><strong>Modelo:</strong> {m.modelo}</span>}
+                                  {m.numero_serie && <span><strong>N/S:</strong> {m.numero_serie}</span>}
+                                  {m.fecha_adquisicion && <span><strong>Adquisición:</strong> {new Date(m.fecha_adquisicion).toLocaleDateString()}</span>}
+                                </div>
+
+                                {m.descripcion && (
+                                  <p style={{ fontSize: '0.85rem', color: 'var(--text-dark)', marginBottom: '1rem', fontStyle: 'italic', background: 'rgba(0,0,0,0.02)', padding: '0.4rem 0.6rem', borderRadius: '6px' }}>
+                                    "{m.descripcion}"
+                                  </p>
+                                )}
+                              </div>
+
+                              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '0.8rem' }}>
+                                <button className="btn btn-outline btn-sm" style={{ flex: 1, padding: '0.35rem' }} onClick={() => {
+                                  setMaintenanceForm({
+                                    maquina_id: m.id,
+                                    fecha: getLocalDateString(),
+                                    tipo: getMaintenanceOptionsForMachine(m.id)[0].value,
+                                    descripcion: '',
+                                    cambio_repuesto: false,
+                                    repuesto_detalle: '',
+                                    costo: '',
+                                    realizado_por: '',
+                                    proxima_fecha: ''
+                                  });
+                                  setMaintenanceSubTab('mantenimiento');
+                                  setShowMaintenanceModal(true);
+                                }}>
+                                  🔧 Mantener
+                                </button>
+                                <button className="btn btn-outline btn-sm" style={{ padding: '0.35rem 0.6rem', borderColor: 'rgba(0,0,0,0.1)' }} onClick={() => handleEditMaquina(m)} title="Editar Equipo">
+                                  ✏️
+                                </button>
+                                <button className="btn btn-outline btn-sm" style={{ padding: '0.35rem 0.6rem', borderColor: 'var(--danger)', color: 'var(--danger)' }} onClick={() => handleDeleteMaquina(m.id)} title="Eliminar Equipo">
+                                  🗑️
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+
+                {maintenanceSubTab === 'mantenimiento' && (
+                  <div>
+                    {/* Alertas */}
+                    <div className="glass-card" style={{ padding: '1.2rem', marginBottom: '1.5rem' }}>
+                      <h4 className="section-title" style={{ border: 'none', margin: '0 0 1rem 0', fontSize: '1.1rem', color: 'var(--text-dark)' }}>
+                        🚨 Control de Mantenimientos Vencidos o Próximos
+                      </h4>
+                      {(() => {
+                        const alerts = getMaintenanceAlerts();
+                        if (alerts.length === 0) {
+                          return (
+                            <div style={{ padding: '0.75rem 1rem', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid var(--success)', color: 'var(--success)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span>✅</span>
+                              <span>Todos los equipos se encuentran al día. No hay mantenimientos programados vencidos ni próximos en los siguientes 30 días.</span>
+                            </div>
+                          );
+                        }
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                            {alerts.map(al => (
+                              <div key={al.id} style={{
+                                padding: '0.8rem 1rem',
+                                borderRadius: '8px',
+                                background: al.estado === 'vencido' ? 'rgba(239, 68, 68, 0.08)' : 'rgba(245, 158, 11, 0.08)',
+                                border: `1px solid ${al.estado === 'vencido' ? 'var(--danger)' : 'var(--warning)'}`,
+                                color: al.estado === 'vencido' ? 'hsl(354, 70%, 30%)' : 'hsl(38, 92%, 30%)',
+                                fontSize: '0.85rem',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                flexWrap: 'wrap',
+                                gap: '0.5rem'
+                              }}>
+                                <div>
+                                  <strong>{al.estado === 'vencido' ? '🔴 VENCIDO' : '🟡 PRÓXIMO'}</strong>: El equipo{' '}
+                                  <strong>{al.maquina?.nombre}</strong> ({al.maquina?.sucursal_nombre}) requiere{' '}
+                                  <strong>{getMaintenanceTypeLabel(al.tipo_mantenimiento)}</strong>.{' '}
+                                  {al.estado === 'vencido' ? (
+                                    <span>Venció hace {al.dias} días</span>
+                                  ) : (
+                                    <span>Vence en {al.dias} días</span>
+                                  )}{' '}
+                                  (Fecha límite: {new Date(al.proxima_fecha).toLocaleDateString()}).
+                                </div>
+                                <button className="btn btn-sm btn-primary" style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem', minHeight: 'unset', background: al.estado === 'vencido' ? 'var(--danger)' : 'var(--warning)', color: 'white', border: 'none' }} onClick={() => {
+                                  setMaintenanceForm({
+                                    maquina_id: al.maquina.id,
+                                    fecha: getLocalDateString(),
+                                    tipo: al.tipo_mantenimiento,
+                                    descripcion: '',
+                                    cambio_repuesto: false,
+                                    repuesto_detalle: '',
+                                    costo: '',
+                                    realizado_por: '',
+                                    proxima_fecha: ''
+                                  });
+                                  setShowMaintenanceModal(true);
+                                }}>
+                                  Realizar Mantenimiento
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Historial */}
+                    <div className="glass-card">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', flexWrap: 'wrap', gap: '1rem' }}>
+                        <h4 className="section-title" style={{ border: 'none', margin: 0, fontSize: '1.1rem', color: 'var(--text-dark)' }}>
+                          📋 Historial de Trabajos Realizados
+                        </h4>
+
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontWeight: 600 }}>Filtrar por Máquina:</span>
+                          <select className="form-control" style={{ width: '220px', padding: '0.4rem 0.8rem', fontSize: '0.85rem' }} value={selectedMaquinaFilter} onChange={e => setSelectedMaquinaFilter(e.target.value)}>
+                            <option value="Todos">Todas las máquinas</option>
+                            {maquinas.map(m => (
+                              <option key={m.id} value={m.id}>{m.nombre} ({m.sucursal_nombre})</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="table-container">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Fecha</th>
+                              <th>Equipo</th>
+                              <th>Tipo</th>
+                              <th>Descripción / Diagnóstico</th>
+                              <th>Costo</th>
+                              <th>Realizado Por</th>
+                              <th>Próximo Control</th>
+                              <th>Acciones</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {mantenimientos
+                              .filter(m => selectedMaquinaFilter === 'Todos' || m.maquina_id === parseInt(selectedMaquinaFilter))
+                              .map(m => (
+                                <tr key={m.id}>
+                                  <td><strong>{new Date(m.fecha).toLocaleDateString()}</strong></td>
+                                  <td>
+                                    <strong>{m.maquina_nombre}</strong>
+                                    {m.maquina_marca && <div style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>{m.maquina_marca} {m.maquina_modelo}</div>}
+                                  </td>
+                                  <td style={{ fontSize: '0.85rem' }}>{getMaintenanceTypeLabel(m.tipo)}</td>
+                                  <td>
+                                    <div style={{ fontSize: '0.9rem' }}>{m.descripcion}</div>
+                                    {m.cambio_repuesto && (
+                                      <div style={{ marginTop: '4px' }}>
+                                        <span style={{
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          backgroundColor: 'rgba(24, 144, 255, 0.08)',
+                                          border: '1px dashed var(--secondary)',
+                                          borderRadius: '4px',
+                                          color: 'var(--secondary)',
+                                          fontSize: '0.75rem',
+                                          padding: '0.15rem 0.4rem',
+                                          fontWeight: 600
+                                        }}>
+                                          🔧 Repuesto: {m.repuesto_detalle || 'Detalle no provisto'}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td style={{ fontWeight: 600 }}>{m.costo > 0 ? `$ ${parseFloat(m.costo).toLocaleString('es-AR', { minimumFractionDigits: 2 })}` : '-'}</td>
+                                  <td style={{ fontSize: '0.85rem' }}>{m.realizado_por || '-'}</td>
+                                  <td style={{ fontSize: '0.85rem' }}>
+                                    {m.proxima_fecha ? (
+                                      <span style={{
+                                        color: new Date(m.proxima_fecha) < new Date(getLocalDateString()) ? 'var(--danger)' : 'var(--text-dark)',
+                                        fontWeight: new Date(m.proxima_fecha) < new Date(getLocalDateString()) ? 700 : 500
+                                      }}>
+                                        {new Date(m.proxima_fecha).toLocaleDateString()}
+                                      </span>
+                                    ) : (
+                                      '-'
+                                    )}
+                                  </td>
+                                  <td>
+                                    <div style={{ display: 'flex', gap: '0.3rem' }}>
+                                      <button className="btn btn-outline btn-sm" style={{ padding: '0.25rem 0.4rem', fontSize: '0.8rem' }} onClick={() => handleEditMaintenance(m)} title="Editar Registro">
+                                        ✏️
+                                      </button>
+                                      <button className="btn btn-outline btn-sm" style={{ padding: '0.25rem 0.4rem', fontSize: '0.8rem', borderColor: 'var(--danger)', color: 'var(--danger)' }} onClick={() => handleDeleteMaintenance(m.id)} title="Eliminar Registro">
+                                        🗑️
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            {mantenimientos.filter(m => selectedMaquinaFilter === 'Todos' || m.maquina_id === parseInt(selectedMaquinaFilter)).length === 0 && (
+                              <tr>
+                                <td colSpan="8" style={{ textAlign: 'center', color: 'var(--text-light)', padding: '2rem' }}>
+                                  No hay registros de mantenimiento para esta selección.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
         {/* ================= HELADERO / PASTELERO VIEW ================= */}
-        {(user.rol === 'heladero' || user.rol === 'pastelero') && (
+        {(user.rol === 'heladero' || user.rol === 'pastelero' || user.rol === 'pastelero_helado') && (
           <div>
             <div className="tabs">
               <button className={`tab-btn ${activeTab === 'produccion' ? 'active' : ''}`} onClick={() => setActiveTab('produccion')}>
-                {user.rol === 'pastelero' ? 'Cargar Pastelería' : 'Cargar Producción'}
+                {user.rol === 'heladero' ? 'Cargar Producción' : user.rol === 'pastelero_helado' ? 'Cargar Pastelería Helada' : 'Cargar Pastelería'}
               </button>
               <button className={`tab-btn ${activeTab === 'stock' ? 'active' : ''}`} onClick={() => setActiveTab('stock')}>Mi Stock Fábrica</button>
             </div>
@@ -2104,31 +4018,37 @@ export default function App() {
               <div className="dashboard-grid">
                 <div className="glass-card">
                   <h3 className="section-title">
-                    {user.rol === 'pastelero' ? 'Registro de Pastelería' : 'Registro de Fabricación'}
+                    {user.rol === 'heladero' ? 'Registro de Fabricación' : user.rol === 'pastelero_helado' ? 'Registro de Pastelería Helada' : 'Registro de Pastelería'}
                   </h3>
                   <form onSubmit={handleProductionSubmit}>
                     <div className="form-group">
                       <label>Seleccionar Producto / Sabor</label>
-                      <select 
+                      <select
                         className="form-control"
                         value={prodForm.producto_id}
                         onChange={e => {
                           const pId = e.target.value;
-                          setProdForm({ producto_id: pId, cantidad: '' });
+                          const selectedProd = productos.find(p => p.id === parseInt(pId));
+                          const isVasqueta = selectedProd && selectedProd.categoria === 'helados' && selectedProd.tipo === 'vasqueta_5_6k';
+                          setProdForm({
+                            producto_id: pId,
+                            cantidad: '',
+                            es_evento: isVasqueta ? false : prodForm.es_evento
+                          });
                           setProdWeights([]);
                         }}
                         required
                       >
                         <option value="">-- Seleccionar --</option>
                         {categories
-                          .filter(cat => user.rol === 'heladero' ? cat.id === 'helados' : cat.id !== 'helados')
+                          .filter(cat => isCategoryVisibleToRole(cat.id, user.rol))
                           .map(cat => {
                             const catProds = productos.filter(p => p.categoria === cat.id);
                             if (catProds.length === 0) return null;
                             return (
                               <optgroup key={cat.id} label={cat.name}>
                                 {catProds.map(p => (
-                                  <option key={p.id} value={p.id}>{p.nombre} ({formatTipo(p.tipo)})</option>
+                                  <option key={p.id} value={p.id}>{getProductOptionLabel(p)}</option>
                                 ))}
                               </optgroup>
                             );
@@ -2138,25 +4058,42 @@ export default function App() {
                     </div>
                     <div className="form-group">
                       <label>Fecha de Fabricación</label>
-                      <input 
-                        type="date" 
+                      <input
+                        type="date"
                         className="form-control"
                         value={prodForm.fecha}
                         onChange={e => setProdForm({ ...prodForm, fecha: e.target.value })}
                         required
                       />
                     </div>
+
+                    {/* Event Checkbox */}
+                    {(() => {
+                      const selectedProd = productos.find(p => p.id === parseInt(prodForm.producto_id));
+                      const isVasqueta = selectedProd && selectedProd.categoria === 'helados' && selectedProd.tipo === 'vasqueta_5_6k';
+                      if (!selectedProd || isVasqueta) return null;
+                      return (
+                        <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.8rem 0' }}>
+                          <input
+                            type="checkbox"
+                            id="prodEsEvento"
+                            checked={prodForm.es_evento}
+                            onChange={e => setProdForm({ ...prodForm, es_evento: e.target.checked })}
+                            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                          />
+                          <label htmlFor="prodEsEvento" style={{ margin: 0, cursor: 'pointer', userSelect: 'none', fontSize: '0.85rem', fontWeight: 600 }}>
+                            Destinar a Stock de Eventos (Separado del stock inicial)
+                          </label>
+                        </div>
+                      );
+                    })()}
                     <div className="form-group">
-                      <label>Cantidad Fabricada (unidades)</label>
-                      <input 
-                        type="number" 
-                        min="1"
-                        className="form-control"
+                      <label>Cantidad Fabricada</label>
+                      <UnitCalculatorInput
                         value={prodForm.cantidad}
-                        onChange={e => {
-                          const val = e.target.value;
-                          const qty = parseInt(val) || 0;
+                        onChange={val => {
                           setProdForm({ ...prodForm, cantidad: val });
+                          const qty = parseInt(val) || 0;
                           setProdWeights(prev => {
                             const next = [...prev];
                             if (next.length < qty) {
@@ -2167,8 +4104,9 @@ export default function App() {
                             return next;
                           });
                         }}
-                        required
+                        product={productos.find(p => p.id === parseInt(prodForm.producto_id))}
                         placeholder="Ej. 5"
+                        min={1}
                       />
                     </div>
 
@@ -2179,18 +4117,18 @@ export default function App() {
                           Pesos Individuales (Balanza)
                         </h4>
                         <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: 'var(--text-light)' }}>
-                          Envase: <strong style={{color:'var(--text)'}}>{formatTipo(productos.find(p => p.id === parseInt(prodForm.producto_id))?.tipo)}</strong> | Tara: <strong style={{color:'var(--text)'}}>{getTareByTipo(productos.find(p => p.id === parseInt(prodForm.producto_id))?.tipo).toFixed(3)} kg</strong>
+                          Envase: <strong style={{ color: 'var(--text)' }}>{formatTipo(productos.find(p => p.id === parseInt(prodForm.producto_id))?.tipo)}</strong> | Tara: <strong style={{ color: 'var(--text)' }}>{getTareByTipo(productos.find(p => p.id === parseInt(prodForm.producto_id))?.tipo).toFixed(3)} kg</strong>
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.6rem', maxHeight: '200px', overflowY: 'auto', paddingRight: '0.2rem' }}>
                           {prodWeights.map((w, idx) => {
                             const tare = getTareByTipo(productos.find(p => p.id === parseInt(prodForm.producto_id))?.tipo);
                             const gross = parseFloat(w) || 0;
                             const net = Math.max(0, gross - tare);
-                            
+
                             return (
                               <div key={idx} className="form-group" style={{ margin: 0 }}>
                                 <label style={{ fontSize: '0.75rem', marginBottom: '2px', display: 'block' }}># {idx + 1} (Peso Bruto)</label>
-                                <input 
+                                <input
                                   type="number"
                                   step="0.001"
                                   min="0.001"
@@ -2224,7 +4162,7 @@ export default function App() {
                     </button>
                   </form>
                 </div>
-                
+
                 <div className="glass-card">
                   <h3 className="section-title">Producción Reciente (Lotes)</h3>
                   <div className="table-container" style={{ maxHeight: '420px', overflowY: 'auto' }}>
@@ -2239,7 +4177,7 @@ export default function App() {
                       </thead>
                       <tbody>
                         {recentLotes
-                          .filter(l => l.productos && (user.rol === 'heladero' ? l.productos.categoria === 'helados' : l.productos.categoria !== 'helados'))
+                          .filter(l => l.productos && isCategoryVisibleToRole(l.productos.categoria, user.rol))
                           .map(l => {
                             const tareVal = l.productos ? getTareByTipo(l.productos.tipo) : 0;
                             const netKilos = l.pesos ? l.pesos.reduce((acc, curr) => acc + Math.max(0, parseFloat(curr) - tareVal), 0) : 0;
@@ -2253,17 +4191,17 @@ export default function App() {
                                     <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '2px' }}>
                                       Pesos: {l.pesos.map(w => `${parseFloat(w).toFixed(2)}kg`).join(', ')}
                                       <br />
-                                      Neto total: <strong style={{color:'var(--success)'}}>{netKilos.toFixed(2)} kg</strong>
+                                      Neto total: <strong style={{ color: 'var(--success)' }}>{netKilos.toFixed(2)} kg</strong>
                                     </div>
                                   )}
                                 </td>
-                                <td><strong>{l.cantidad}</strong></td>
+                                <td><strong>{formatQuantity(l.cantidad, l.productos)}</strong></td>
                                 <td style={{ fontSize: '0.8rem' }}>{new Date(l.fecha_produccion).toLocaleDateString()}</td>
                               </tr>
                             );
                           })
                         }
-                        {recentLotes.filter(l => l.productos && (user.rol === 'heladero' ? l.productos.categoria === 'helados' : l.productos.categoria !== 'helados')).length === 0 && (
+                        {recentLotes.filter(l => l.productos && isCategoryVisibleToRole(l.productos.categoria, user.rol)).length === 0 && (
                           <tr>
                             <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-light)' }}>
                               No hay producciones registradas recientemente.
@@ -2279,21 +4217,59 @@ export default function App() {
 
             {activeTab === 'stock' && (
               <div className="glass-card">
-                <h3 className="section-title">Stock Actual en Fábrica (Depósito Principal)</h3>
-                
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+                  <h3 className="section-title" style={{ margin: 0, border: 'none' }}>Stock Actual en Fábrica (Depósito Principal)</h3>
+                  <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', padding: '4px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <button
+                      className={`btn btn-sm ${!showEventStock ? 'btn-primary' : 'btn-outline'}`}
+                      style={{ border: 'none', borderRadius: '8px', padding: '0.4rem 1rem', fontSize: '0.8rem', minHeight: 'unset' }}
+                      onClick={() => setShowEventStock(false)}
+                    >
+                      📦 Stock Común
+                    </button>
+                    <button
+                      className={`btn btn-sm ${showEventStock ? 'btn-primary' : 'btn-outline'}`}
+                      style={{ border: 'none', borderRadius: '8px', padding: '0.4rem 1rem', fontSize: '0.8rem', minHeight: 'unset' }}
+                      onClick={() => setShowEventStock(true)}
+                    >
+                      🎉 Stock de Eventos
+                    </button>
+                  </div>
+                </div>
+
                 {user.rol === 'heladero' ? (
                   <>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1.5rem' }}>
-                      {['Todos', 'Dulces de leche', 'Chocolate', 'Cremas', 'Sin gluten', 'Frutales al agua'].map(group => (
-                        <button
-                          key={group}
-                          className={`btn btn-sm ${stockGroupFilter === group ? 'btn-primary' : 'btn-outline'}`}
-                          style={{ borderRadius: '8px', padding: '0.4rem 0.8rem', fontWeight: 600 }}
-                          onClick={() => setStockGroupFilter(group)}
-                        >
-                          {group}
-                        </button>
-                      ))}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginRight: '0.5rem' }}>Formato:</span>
+                        {[
+                          { id: 'Todos', label: 'Todos' },
+                          { id: 'Vasqueta', label: 'Vasquetas' },
+                          { id: 'Balde', label: 'Baldes' }
+                        ].map(fmt => (
+                          <button
+                            key={fmt.id}
+                            className={`btn btn-sm ${iceCreamFormatFilter === fmt.id ? 'btn-primary' : 'btn-outline'}`}
+                            style={{ borderRadius: '8px', padding: '0.4rem 0.8rem', fontWeight: 600 }}
+                            onClick={() => setIceCreamFormatFilter(fmt.id)}
+                          >
+                            {fmt.label}
+                          </button>
+                        ))}
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginRight: '0.5rem' }}>Categoría:</span>
+                        {['Todos', 'Dulces de leche', 'Chocolate', 'Cremas', 'Sin gluten', 'Frutales al agua'].map(group => (
+                          <button
+                            key={group}
+                            className={`btn btn-sm ${stockGroupFilter === group ? 'btn-primary' : 'btn-outline'}`}
+                            style={{ borderRadius: '8px', padding: '0.4rem 0.8rem', fontWeight: 600 }}
+                            onClick={() => setStockGroupFilter(group)}
+                          >
+                            {group}
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
                     <div className="table-container">
@@ -2301,21 +4277,28 @@ export default function App() {
                         <thead>
                           <tr>
                             <th>Sabor / Helado</th>
-                            <th style={{ textAlign: 'center' }}>Vasqueta</th>
-                            <th style={{ textAlign: 'center' }}>Balde 5k</th>
-                            <th style={{ textAlign: 'center' }}>Balde 10k</th>
+                            {(iceCreamFormatFilter === 'Todos' || iceCreamFormatFilter === 'Vasqueta') && (
+                              <th style={{ textAlign: 'center' }}>Vasqueta</th>
+                            )}
+                            {(iceCreamFormatFilter === 'Todos' || iceCreamFormatFilter === 'Balde') && (
+                              <th style={{ textAlign: 'center' }}>Balde 5k</th>
+                            )}
+                            {(iceCreamFormatFilter === 'Todos' || iceCreamFormatFilter === 'Balde') && (
+                              <th style={{ textAlign: 'center' }}>Balde 10k</th>
+                            )}
                             <th>Kilos Netos Totales</th>
                           </tr>
                         </thead>
                         <tbody>
                           {(() => {
-                            const groupedStock = getGroupedStock();
+                            const groupedStock = getGroupedStock(showEventStock);
                             const filteredStock = groupedStock.filter(s => stockGroupFilter === 'Todos' || s.group === stockGroupFilter);
-                            
+
                             if (filteredStock.length === 0) {
+                              const dynamicColSpan = iceCreamFormatFilter === 'Todos' ? 5 : iceCreamFormatFilter === 'Vasqueta' ? 3 : 4;
                               return (
                                 <tr>
-                                  <td colSpan="5" style={{ textAlign: 'center', color: 'var(--text-light)' }}>
+                                  <td colSpan={dynamicColSpan} style={{ textAlign: 'center', color: 'var(--text-light)' }}>
                                     No hay productos en esta categoría con stock en Fábrica.
                                   </td>
                                 </tr>
@@ -2326,9 +4309,11 @@ export default function App() {
                               const wVasqueta = s.vasqueta_id ? getProductNetWeight(s.vasqueta_id, 'vasqueta_5_6k') : 5.5;
                               const wBalde5k = s.balde_4k_id ? getProductNetWeight(s.balde_4k_id, 'balde_4k') : 5.0;
                               const wBalde10k = s.balde_8k_id ? getProductNetWeight(s.balde_8k_id, 'balde_8k') : 10.0;
-                              
-                              const totalKilos = (s.vasqueta_qty * wVasqueta) + (s.balde_4k_qty * wBalde5k) + (s.balde_8k_qty * wBalde10k);
-                              
+
+                              const totalKilos = 
+                                ((iceCreamFormatFilter === 'Todos' || iceCreamFormatFilter === 'Vasqueta') ? (showEventStock ? 0 : (s.vasqueta_qty * wVasqueta)) : 0) +
+                                ((iceCreamFormatFilter === 'Todos' || iceCreamFormatFilter === 'Balde') ? (s.balde_4k_qty * wBalde5k) + (s.balde_8k_qty * wBalde10k) : 0);
+
                               return (
                                 <tr key={s.flavor}>
                                   <td>
@@ -2337,15 +4322,21 @@ export default function App() {
                                       Categoría: <span className="badge badge-solicitado" style={{ fontSize: '0.7rem', padding: '0.1rem 0.3rem' }}>{s.group}</span>
                                     </div>
                                   </td>
-                                  <td style={{ textAlign: 'center', fontWeight: s.vasqueta_qty > 0 ? 700 : 400, color: s.vasqueta_qty > 0 ? 'var(--text)' : 'var(--text-light)' }}>
-                                    {s.vasqueta_qty}
-                                  </td>
-                                  <td style={{ textAlign: 'center', fontWeight: s.balde_4k_qty > 0 ? 700 : 400, color: s.balde_4k_qty > 0 ? 'var(--text)' : 'var(--text-light)' }}>
-                                    {s.balde_4k_qty}
-                                  </td>
-                                  <td style={{ textAlign: 'center', fontWeight: s.balde_8k_qty > 0 ? 700 : 400, color: s.balde_8k_qty > 0 ? 'var(--text)' : 'var(--text-light)' }}>
-                                    {s.balde_8k_qty}
-                                  </td>
+                                  {(iceCreamFormatFilter === 'Todos' || iceCreamFormatFilter === 'Vasqueta') && (
+                                    <td style={{ textAlign: 'center', color: showEventStock ? 'var(--text-light)' : (s.vasqueta_qty > 0 ? 'var(--text)' : 'var(--text-light)') }}>
+                                      {showEventStock ? '-' : s.vasqueta_qty}
+                                    </td>
+                                  )}
+                                  {(iceCreamFormatFilter === 'Todos' || iceCreamFormatFilter === 'Balde') && (
+                                    <td style={{ textAlign: 'center', fontWeight: s.balde_4k_qty > 0 ? 700 : 400, color: s.balde_4k_qty > 0 ? 'var(--text)' : 'var(--text-light)' }}>
+                                      {s.balde_4k_qty}
+                                    </td>
+                                  )}
+                                  {(iceCreamFormatFilter === 'Todos' || iceCreamFormatFilter === 'Balde') && (
+                                    <td style={{ textAlign: 'center', fontWeight: s.balde_8k_qty > 0 ? 700 : 400, color: s.balde_8k_qty > 0 ? 'var(--text)' : 'var(--text-light)' }}>
+                                      {s.balde_8k_qty}
+                                    </td>
+                                  )}
                                   <td>
                                     {totalKilos > 0 ? (
                                       <strong style={{ color: 'var(--success)' }}>{totalKilos.toFixed(2)} kg</strong>
@@ -2373,17 +4364,24 @@ export default function App() {
                       </thead>
                       <tbody>
                         {stockData
-                          .filter(s => s.sucursal_id === 1 && s.categoria !== 'helados')
+                          .filter(s => s.sucursal_id === 1 && isCategoryVisibleToRole(s.categoria, user.rol) && s.es_evento === showEventStock)
                           .map(s => (
                             <tr key={s.producto_id}>
                               <td><strong>{s.producto_nombre}</strong></td>
                               <td style={{ textTransform: 'capitalize' }}>{formatTipo(s.tipo)}</td>
                               <td style={{ fontWeight: 700, color: s.cantidad > 5 ? 'var(--success)' : 'var(--danger)' }}>
-                                {s.cantidad} unidades
+                                {formatQuantity(s.cantidad, productos.find(p => p.id === s.producto_id))}
                               </td>
                             </tr>
                           ))
                         }
+                        {stockData.filter(s => s.sucursal_id === 1 && isCategoryVisibleToRole(s.categoria, user.rol) && s.es_evento === showEventStock).length === 0 && (
+                          <tr>
+                            <td colSpan="3" style={{ textAlign: 'center', color: 'var(--text-light)' }}>
+                              No hay stock registrado en esta sección.
+                            </td>
+                          </tr>
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -2399,6 +4397,7 @@ export default function App() {
             <div className="tabs">
               <button className={`tab-btn ${activeTab === 'pedidos' ? 'active' : ''}`} onClick={() => setActiveTab('pedidos')}>Preparar Pedidos</button>
               <button className={`tab-btn ${activeTab === 'rutas' ? 'active' : ''}`} onClick={() => setActiveTab('rutas')}>Mis Viajes y Repartos</button>
+              <button className={`tab-btn ${activeTab === 'deposito' ? 'active' : ''}`} onClick={() => setActiveTab('deposito')}>Mi Depósito</button>
             </div>
 
             {activeTab === 'pedidos' && (
@@ -2460,7 +4459,7 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody>
-                      {orders.map(order => (
+                      {orders.filter(order => order.sucursal_destino_id !== user.sucursal_id).map(order => (
                         <tr key={order.id}>
                           <td>#{order.id}</td>
                           <td><strong>{order.destino_nombre}</strong></td>
@@ -2473,7 +4472,7 @@ export default function App() {
                           </td>
                         </tr>
                       ))}
-                      {orders.length === 0 && (
+                      {orders.filter(order => order.sucursal_destino_id !== user.sucursal_id).length === 0 && (
                         <tr>
                           <td colSpan="5" style={{ textAlign: 'center', color: 'var(--text-light)' }}>
                             No tienes viajes activos asignados en este momento.
@@ -2482,6 +4481,129 @@ export default function App() {
                       )}
                     </tbody>
                   </table>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'deposito' && (
+              <div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', alignItems: 'start', flexWrap: 'wrap' }}>
+                  {/* Stock panel */}
+                  <div className="glass-card">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      <h3 className="section-title" style={{ margin: 0, border: 'none' }}>📦 Stock de mi Depósito</h3>
+                      
+                      <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', padding: '2px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        <button
+                          className={`btn btn-sm ${!showEventStockDepot ? 'btn-primary' : 'btn-outline'}`}
+                          style={{ border: 'none', borderRadius: '6px', padding: '0.3rem 0.8rem', fontSize: '0.75rem', minHeight: 'unset' }}
+                          onClick={() => setShowEventStockDepot(false)}
+                        >
+                          Común
+                        </button>
+                        <button
+                          className={`btn btn-sm ${showEventStockDepot ? 'btn-primary' : 'btn-outline'}`}
+                          style={{ border: 'none', borderRadius: '6px', padding: '0.3rem 0.8rem', fontSize: '0.75rem', minHeight: 'unset' }}
+                          onClick={() => setShowEventStockDepot(true)}
+                        >
+                          Eventos
+                        </button>
+                      </div>
+                    </div>
+
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '1.2rem' }}>
+                      Inventario actual de insumos, materias primas y packaging asignados a tu vehículo/depósito.
+                    </p>
+
+                    <div className="table-container">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Producto</th>
+                            <th>Formato / Tipo</th>
+                            <th style={{ textAlign: 'center' }}>Stock Disponible</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {productos
+                            .filter(p => p.categoria === 'termicos' || p.categoria === 'otros')
+                            .map(prod => {
+                              const stock = stockData.find(s => s.producto_id === prod.id && s.sucursal_id === user.sucursal_id && s.es_evento === showEventStockDepot)?.cantidad || 0;
+                              return (
+                                <tr key={prod.id}>
+                                  <td><strong>{prod.nombre}</strong></td>
+                                  <td><span style={{ fontSize: '0.8rem', textTransform: 'capitalize' }}>{formatTipo(prod.tipo)}</span></td>
+                                  <td style={{ textAlign: 'center' }}>
+                                    <span className={stock > 0 ? 'matrix-cell-ok' : 'matrix-cell-empty'} style={{
+                                      padding: '0.2rem 0.6rem',
+                                      borderRadius: '6px',
+                                      fontWeight: 600,
+                                      display: 'inline-block',
+                                      minWidth: '40px'
+                                    }}>
+                                      {stock}
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Incoming orders panel */}
+                  <div className="glass-card">
+                    <h3 className="section-title">📥 Pedidos a Recibir en Depósito</h3>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '1.2rem' }}>
+                      Pedidos preparados por Administración con destino a tu depósito. Confirma la recepción física para dar de alta los insumos en tu stock.
+                    </p>
+
+                    <div className="table-container">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>ID Pedido</th>
+                            <th>Estado</th>
+                            <th>Solicitado el</th>
+                            <th style={{ textAlign: 'right' }}>Acción</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {orders
+                            .filter(o => o.sucursal_destino_id === user.sucursal_id && (o.estado === 'preparado' || o.estado === 'en_transito'))
+                            .map(order => (
+                              <tr key={order.id}>
+                                <td>
+                                  <strong>#{order.id}</strong>
+                                  {order.es_evento && (
+                                    <span className="badge" style={{ background: 'var(--primary)', color: 'white', fontSize: '0.6rem', padding: '0.1rem 0.3rem', marginLeft: '0.3rem' }}>
+                                      Evento
+                                    </span>
+                                  )}
+                                </td>
+                                <td>
+                                  <span className={getBadgeClass(order.estado)}>{translateState(order.estado)}</span>
+                                </td>
+                                <td>{new Date(order.fecha_solicitud).toLocaleDateString()}</td>
+                                <td style={{ textAlign: 'right' }}>
+                                  <button className="btn btn-primary btn-sm" onClick={() => viewOrderDetail(order.id)}>
+                                    Controlar y Recibir
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          {orders.filter(o => o.sucursal_destino_id === user.sucursal_id && (o.estado === 'preparado' || o.estado === 'en_transito')).length === 0 && (
+                            <tr>
+                              <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-light)', padding: '2rem 1rem' }}>
+                                No hay envíos pendientes hacia tu depósito en este momento.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -2500,24 +4622,102 @@ export default function App() {
 
             {activeTab === 'pedido_nuevo' && (
               <div className="glass-card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
                   <div>
                     <h3 className="section-title" style={{ margin: 0, border: 'none' }}>Armar Pedido</h3>
                     <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: '0.25rem' }}>
                       El sistema calcula sugerencias basadas en tu consumo de los últimos 7 días y tu stock actual.
                     </p>
                   </div>
-                  <button className="btn btn-secondary btn-sm" onClick={applyAllSuggestions}>
-                    ⚡ Aplicar Sugerencias Inteligentes
-                  </button>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.05)', padding: '0.5rem 0.8rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                      <input
+                        type="checkbox"
+                        id="orderIsEventCheck"
+                        checked={orderIsEvent}
+                        onChange={e => {
+                          setOrderIsEvent(e.target.checked);
+                        }}
+                        style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                      />
+                      <label htmlFor="orderIsEventCheck" style={{ margin: 0, cursor: 'pointer', userSelect: 'none', fontSize: '0.85rem', fontWeight: 600 }}>
+                        🚨 Pedido para EVENTO (Stock de Eventos)
+                      </label>
+                    </div>
+                    <button className="btn btn-secondary btn-sm" onClick={applyAllSuggestions}>
+                      ⚡ Aplicar Sugerencias
+                    </button>
+                  </div>
                 </div>
+
+                {pendingItems.length > 0 && (
+                  <div className="glass-card" style={{
+                    background: 'rgba(255, 171, 0, 0.08)',
+                    border: '1px solid rgba(255, 171, 0, 0.3)',
+                    borderRadius: '12px',
+                    padding: '1.2rem',
+                    marginBottom: '1.5rem',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--warning)', fontWeight: 700, fontSize: '1.05rem', marginBottom: '0.6rem' }}>
+                      <span>⚠️</span> Productos pendientes de envíos anteriores (Falta de Stock)
+                    </div>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', margin: '0 0 1rem 0' }}>
+                      Los siguientes productos no pudieron cargarse por falta de stock. Agrégalos a este nuevo pedido para volver a solicitarlos:
+                    </p>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.8rem', alignItems: 'center' }}>
+                      {pendingItems.map(p => (
+                        <div key={p.producto_id} style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.75rem',
+                          background: 'rgba(255,255,255,0.05)',
+                          padding: '0.5rem 0.8rem',
+                          borderRadius: '8px',
+                          border: '1px solid rgba(255,255,255,0.08)'
+                        }}>
+                          <div style={{ fontSize: '0.85rem' }}>
+                            <strong>{p.nombre}</strong> <span style={{ color: 'var(--text-light)', fontSize: '0.75rem' }}>({formatTipo(p.tipo)})</span>: <strong style={{ color: 'var(--warning)' }}>{p.cantidad} u.</strong>
+                          </div>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem', minHeight: 'unset', height: 'auto', borderRadius: '4px' }}
+                            onClick={() => {
+                              setOrderItems(prev => ({
+                                ...prev,
+                                [p.producto_id]: (prev[p.producto_id] || 0) + p.cantidad
+                              }));
+                            }}
+                          >
+                            ＋ Agregar
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        className="btn btn-primary btn-sm"
+                        style={{ padding: '0.4rem 0.8rem', borderRadius: '8px', fontWeight: 600 }}
+                        onClick={() => {
+                          setOrderItems(prev => {
+                            const updated = { ...prev };
+                            pendingItems.forEach(p => {
+                              updated[p.producto_id] = (updated[p.producto_id] || 0) + p.cantidad;
+                            });
+                            return updated;
+                          });
+                        }}
+                      >
+                        ⚡ Agregar Todos
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Sub-tabs and Search Bar */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', marginBottom: '2rem', background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
                   <div style={{ position: 'relative' }}>
-                    <input 
-                      type="text" 
-                      placeholder="🔍 Buscar producto o sabor..." 
+                    <input
+                      type="text"
+                      placeholder="🔍 Buscar producto o sabor..."
                       className="form-control"
                       style={{
                         paddingLeft: '2.5rem',
@@ -2532,7 +4732,7 @@ export default function App() {
                       onChange={e => setOrderSearchQuery(e.target.value)}
                     />
                   </div>
-                  
+
                   <div style={{ display: 'flex', gap: '0.4rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.6rem', flexWrap: 'wrap' }}>
                     {[
                       { id: 'helados', label: '🍧 Helados' },
@@ -2564,11 +4764,14 @@ export default function App() {
 
                 {(() => {
                   const activeCategories = categories.filter(cat => cat.id === orderSubTab);
-                  
+
                   const hasVisibleProducts = activeCategories.some(cat => {
                     let catSuggestions = suggestions.filter(s => s.categoria === cat.id);
+                    if (orderIsEvent && cat.id === 'helados') {
+                      catSuggestions = catSuggestions.filter(s => s.tipo !== 'vasqueta_5_6k');
+                    }
                     if (orderSearchQuery) {
-                      catSuggestions = catSuggestions.filter(s => 
+                      catSuggestions = catSuggestions.filter(s =>
                         s.nombre.toLowerCase().includes(orderSearchQuery.toLowerCase()) ||
                         formatTipo(s.tipo).toLowerCase().includes(orderSearchQuery.toLowerCase())
                       );
@@ -2587,20 +4790,23 @@ export default function App() {
 
                   return activeCategories.map(cat => {
                     let catSuggestions = suggestions.filter(s => s.categoria === cat.id);
+                    if (orderIsEvent && cat.id === 'helados') {
+                      catSuggestions = catSuggestions.filter(s => s.tipo !== 'vasqueta_5_6k');
+                    }
                     if (orderSearchQuery) {
-                      catSuggestions = catSuggestions.filter(s => 
+                      catSuggestions = catSuggestions.filter(s =>
                         s.nombre.toLowerCase().includes(orderSearchQuery.toLowerCase()) ||
                         formatTipo(s.tipo).toLowerCase().includes(orderSearchQuery.toLowerCase())
                       );
                     }
                     if (catSuggestions.length === 0) return null;
-                    
+
                     return (
                       <div key={cat.id} style={{ marginBottom: '1.8rem' }}>
-                        <h4 style={{ 
-                          margin: '1.5rem 0 0.75rem 0', 
-                          color: 'var(--primary)', 
-                          borderBottom: '1px solid rgba(255,255,255,0.1)', 
+                        <h4 style={{
+                          margin: '1.5rem 0 0.75rem 0',
+                          color: 'var(--primary)',
+                          borderBottom: '1px solid rgba(255,255,255,0.1)',
                           paddingBottom: '0.4rem',
                           fontSize: '1.05rem',
                           fontWeight: 600
@@ -2623,7 +4829,7 @@ export default function App() {
                               {catSuggestions.map(s => {
                                 const requestedQty = orderItems[s.producto_id] || 0;
                                 const isExceedingFactoryStock = requestedQty > s.stock_fabrica;
-                                
+
                                 return (
                                   <tr key={s.producto_id}>
                                     <td>
@@ -2637,19 +4843,19 @@ export default function App() {
                                     </td>
                                     <td>{s.stock_actual}</td>
                                     <td>
-                                      <span style={{ 
-                                        fontWeight: 600, 
-                                        color: s.stock_fabrica > 0 ? 'var(--success)' : 'var(--danger)' 
+                                      <span style={{
+                                        fontWeight: 600,
+                                        color: s.stock_fabrica > 0 ? 'var(--success)' : 'var(--danger)'
                                       }}>
                                         {s.stock_fabrica}
                                       </span>
                                     </td>
                                     <td>{s.consumo_promedio_diario}</td>
                                     <td>
-                                      <span 
-                                        style={{ 
-                                          background: 'rgba(0,0,0,0.05)', 
-                                          padding: '0.2rem 0.5rem', 
+                                      <span
+                                        style={{
+                                          background: 'rgba(0,0,0,0.05)',
+                                          padding: '0.2rem 0.5rem',
                                           borderRadius: '4px',
                                           fontSize: '0.85rem',
                                           fontWeight: 600,
@@ -2666,17 +4872,17 @@ export default function App() {
                                       </span>
                                     </td>
                                     <td>
-                                      <input 
-                                        type="number" 
-                                        min="0"
-                                        className="form-control"
-                                        style={{ width: '80px', padding: '0.4rem' }}
-                                        value={orderItems[s.producto_id] || 0}
-                                        onChange={e => {
-                                          const val = parseInt(e.target.value) || 0;
-                                          setOrderItems(prev => ({ ...prev, [s.producto_id]: val }));
-                                        }}
-                                      />
+                                      <div style={{ width: '140px' }}>
+                                        <UnitCalculatorInput
+                                          value={orderItems[s.producto_id] || 0}
+                                          onChange={val => {
+                                            setOrderItems(prev => ({ ...prev, [s.producto_id]: val }));
+                                          }}
+                                          product={productos.find(p => p.id === s.producto_id)}
+                                          placeholder="0"
+                                          min={0}
+                                        />
+                                      </div>
                                     </td>
                                   </tr>
                                 );
@@ -2697,8 +4903,8 @@ export default function App() {
                     <form onSubmit={handleBranchCreateOtrosProduct} style={{ display: 'flex', flexWrap: 'wrap', gap: '0.8rem', alignItems: 'flex-end' }}>
                       <div style={{ flex: '1 1 200px' }}>
                         <label style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '0.4rem', display: 'block' }}>Nombre del Producto</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           placeholder="Ej. Vasos de telgopor chicos"
                           className="form-control"
                           value={branchOtrosForm.nombre}
@@ -2708,7 +4914,7 @@ export default function App() {
                       </div>
                       <div style={{ width: '150px' }}>
                         <label style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '0.4rem', display: 'block' }}>Tipo</label>
-                        <select 
+                        <select
                           className="form-control"
                           value={branchOtrosForm.tipo}
                           onChange={e => setBranchOtrosForm({ ...branchOtrosForm, tipo: e.target.value })}
@@ -2748,7 +4954,14 @@ export default function App() {
                     <tbody>
                       {orders.map(order => (
                         <tr key={order.id}>
-                          <td>#{order.id}</td>
+                          <td>
+                            #{order.id}
+                            {order.es_evento && (
+                              <span className="badge" style={{ background: 'var(--primary)', color: 'white', fontSize: '0.65rem', padding: '0.1rem 0.35rem', marginLeft: '0.3rem' }}>
+                                Evento
+                              </span>
+                            )}
+                          </td>
                           <td><span className={getBadgeClass(order.estado)}>{translateState(order.estado)}</span></td>
                           <td>{new Date(order.fecha_solicitud).toLocaleString()}</td>
                           <td>
@@ -2780,10 +4993,19 @@ export default function App() {
                 <form onSubmit={handleConsumoSubmit}>
                   <div className="form-group">
                     <label>Seleccionar Sabor / Producto</label>
-                    <select 
+                    <select
                       className="form-control"
                       value={consumoForm.producto_id}
-                      onChange={e => setConsumoForm({ ...consumoForm, producto_id: e.target.value })}
+                      onChange={e => {
+                        const pId = e.target.value;
+                        const selectedProd = productos.find(p => p.id === parseInt(pId));
+                        const isVasqueta = selectedProd && selectedProd.categoria === 'helados' && selectedProd.tipo === 'vasqueta_5_6k';
+                        setConsumoForm({
+                          ...consumoForm,
+                          producto_id: pId,
+                          es_evento: isVasqueta ? false : consumoForm.es_evento
+                        });
+                      }}
                       required
                     >
                       <option value="">-- Seleccionar --</option>
@@ -2793,23 +5015,43 @@ export default function App() {
                         return (
                           <optgroup key={cat.id} label={cat.name}>
                             {catProds.map(p => (
-                              <option key={p.id} value={p.id}>{p.nombre} ({formatTipo(p.tipo)})</option>
+                              <option key={p.id} value={p.id}>{getProductOptionLabel(p)}</option>
                             ))}
                           </optgroup>
                         );
                       })}
                     </select>
                   </div>
+
+                  {/* Event Checkbox */}
+                  {(() => {
+                    const selectedProd = productos.find(p => p.id === parseInt(consumoForm.producto_id));
+                    const isVasqueta = selectedProd && selectedProd.categoria === 'helados' && selectedProd.tipo === 'vasqueta_5_6k';
+                    if (!selectedProd || isVasqueta) return null;
+                    return (
+                      <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.8rem 0' }}>
+                        <input
+                          type="checkbox"
+                          id="consumoEsEvento"
+                          checked={consumoForm.es_evento}
+                          onChange={e => setConsumoForm({ ...consumoForm, es_evento: e.target.checked })}
+                          style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                        />
+                        <label htmlFor="consumoEsEvento" style={{ margin: 0, cursor: 'pointer', userSelect: 'none', fontSize: '0.85rem', fontWeight: 600 }}>
+                          Descontar de Stock de Eventos
+                        </label>
+                      </div>
+                    );
+                  })()}
+
                   <div className="form-group">
-                    <label>Cantidad Consumida (unidades)</label>
-                    <input 
-                      type="number" 
-                      min="1"
-                      className="form-control"
+                    <label>Cantidad Consumida</label>
+                    <UnitCalculatorInput
                       value={consumoForm.cantidad}
-                      onChange={e => setConsumoForm({ ...consumoForm, cantidad: e.target.value })}
-                      required
+                      onChange={val => setConsumoForm({ ...consumoForm, cantidad: val })}
+                      product={productos.find(p => p.id === parseInt(consumoForm.producto_id))}
                       placeholder="Ej. 2"
+                      min={1}
                     />
                   </div>
                   <button type="submit" className="btn btn-danger" disabled={loading}>
@@ -2821,17 +5063,39 @@ export default function App() {
 
             {activeTab === 'mi_stock' && (
               <div className="glass-card">
-                <h3 className="section-title">Stock Actual en mi Sucursal</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+                  <h3 className="section-title" style={{ margin: 0, border: 'none' }}>Stock Actual en mi Sucursal</h3>
+                  <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', padding: '4px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <button
+                      className={`btn btn-sm ${!showEventStock ? 'btn-primary' : 'btn-outline'}`}
+                      style={{ border: 'none', borderRadius: '8px', padding: '0.4rem 1rem', fontSize: '0.8rem', minHeight: 'unset' }}
+                      onClick={() => setShowEventStock(false)}
+                    >
+                      📦 Stock Común
+                    </button>
+                    <button
+                      className={`btn btn-sm ${showEventStock ? 'btn-primary' : 'btn-outline'}`}
+                      style={{ border: 'none', borderRadius: '8px', padding: '0.4rem 1rem', fontSize: '0.8rem', minHeight: 'unset' }}
+                      onClick={() => setShowEventStock(true)}
+                    >
+                      🎉 Stock de Eventos
+                    </button>
+                  </div>
+                </div>
+
                 {categories.map(cat => {
-                  const catStock = stockData.filter(s => s.categoria === cat.id);
+                  let catStock = stockData.filter(s => s.categoria === cat.id && s.es_evento === showEventStock);
+                  if (cat.id === 'helados' && showEventStock) {
+                    catStock = catStock.filter(s => s.tipo !== 'vasqueta_5_6k');
+                  }
                   if (catStock.length === 0) return null;
 
                   return (
                     <div key={cat.id} style={{ marginBottom: '1.8rem' }}>
-                      <h4 style={{ 
-                        margin: '1.2rem 0 0.75rem 0', 
-                        color: 'var(--primary)', 
-                        borderBottom: '1px solid rgba(255,255,255,0.1)', 
+                      <h4 style={{
+                        margin: '1.2rem 0 0.75rem 0',
+                        color: 'var(--primary)',
+                        borderBottom: '1px solid rgba(255,255,255,0.1)',
                         paddingBottom: '0.4rem',
                         fontSize: '1.05rem',
                         fontWeight: 600
@@ -2905,15 +5169,18 @@ export default function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {selectedPedido.items.map(it => (
-                      <tr key={it.producto_id}>
-                        <td><strong>{it.producto_nombre}</strong></td>
-                        <td style={{ textAlign: 'center' }}>{it.cantidad_solicitada}</td>
-                        {selectedPedido.estado !== 'solicitado' && <td style={{ textAlign: 'center' }}>{it.cantidad_preparada}</td>}
-                        {selectedPedido.estado !== 'solicitado' && selectedPedido.estado !== 'preparado' && <td style={{ textAlign: 'center' }}>{it.cantidad_cargada}</td>}
-                        {selectedPedido.estado === 'entregado' || selectedPedido.estado === 'con_discrepancia' ? <td style={{ textAlign: 'center' }}>{it.cantidad_recibida}</td> : null}
-                      </tr>
-                    ))}
+                    {selectedPedido.items.map(it => {
+                      const prod = productos.find(p => p.id === it.producto_id);
+                      return (
+                        <tr key={it.producto_id}>
+                          <td><strong>{it.producto_nombre}</strong></td>
+                          <td style={{ textAlign: 'center' }}>{formatQuantityShort(it.cantidad_solicitada, prod)}</td>
+                          {selectedPedido.estado !== 'solicitado' && <td style={{ textAlign: 'center' }}>{formatQuantityShort(it.cantidad_preparada, prod)}</td>}
+                          {selectedPedido.estado !== 'solicitado' && selectedPedido.estado !== 'preparado' && <td style={{ textAlign: 'center' }}>{formatQuantityShort(it.cantidad_cargada, prod)}</td>}
+                          {selectedPedido.estado === 'entregado' || selectedPedido.estado === 'con_discrepancia' ? <td style={{ textAlign: 'center' }}>{formatQuantityShort(it.cantidad_recibida, prod)}</td> : null}
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -2935,91 +5202,169 @@ export default function App() {
                 <div>
                   <h4 style={{ marginBottom: '0.75rem' }}>Verificar Carga Física en Vehículo</h4>
                   <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '1rem' }}>
-                    Modifica las cantidades si cargas algo diferente a lo preparado. La diferencia volverá al stock de fábrica.
+                    Indica cuáles productos están disponibles. Si llevas menos de lo preparado o nada, la diferencia quedará pendiente para la sucursal y volverá al stock de fábrica.
                   </p>
-                  
-                  <div className="items-selection-grid" style={{ marginBottom: '1.5rem' }}>
-                    {selectedPedido.items.map(it => (
-                      <div key={it.producto_id} className="item-row" style={{ background: '#f9f9f9', borderRadius: '8px' }}>
-                        <div><strong>{it.producto_nombre}</strong></div>
-                        <div style={{ textAlign: 'center', fontSize: '0.85rem' }}>Preparado: {it.cantidad_preparada}</div>
-                        <div>
-                          <input 
-                            type="number"
-                            min="0"
-                            max={it.cantidad_preparada}
-                            className="form-control"
-                            value={loadItems[it.producto_id] ?? it.cantidad_preparada}
-                            onChange={e => {
-                              const val = Math.min(it.cantidad_preparada, Math.max(0, parseInt(e.target.value) || 0));
-                              setLoadItems(prev => ({ ...prev, [it.producto_id]: val }));
-                            }}
-                          />
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
+                    {selectedPedido.items.map(it => {
+                      const isAvailable = (loadItems[it.producto_id] ?? it.cantidad_preparada) > 0;
+                      const loadedQty = loadItems[it.producto_id] ?? it.cantidad_preparada;
+                      const pendingQty = Math.max(0, it.cantidad_solicitada - loadedQty);
+
+                      return (
+                        <div
+                          key={it.producto_id}
+                          className="glass-card"
+                          style={{
+                            padding: '1rem',
+                            borderRadius: '12px',
+                            background: isAvailable ? 'rgba(46, 213, 115, 0.05)' : 'rgba(255, 71, 87, 0.05)',
+                            border: isAvailable ? '1px solid rgba(46, 213, 115, 0.3)' : '1px solid rgba(255, 71, 87, 0.3)',
+                            transition: 'all 0.2s ease',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.8rem'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }} onClick={() => {
+                              setLoadItems(prev => ({
+                                ...prev,
+                                [it.producto_id]: isAvailable ? 0 : it.cantidad_preparada
+                              }));
+                            }}>
+                              <input
+                                type="checkbox"
+                                checked={isAvailable}
+                                readOnly
+                                style={{
+                                  width: '20px',
+                                  height: '20px',
+                                  accentColor: 'var(--success)',
+                                  cursor: 'pointer'
+                                }}
+                              />
+                              <div>
+                                <strong style={{ fontSize: '0.95rem' }}>{it.producto_nombre}</strong>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', textTransform: 'capitalize' }}>{formatTipo(it.tipo)}</div>
+                              </div>
+                            </div>
+                            <div>
+                              <span className={`badge ${isAvailable ? 'badge-activo' : 'badge-inactivo'}`} style={{ padding: '0.2rem 0.6rem', borderRadius: '6px', fontSize: '0.7rem' }}>
+                                {isAvailable ? '✓ Disponible' : '✗ Sin Stock'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)', padding: '0.6rem 0.8rem', borderRadius: '8px' }}>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>
+                              <div>Pedido Original: <strong>{formatQuantity(it.cantidad_solicitada, productos.find(p => p.id === it.producto_id))}</strong></div>
+                              <div style={{ marginTop: '2px' }}>Preparado en Fábrica: <strong>{formatQuantity(it.cantidad_preparada, productos.find(p => p.id === it.producto_id))}</strong></div>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.4rem' }}>
+                              {isAvailable ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  <span style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>Cargar:</span>
+                                  <div style={{ width: '130px' }}>
+                                    <UnitCalculatorInput
+                                      value={loadedQty}
+                                      onChange={val => {
+                                        const clampedVal = Math.min(it.cantidad_preparada, val);
+                                        setLoadItems(prev => ({ ...prev, [it.producto_id]: clampedVal }));
+                                      }}
+                                      product={productos.find(p => p.id === it.producto_id)}
+                                      placeholder="Cargar"
+                                      min={1}
+                                    />
+                                  </div>
+                                </div>
+                              ) : (
+                                <div style={{ fontWeight: 600, color: 'var(--danger)', fontSize: '0.85rem' }}>
+                                  No se carga (0 u.)
+                                </div>
+                              )}
+                              {pendingQty > 0 && (
+                                <div style={{ fontSize: '0.75rem', color: 'var(--warning)', fontWeight: 600 }}>
+                                  ⚠️ Quedarán {pendingQty} u. pendientes
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
-                  <button className="btn btn-secondary" onClick={handleConfirmLoad} disabled={loading} style={{ width: '100%' }}>
-                    Confirmar Carga y Salir de Viaje
-                  </button>
-                </div>
-              )}
-
-              {/* ACTION: IN TRANSIT / DELIVER ACTIONS (Transportista) */}
-              {user.rol === 'transportista' && selectedPedido.estado === 'en_transito' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-                  <div className="suggestion-banner">
-                    <div>
-                      <strong>¿Tuviste algún inconveniente en el viaje?</strong><br />
-                      Registra roturas o pérdidas antes de llegar.
-                    </div>
-                    <button className="btn btn-danger btn-sm" onClick={() => setShowLossModal(true)}>
-                      ⚠️ Reportar Rotura/Merma
+                  <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    <button className="btn btn-outline" onClick={() => setSelectedPedido(null)} style={{ flex: 1 }}>
+                      ✕ Volver a Pedidos
+                    </button>
+                    <button className="btn btn-secondary" onClick={handleConfirmLoad} disabled={loading} style={{ flex: 2 }}>
+                      Confirmar Carga y Salir de Viaje
                     </button>
                   </div>
-
-                  <button className="btn btn-primary" onClick={handleMarkDelivered} disabled={loading} style={{ width: '100%' }}>
-                    Entregar en Sucursal (Confirmar Descarga)
-                  </button>
                 </div>
               )}
 
-              {/* ACTION: CONFIRM RECEIPT / CROSS-CONFIRMATION (Sucursal Employee) */}
-              {user.rol === 'sucursal' && (selectedPedido.estado === 'en_transito' || (user.sucursal_id === 4 && selectedPedido.estado === 'preparado')) && (
-                <div>
-                  <h4 style={{ marginBottom: '0.5rem' }}>{user.sucursal_id === 4 ? 'Confirmación de Recepción Interna' : 'Control Cruzado de Recepción Física'}</h4>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '1.2rem' }}>
-                    {user.sucursal_id === 4 
-                      ? 'Controla la mercadería retirada directamente de Fábrica. Escribe las cantidades físicas recibidas. Si hay diferencias, detalla el motivo.' 
-                      : 'Controla la mercadería junto con el transportista. Escribe cantidades físicas recibidas. Si hay diferencias, detalla el motivo.'}
-                  </p>
+            {/* ACTION: IN TRANSIT / DELIVER ACTIONS (Transportista) */}
+            {user.rol === 'transportista' && selectedPedido.estado === 'en_transito' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                <div className="suggestion-banner">
+                  <div>
+                    <strong>¿Tuviste algún inconveniente en el viaje?</strong><br />
+                    Registra roturas o pérdidas antes de llegar.
+                  </div>
+                  <button className="btn btn-danger btn-sm" onClick={() => setShowLossModal(true)}>
+                    ⚠️ Reportar Rotura/Merma
+                  </button>
+                </div>
 
-                  <div className="items-selection-grid" style={{ marginBottom: '1.5rem' }}>
-                    {selectedPedido.items.map(it => (
+                <button className="btn btn-primary" onClick={handleMarkDelivered} disabled={loading} style={{ width: '100%' }}>
+                  Entregar en Sucursal (Confirmar Descarga)
+                </button>
+              </div>
+            )}
+
+            {/* ACTION: CONFIRM RECEIPT / CROSS-CONFIRMATION (Sucursal Employee / Transportista Depot) */}
+            {((user.rol === 'sucursal' && (selectedPedido.estado === 'en_transito' || (user.sucursal_id === 4 && selectedPedido.estado === 'preparado'))) ||
+              (user.rol === 'transportista' && selectedPedido.sucursal_destino_id === user.sucursal_id && (selectedPedido.estado === 'en_transito' || selectedPedido.estado === 'preparado'))) && (
+              <div>
+                <h4 style={{ marginBottom: '0.5rem' }}>
+                  {user.sucursal_id === 4 ? 'Confirmación de Recepción Interna' : user.rol === 'transportista' ? 'Recepción de Mercadería en Depósito' : 'Control Cruzado de Recepción Física'}
+                </h4>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '1.2rem' }}>
+                  {user.sucursal_id === 4
+                    ? 'Controla la mercadería retirada directamente de Fábrica. Escribe las cantidades físicas recibidas. Si hay diferencias, detalla el motivo.'
+                    : user.rol === 'transportista'
+                    ? 'Controla los insumos que ingresan a tu depósito. Ingresa las cantidades físicas recibidas.'
+                    : 'Controla la mercadería junto con el transportista. Escribe cantidades físicas recibidas. Si hay diferencias, detalla el motivo.'}
+                </p>
+
+                <div className="items-selection-grid" style={{ marginBottom: '1.5rem' }}>
+                  {selectedPedido.items.map(it => {
+                    const baseQty = it.cantidad_cargada > 0 ? it.cantidad_cargada : it.cantidad_preparada;
+                    return (
                       <div key={it.producto_id} style={{ background: '#f9f9f9', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.05)', marginBottom: '0.75rem' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                           <strong>{it.producto_nombre}</strong>
                           <span style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>
-                            {user.sucursal_id === 4 ? 'Preparado' : 'Despachado'}: <strong>{it.cantidad_cargada}</strong>
+                            {user.sucursal_id === 4 || user.rol === 'transportista' ? 'Preparado' : 'Despachado'}: <strong>{formatQuantity(baseQty, productos.find(p => p.id === it.producto_id))}</strong>
                           </span>
                         </div>
-                        
+
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '0.75rem', alignItems: 'center' }}>
-                          <input 
-                            type="number"
-                            min="0"
-                            className="form-control"
-                            placeholder="Recibido"
-                            value={receiveItems[it.producto_id] ?? it.cantidad_cargada}
-                            onChange={e => {
-                              const val = Math.max(0, parseInt(e.target.value) || 0);
+                          <UnitCalculatorInput
+                            value={receiveItems[it.producto_id] ?? baseQty}
+                            onChange={val => {
                               setReceiveItems(prev => ({ ...prev, [it.producto_id]: val }));
                             }}
+                            product={productos.find(p => p.id === it.producto_id)}
+                            placeholder="Recibido"
+                            min={0}
                           />
-                          
-                          {(receiveItems[it.producto_id] ?? it.cantidad_cargada) !== it.cantidad_cargada && (
-                            <input 
+
+                          {(receiveItems[it.producto_id] ?? baseQty) !== baseQty && (
+                            <input
                               type="text"
                               className="form-control"
                               placeholder="Motivo de la discrepancia (Obligatorio)"
@@ -3030,17 +5375,18 @@ export default function App() {
                           )}
                         </div>
                       </div>
-                    ))}
-                  </div>
-
-                  <button className="btn btn-success" onClick={handleConfirmReceive} disabled={loading} style={{ width: '100%' }}>
-                    Confirmar Recepción y Actualizar mi Stock
-                  </button>
+                    );
+                  })}
                 </div>
-              )}
-            </div>
+
+                <button className="btn btn-success" onClick={handleConfirmReceive} disabled={loading} style={{ width: '100%' }}>
+                  Confirmar Recepción y Actualizar mi Stock
+                </button>
+              </div>
+            )}
           </div>
-        )}
+        </div>
+      )}
 
         {/* TRANSIT LOSS MODAL (Driver popup) */}
         {showLossModal && (
@@ -3058,7 +5404,7 @@ export default function App() {
               <form onSubmit={handleReportLoss}>
                 <div className="form-group">
                   <label>Sabor dañado/perdido</label>
-                  <select 
+                  <select
                     className="form-control"
                     value={transitLoss.producto_id}
                     onChange={e => setTransitLoss({ ...transitLoss, producto_id: e.target.value })}
@@ -3070,13 +5416,10 @@ export default function App() {
                     ))}
                   </select>
                 </div>
-                
+
                 <div className="form-group">
                   <label>Cantidad rota/perdida</label>
-                  <input 
-                    type="number"
-                    min="1"
-                    className="form-control"
+                  <UnitCalculatorInput
                     value={transitLoss.cantidad_perdida}
                     onChange={e => setTransitLoss({ ...transitLoss, cantidad_perdida: e.target.value })}
                     required
@@ -3085,7 +5428,7 @@ export default function App() {
 
                 <div className="form-group">
                   <label>Motivo</label>
-                  <input 
+                  <input
                     type="text"
                     className="form-control"
                     placeholder="Ej. Caída de balde en frenada, pérdida de frío"
@@ -3103,8 +5446,372 @@ export default function App() {
           </div>
         )}
 
+        {/* ================= MODAL REGISTRO DE MÁQUINA ================= */}
+        {showMaquinaModal && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+            background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center',
+            alignItems: 'center', zIndex: 1100, padding: '1rem',
+            backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)'
+          }}>
+            <div className="glass-card" style={{ maxWidth: '500px', width: '100%', background: 'rgba(255, 255, 255, 0.98)', color: '#000', maxHeight: '90vh', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid rgba(0,0,0,0.1)', paddingBottom: '0.8rem' }}>
+                <h3 style={{ margin: 0, color: 'var(--text-dark)', fontFamily: 'Outfit' }}>
+                  {editingMaquina ? 'Editar Equipo' : 'Registrar Nuevo Equipo'}
+                </h3>
+                <button
+                  className="btn btn-outline btn-sm"
+                  style={{ borderColor: 'rgba(0,0,0,0.2)', color: 'var(--text-dark)' }}
+                  onClick={() => {
+                    setShowMaquinaModal(false);
+                    setEditingMaquina(null);
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveMaquina}>
+                <div className="form-group">
+                  <label style={{ color: 'var(--text-dark)', fontWeight: 600 }}>Nombre del Equipo *</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={maquinaForm.nombre}
+                    onChange={e => setMaquinaForm({ ...maquinaForm, nombre: e.target.value })}
+                    required
+                    placeholder="Ej. Cámara de frío, Licuadora 1"
+                    style={{ border: '1px solid rgba(0,0,0,0.15)' }}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label style={{ color: 'var(--text-dark)', fontWeight: 600 }}>Tipo de Equipo *</label>
+                  <select
+                    className="form-control"
+                    value={maquinaForm.tipo_equipo}
+                    onChange={e => setMaquinaForm({ ...maquinaForm, tipo_equipo: e.target.value })}
+                    required
+                    style={{ border: '1px solid rgba(0,0,0,0.15)' }}
+                  >
+                    <option value="licuadora_horno_batidora_micro">Licuadora / Horno / Batidora / Microondas</option>
+                    <option value="maquina_helado">Máquina de Helado</option>
+                    <option value="frio_abatidor_heladera_camara">Abatidor / Heladera / Cámara (Frío)</option>
+                    <option value="aire_acondicionado">Aire Acondicionado</option>
+                    <option value="otro">Otro Equipo</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label style={{ color: 'var(--text-dark)', fontWeight: 600 }}>Sucursal / Ubicación *</label>
+                  <select
+                    className="form-control"
+                    value={maquinaForm.sucursal_id}
+                    onChange={e => setMaquinaForm({ ...maquinaForm, sucursal_id: e.target.value })}
+                    required
+                    style={{ border: '1px solid rgba(0,0,0,0.15)' }}
+                  >
+                    <option value="">-- Seleccionar --</option>
+                    {sucursales.map(s => (
+                      <option key={s.id} value={s.id}>{s.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div className="form-group">
+                    <label style={{ color: 'var(--text-dark)', fontWeight: 600 }}>Marca</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={maquinaForm.marca}
+                      onChange={e => setMaquinaForm({ ...maquinaForm, marca: e.target.value })}
+                      placeholder="Ej. Bohn, Vitamix"
+                      style={{ border: '1px solid rgba(0,0,0,0.15)' }}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label style={{ color: 'var(--text-dark)', fontWeight: 600 }}>Modelo</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={maquinaForm.modelo}
+                      onChange={e => setMaquinaForm({ ...maquinaForm, modelo: e.target.value })}
+                      placeholder="Ej. Quiet One"
+                      style={{ border: '1px solid rgba(0,0,0,0.15)' }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div className="form-group">
+                    <label style={{ color: 'var(--text-dark)', fontWeight: 600 }}>Número de Serie</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={maquinaForm.numero_serie}
+                      onChange={e => setMaquinaForm({ ...maquinaForm, numero_serie: e.target.value })}
+                      placeholder="Ej. SN-88123"
+                      style={{ border: '1px solid rgba(0,0,0,0.15)' }}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label style={{ color: 'var(--text-dark)', fontWeight: 600 }}>Fecha Adquisición</label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      value={maquinaForm.fecha_adquisicion}
+                      onChange={e => setMaquinaForm({ ...maquinaForm, fecha_adquisicion: e.target.value })}
+                      style={{ border: '1px solid rgba(0,0,0,0.15)' }}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label style={{ color: 'var(--text-dark)', fontWeight: 600 }}>Estado *</label>
+                  <select
+                    className="form-control"
+                    value={maquinaForm.estado}
+                    onChange={e => setMaquinaForm({ ...maquinaForm, estado: e.target.value })}
+                    required
+                    style={{ border: '1px solid rgba(0,0,0,0.15)' }}
+                  >
+                    <option value="activo">Activo / Operativo</option>
+                    <option value="inactivo">Inactivo / Parado</option>
+                    <option value="en_mantenimiento">En Mantenimiento</option>
+                    <option value="de_baja">De Baja / Descartado</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label style={{ color: 'var(--text-dark)', fontWeight: 600 }}>Descripción / Observaciones</label>
+                  <textarea
+                    className="form-control"
+                    rows="3"
+                    value={maquinaForm.descripcion}
+                    onChange={e => setMaquinaForm({ ...maquinaForm, descripcion: e.target.value })}
+                    placeholder="Detalles adicionales sobre el equipo..."
+                    style={{ border: '1px solid rgba(0,0,0,0.15)', resize: 'vertical' }}
+                  ></textarea>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '1.5rem', borderTop: '1px solid rgba(0,0,0,0.1)', paddingTop: '1rem' }}>
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    onClick={() => {
+                      setShowMaquinaModal(false);
+                      setEditingMaquina(null);
+                    }}
+                    disabled={loading}
+                    style={{ borderColor: 'rgba(0,0,0,0.2)', color: 'var(--text-dark)' }}
+                  >
+                    Cancelar
+                  </button>
+                  <button type="submit" className="btn btn-primary" disabled={loading}>
+                    {editingMaquina ? 'Actualizar Equipo' : 'Guardar Equipo'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ================= MODAL REGISTRO DE MANTENIMIENTO ================= */}
+        {showMaintenanceModal && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+            background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center',
+            alignItems: 'center', zIndex: 1100, padding: '1rem',
+            backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)'
+          }}>
+            <div className="glass-card" style={{ maxWidth: '500px', width: '100%', background: 'rgba(255, 255, 255, 0.98)', color: '#000', maxHeight: '90vh', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid rgba(0,0,0,0.1)', paddingBottom: '0.8rem' }}>
+                <h3 style={{ margin: 0, color: 'var(--text-dark)', fontFamily: 'Outfit' }}>
+                  {editingMaintenance ? 'Editar Mantenimiento' : 'Registrar Mantenimiento'}
+                </h3>
+                <button
+                  className="btn btn-outline btn-sm"
+                  style={{ borderColor: 'rgba(0,0,0,0.2)', color: 'var(--text-dark)' }}
+                  onClick={() => {
+                    setShowMaintenanceModal(false);
+                    setEditingMaintenance(null);
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveMaintenance}>
+                <div className="form-group">
+                  <label style={{ color: 'var(--text-dark)', fontWeight: 600 }}>Seleccionar Equipo *</label>
+                  <select
+                    className="form-control"
+                    value={maintenanceForm.maquina_id}
+                    onChange={e => {
+                      const maqId = e.target.value;
+                      const options = getMaintenanceOptionsForMachine(maqId);
+                      setMaintenanceForm(prev => ({
+                        ...prev,
+                        maquina_id: maqId,
+                        tipo: options.length > 0 ? options[0].value : 'otro'
+                      }));
+                    }}
+                    required
+                    style={{ border: '1px solid rgba(0,0,0,0.15)' }}
+                    disabled={editingMaintenance}
+                  >
+                    <option value="">-- Seleccionar --</option>
+                    {maquinas.map(m => (
+                      <option key={m.id} value={m.id}>{m.nombre} ({m.sucursal_nombre})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label style={{ color: 'var(--text-dark)', fontWeight: 600 }}>Tipo de Trabajo *</label>
+                  <select
+                    className="form-control"
+                    value={maintenanceForm.tipo}
+                    onChange={e => setMaintenanceForm({ ...maintenanceForm, tipo: e.target.value })}
+                    required
+                    style={{ border: '1px solid rgba(0,0,0,0.15)' }}
+                  >
+                    {maintenanceForm.maquina_id ? (
+                      getMaintenanceOptionsForMachine(maintenanceForm.maquina_id).map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))
+                    ) : (
+                      <option value="otro">Selecciona primero un equipo</option>
+                    )}
+                  </select>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div className="form-group">
+                    <label style={{ color: 'var(--text-dark)', fontWeight: 600 }}>Fecha de Trabajo *</label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      value={maintenanceForm.fecha}
+                      onChange={e => setMaintenanceForm({ ...maintenanceForm, fecha: e.target.value })}
+                      required
+                      style={{ border: '1px solid rgba(0,0,0,0.15)' }}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label style={{ color: 'var(--text-dark)', fontWeight: 600 }}>Próximo Control (Opcional)</label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      value={maintenanceForm.proxima_fecha}
+                      onChange={e => setMaintenanceForm({ ...maintenanceForm, proxima_fecha: e.target.value })}
+                      style={{ border: '1px solid rgba(0,0,0,0.15)' }}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label style={{ color: 'var(--text-dark)', fontWeight: 600 }}>Descripción / Diagnóstico del Trabajo *</label>
+                  <textarea
+                    className="form-control"
+                    rows="3"
+                    value={maintenanceForm.descripcion}
+                    onChange={e => setMaintenanceForm({ ...maintenanceForm, descripcion: e.target.value })}
+                    placeholder="Detalles sobre lo realizado (ej: Limpieza profunda de los serpentines, cambio de aceite...)"
+                    required
+                    style={{ border: '1px solid rgba(0,0,0,0.15)', resize: 'vertical' }}
+                  ></textarea>
+                </div>
+
+                {/* Cambio de Repuesto Checkbox */}
+                <div style={{
+                  background: 'rgba(0,0,0,0.03)',
+                  border: '1px dashed rgba(0,0,0,0.15)',
+                  borderRadius: '8px',
+                  padding: '0.8rem',
+                  marginBottom: '1.2rem'
+                }}>
+                  <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+                    <input
+                      type="checkbox"
+                      id="maintCambioRepuesto"
+                      checked={maintenanceForm.cambio_repuesto}
+                      onChange={e => setMaintenanceForm({ ...maintenanceForm, cambio_repuesto: e.target.checked })}
+                      style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                    />
+                    <label htmlFor="maintCambioRepuesto" style={{ margin: 0, cursor: 'pointer', userSelect: 'none', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-dark)' }}>
+                      🔧 ¿Hubo cambio de repuesto?
+                    </label>
+                  </div>
+
+                  {maintenanceForm.cambio_repuesto && (
+                    <div className="form-group" style={{ marginTop: '0.8rem', marginBottom: 0 }}>
+                      <label style={{ color: 'var(--text-dark)', fontSize: '0.8rem', fontWeight: 600 }}>Detalle de Repuestos Cambiados *</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Ej: Cambio de correa dentada, recambio de capacitor"
+                        value={maintenanceForm.repuesto_detalle}
+                        onChange={e => setMaintenanceForm({ ...maintenanceForm, repuesto_detalle: e.target.value })}
+                        required={maintenanceForm.cambio_repuesto}
+                        style={{ border: '1px solid rgba(0,0,0,0.15)', padding: '0.5rem 0.75rem', fontSize: '0.85rem' }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div className="form-group">
+                    <label style={{ color: 'var(--text-dark)', fontWeight: 600 }}>Costo ($ ARS)</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      placeholder="0.00"
+                      min="0"
+                      step="0.01"
+                      value={maintenanceForm.costo}
+                      onChange={e => setMaintenanceForm({ ...maintenanceForm, costo: e.target.value })}
+                      style={{ border: '1px solid rgba(0,0,0,0.15)' }}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label style={{ color: 'var(--text-dark)', fontWeight: 600 }}>Técnico / Empresa</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="Ej: Refrigeración González"
+                      value={maintenanceForm.realizado_por}
+                      onChange={e => setMaintenanceForm({ ...maintenanceForm, realizado_por: e.target.value })}
+                      style={{ border: '1px solid rgba(0,0,0,0.15)' }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '1.5rem', borderTop: '1px solid rgba(0,0,0,0.1)', paddingTop: '1rem' }}>
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    onClick={() => {
+                      setShowMaintenanceModal(false);
+                      setEditingMaintenance(null);
+                    }}
+                    disabled={loading}
+                    style={{ borderColor: 'rgba(0,0,0,0.2)', color: 'var(--text-dark)' }}
+                  >
+                    Cancelar
+                  </button>
+                  <button type="submit" className="btn btn-primary" disabled={loading}>
+                    {editingMaintenance ? 'Actualizar Trabajo' : 'Registrar Trabajo'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
       </main>
-      
+
       {toast && <div className={`toast toast-${toast.type}`}>{toast.message}</div>}
     </div>
   );

@@ -66,7 +66,7 @@ h1, h2, h3, h4, h5, h6 {
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--card-border);
-  padding: 1rem 2rem;
+  padding: 0.1rem 2rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -74,12 +74,28 @@ h1, h2, h3, h4, h5, h6 {
   top: 0;
   z-index: 100;
   box-shadow: var(--shadow-sm);
+  height: 90px;
+  box-sizing: border-box;
 }
 
 .header-brand {
+  position: relative;
+  min-width: 220px;
+  width: auto;
+  height: 100%;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+}
+
+.header-logo {
+  height: 200px;
+  width: auto;
+  object-fit: contain;
+  position: absolute;
+  top: -45px;
+  left: 0;
+  z-index: 1000;
+  pointer-events: none;
 }
 
 .header-brand h1 {
@@ -444,7 +460,8 @@ tr:hover td {
 .tab-btn {
   background: transparent;
   border: none;
-  padding: 0.5rem 1rem;
+  padding: 0.6rem 1.2rem;
+  font-size: 1.15rem;
   font-weight: 600;
   font-family: 'Outfit', sans-serif;
   color: var(--text-light);
@@ -478,5 +495,17 @@ tr:hover td {
   .item-row {
     grid-template-columns: 1fr;
     gap: 0.5rem;
+  }
+  .header {
+    height: 70px;
+    padding: 0.1rem 1rem;
+  }
+  .header-brand {
+    min-width: 130px;
+    width: auto;
+  }
+  .header-logo {
+    height: 120px;
+    top: -25px;
   }
 }
