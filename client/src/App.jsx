@@ -21,36 +21,10 @@ const formatQuantity = (cantidad, p) => {
   if (cantidad === undefined || cantidad === null) return '-';
   if (!p) return `${cantidad}`;
   if (p.unidad_medida === 'peso') {
-    if (cantidad >= 1000) {
-      const kg = cantidad / 1000;
-      return `${kg.toLocaleString()} kg`;
-    }
-    return `${cantidad} g`;
+    const kg = cantidad / 1000;
+    return `${kg.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 3 })} kg`;
   }
-  
-  const cj = p.cant_por_caja || 24;
-  const pk = p.cant_por_pack;
-  
-  let remaining = cantidad;
-  let parts = [];
-  
-  if (cj > 0 && remaining >= cj) {
-    const cajas = Math.floor(remaining / cj);
-    parts.push(`${cajas} cj`);
-    remaining %= cj;
-  }
-  
-  if (pk > 0 && remaining >= pk) {
-    const packs = Math.floor(remaining / pk);
-    parts.push(`${packs} pk`);
-    remaining %= pk;
-  }
-  
-  if (remaining > 0 || parts.length === 0) {
-    parts.push(`${remaining} un`);
-  }
-  
-  return `${cantidad} u (${parts.join(', ')})`;
+  return `${cantidad} u`;
 };
 
 const formatQuantityShort = (cantidad, p) => {
@@ -58,211 +32,55 @@ const formatQuantityShort = (cantidad, p) => {
   if (cantidad === 0) return '0';
   if (!p) return `${cantidad}`;
   if (p.unidad_medida === 'peso') {
-    if (cantidad >= 1000) {
-      const kg = cantidad / 1000;
-      return `${kg.toLocaleString()} kg`;
-    }
-    return `${cantidad} g`;
+    const kg = cantidad / 1000;
+    return `${kg.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 3 })} kg`;
   }
-  
-  const cj = p.cant_por_caja || 24;
-  const pk = p.cant_por_pack;
-  
-  let remaining = cantidad;
-  let parts = [];
-  
-  if (cj > 0 && remaining >= cj) {
-    const cajas = Math.floor(remaining / cj);
-    parts.push(`${cajas} cj`);
-    remaining %= cj;
-  }
-  
-  if (pk > 0 && remaining >= pk) {
-    const packs = Math.floor(remaining / pk);
-    parts.push(`${packs} pk`);
-    remaining %= pk;
-  }
-  
-  if (remaining > 0) {
-    parts.push(`${remaining} u`);
-  }
-  
-  return parts.join(' ');
+  return `${cantidad} u`;
 };
 
 const UnitCalculatorInput = ({ value, onChange, product, placeholder = "Cantidad", disabled = false, min = 0 }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [cajas, setCajas] = useState('');
-  const [packs, setPacks] = useState('');
-  const [unidades, setUnidades] = useState('');
-  
-  // Weight states (if product.unidad_medida === 'peso')
-  const [kg, setKg] = useState('');
-  const [g, setG] = useState('');
-
   const isWeight = product?.unidad_medida === 'peso';
-  const cj = product?.cant_por_caja || 24;
-  const pk = product?.cant_por_pack;
 
-  // Synchronize external changes or calculate based on fields
-  const handleFieldChange = (field, val) => {
-    if (isWeight) {
-      let newKg = field === 'kg' ? val : kg;
-      let newG = field === 'g' ? val : g;
-      
-      if (field === 'kg') setKg(val);
-      if (field === 'g') setG(val);
-
-      const totalGrams = Math.round((parseFloat(newKg) || 0) * 1000 + (parseFloat(newG) || 0));
-      onChange(totalGrams);
-    } else {
-      let newCj = field === 'cajas' ? val : cajas;
-      let newPk = field === 'packs' ? val : packs;
-      let newUn = field === 'unidades' ? val : unidades;
-
-      if (field === 'cajas') setCajas(val);
-      if (field === 'packs') setPacks(val);
-      if (field === 'unidades') setUnidades(val);
-
-      const totalUnits = (parseInt(newCj) || 0) * cj + (parseInt(newPk) || 0) * (pk || 0) + (parseInt(newUn) || 0);
-      onChange(totalUnits);
-    }
-  };
-
-  const toggleOpen = () => {
-    setIsOpen(prev => {
-      const next = !prev;
-      if (!next) {
-        setCajas('');
-        setPacks('');
-        setUnidades('');
-        setKg('');
-        setG('');
-      }
-      return next;
-    });
-  };
-
-  const displayHelperText = () => {
-    if (!product || !value || value <= 0) return null;
+  if (isWeight) {
+    const displayVal = value ? value / 1000 : '';
     return (
-      <div style={{ fontSize: '0.75rem', color: 'var(--primary)', marginTop: '0.2rem', fontWeight: 500 }}>
-        Equivale a: {formatQuantity(value, product)}
-      </div>
-    );
-  };
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', width: '100%' }}>
-      <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', width: '100%' }}>
         <input
           type="number"
+          step="0.001"
           className="form-control"
           style={{ flex: 1 }}
-          value={value === undefined || value === null ? '' : value}
+          value={displayVal}
           onChange={e => {
-            const val = e.target.value === '' ? '' : Math.max(min, parseFloat(e.target.value) || 0);
-            onChange(val);
+            const val = e.target.value;
+            onChange(val === '' ? '' : Math.max(min, Math.round(parseFloat(val) * 1000)));
           }}
-          placeholder={isWeight ? `${placeholder} (g)` : `${placeholder} (u)`}
+          placeholder={`${placeholder} (kg)`}
           disabled={disabled}
           min={min}
         />
-        <button
-          type="button"
-          className={`btn btn-sm ${isOpen ? 'btn-primary' : 'btn-outline'}`}
-          style={{ padding: '0.4rem 0.6rem', minHeight: 'unset', fontSize: '0.8rem', borderRadius: '6px' }}
-          onClick={toggleOpen}
-          title="Calcular cantidad usando empaques / peso"
-        >
-          📐
-        </button>
+        <span style={{ fontSize: '0.9rem', color: 'var(--text-light)', fontWeight: 600 }}>kg</span>
       </div>
+    );
+  }
 
-      {isOpen && (
-        <div style={{
-          background: 'rgba(0,0,0,0.03)',
-          border: '1px dashed rgba(0,0,0,0.15)',
-          borderRadius: '8px',
-          padding: '0.6rem',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '0.5rem',
-          marginTop: '0.2rem'
-        }}>
-          {isWeight ? (
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginBottom: '0.15rem' }}>Kilogramos (kg)</span>
-                <input
-                  type="number"
-                  className="form-control"
-                  style={{ padding: '0.3rem', fontSize: '0.85rem' }}
-                  value={kg}
-                  onChange={e => handleFieldChange('kg', e.target.value)}
-                  placeholder="0"
-                  min="0"
-                  step="0.001"
-                />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginBottom: '0.15rem' }}>Gramos (g)</span>
-                <input
-                  type="number"
-                  className="form-control"
-                  style={{ padding: '0.3rem', fontSize: '0.85rem' }}
-                  value={g}
-                  onChange={e => handleFieldChange('g', e.target.value)}
-                  placeholder="0"
-                  min="0"
-                />
-              </div>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 50px' }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginBottom: '0.15rem' }}>Cajas (x{cj})</span>
-                <input
-                  type="number"
-                  className="form-control"
-                  style={{ padding: '0.3rem', fontSize: '0.85rem' }}
-                  value={cajas}
-                  onChange={e => handleFieldChange('cajas', e.target.value)}
-                  placeholder="0"
-                  min="0"
-                />
-              </div>
-              {pk && (
-                <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 50px' }}>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginBottom: '0.15rem' }}>Packs (x{pk})</span>
-                  <input
-                    type="number"
-                    className="form-control"
-                    style={{ padding: '0.3rem', fontSize: '0.85rem' }}
-                    value={packs}
-                    onChange={e => handleFieldChange('packs', e.target.value)}
-                    placeholder="0"
-                    min="0"
-                  />
-                </div>
-              )}
-              <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 50px' }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginBottom: '0.15rem' }}>Unidades (u)</span>
-                <input
-                  type="number"
-                  className="form-control"
-                  style={{ padding: '0.3rem', fontSize: '0.85rem' }}
-                  value={unidades}
-                  onChange={e => handleFieldChange('unidades', e.target.value)}
-                  placeholder="0"
-                  min="0"
-                />
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-      {displayHelperText()}
+  return (
+    <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', width: '100%' }}>
+      <input
+        type="number"
+        step="1"
+        className="form-control"
+        style={{ flex: 1 }}
+        value={value === undefined || value === null ? '' : value}
+        onChange={e => {
+          const val = e.target.value;
+          onChange(val === '' ? '' : Math.max(min, parseInt(val) || 0));
+        }}
+        placeholder={`${placeholder} (u)`}
+        disabled={disabled}
+        min={min}
+      />
+      <span style={{ fontSize: '0.9rem', color: 'var(--text-light)', fontWeight: 600 }}>u</span>
     </div>
   );
 };
@@ -300,6 +118,8 @@ export default function App() {
   const [adminHistForm, setAdminHistForm] = useState({ producto_id: '', cantidad: '', fecha: getLocalDateString(), es_evento: false });
   const [adminHistWeights, setAdminHistWeights] = useState([]);
   const [adminHistDefaultWeight, setAdminHistDefaultWeight] = useState('');
+  const [histCargaMode, setHistCargaMode] = useState('individual'); // 'individual' or 'masiva'
+  const [histBulkCategory, setHistBulkCategory] = useState('helados');
 
   // Order creation form state
   const [orderItems, setOrderItems] = useState({});
@@ -344,6 +164,27 @@ export default function App() {
   const [catalogSupplier, setCatalogSupplier] = useState('');
   const [catalogFormat, setCatalogFormat] = useState('Todos');
   const [catalogStatus, setCatalogStatus] = useState('Todos');
+
+  // Search states for different views
+  const [adminStockSearch, setAdminStockSearch] = useState('');
+  const [prodReqSearch, setProdReqSearch] = useState('');
+  const [prodFormSearch, setProdFormSearch] = useState('');
+  const [factoryStockSearch, setFactoryStockSearch] = useState('');
+  const [branchStockSearch, setBranchStockSearch] = useState('');
+
+  // Additional search states for other views
+  const [adminFlujoSearch, setAdminFlujoSearch] = useState('');
+  const [adminDiscrepanciaSearch, setAdminDiscrepanciaSearch] = useState('');
+  const [adminHistSearch, setAdminHistSearch] = useState('');
+  const [adminMaquinaSearch, setAdminMaquinaSearch] = useState('');
+  const [adminMantenimientoSearch, setAdminMantenimientoSearch] = useState('');
+  const [sucursalConsumoSearch, setSucursalConsumoSearch] = useState('');
+  const [sucursalOrderSearch, setSucursalOrderSearch] = useState('');
+  const [driverOrderSearch, setDriverOrderSearch] = useState('');
+  const [driverRouteSearch, setDriverRouteSearch] = useState('');
+  const [driverDepotSearch, setDriverDepotSearch] = useState('');
+  const [heladeroEventSearch, setHeladeroEventSearch] = useState('');
+
 
   // Admin order builder state
   const [adminOrderItems, setAdminOrderItems] = useState({});
@@ -411,8 +252,8 @@ export default function App() {
       case 'helados':
         return [
           { value: 'vasqueta_5_6k', label: 'Vasqueta' },
-          { value: 'balde_4k', label: 'Balde 5k' },
-          { value: 'balde_8k', label: 'Balde 10k' }
+          { value: 'balde_4k', label: 'Balde 5L' },
+          { value: 'balde_8k', label: 'Balde 10L' }
         ];
       case 'pasteleria_helada':
         return [
@@ -478,7 +319,7 @@ export default function App() {
 
 
   const flavorGroups = {
-    'Dulces de leche': ['Chocotorta', 'Bicuí', 'Rogel', 'Granizado', 'Coco crunch'],
+    'Dulces de leche': ['Chocotorta', 'Dulce de Leche Biscui', 'Rogel', 'Granizado', 'Coco crunch'],
     'Chocolate': ['Chocolate con almendras', 'Marquise', 'Alfajor', 'Black', 'Patagonia', 'Blanco con maracuyá', 'Dubai'],
     'Cremas': ['Frutilla condensada', 'Coquitas', 'Mascarpone', 'Tiramisú', 'Lemon pie', 'Oreo', 'Menta granizada', 'Snickers', 'Caramel Macchiato', 'Tramontana', 'Cinnamon roll', 'Vainilla french', 'Oreo sin TACC', 'Granizado'],
     'Sin gluten': ['Oreo sin TACC (Sin Gluten)', 'Granizado (Sin Gluten)', 'Frutilla condensada (Sin Gluten)', 'Mascarpone (Sin Gluten)', 'Pistacho (Sin Gluten)', 'Banana split (Sin Gluten)', 'Sambayon (Sin Gluten)'],
@@ -495,13 +336,17 @@ export default function App() {
       .replace(/ 5k$/, '')
       .replace(/ 10k$/, '')
       .replace(/ \(5k\)$/, '')
-      .replace(/ \(10k\)$/, '');
+      .replace(/ \(10k\)$/, '')
+      .replace(/ 5L$/i, '')
+      .replace(/ 10L$/i, '')
+      .replace(/ \(5L\)$/i, '')
+      .replace(/ \(10L\)$/i);
   };
 
   const formatTipo = (tipo) => {
     if (tipo === 'vasqueta_5_6k') return 'Vasqueta';
-    if (tipo === 'balde_4k') return 'Balde 5k';
-    if (tipo === 'balde_8k') return 'Balde 10k';
+    if (tipo === 'balde_4k') return 'Balde 5L';
+    if (tipo === 'balde_8k') return 'Balde 10L';
     return tipo?.replace(/_/g, ' ');
   };
 
@@ -561,8 +406,8 @@ export default function App() {
     }
     switch (tipo) {
       case 'vasqueta_5_6k': return 5.5;
-      case 'balde_4k': return 5.0;
-      case 'balde_8k': return 10.0;
+      case 'balde_4k': return 4.0;
+      case 'balde_8k': return 8.0;
       default: return 0.0;
     }
   };
@@ -1217,12 +1062,199 @@ export default function App() {
       setAdminHistForm({ producto_id: '', cantidad: '', fecha: getLocalDateString(), es_evento: false });
       setAdminHistWeights([]);
       setAdminHistDefaultWeight('');
+      setAdminHistSearch('');
       fetchData();
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
       setLoading(false);
     }
+  };
+
+  // Admin Historic Bulk Template Download
+  const handleDownloadHistTemplate = () => {
+    const prods = productos.filter(p => p.categoria === histBulkCategory && p.activo === 1);
+    const headers = ['ID_Producto', 'Nombre', 'Formato', 'Cantidad', 'Peso_Bruto_Unitario_Opcional', 'Fecha_Opcional', 'Destinar_A_Eventos_SI_NO'];
+    
+    // Add BOM (\uFEFF) for proper Excel Spanish character encoding support
+    let csvContent = '\uFEFF' + headers.join(';') + '\n';
+
+    prods.forEach(p => {
+      let suggestedWeight = '';
+      if (p.categoria === 'helados') {
+        if (p.tipo === 'vasqueta_5_6k') suggestedWeight = '6.120';
+        else if (p.tipo === 'balde_4k') suggestedWeight = '4.155';
+        else if (p.tipo === 'balde_8k') suggestedWeight = '8.270';
+      }
+      const row = [
+        p.id,
+        p.nombre.replace(/;/g, ','), // escape semicolon
+        formatTipo(p.tipo) || '',
+        '0',
+        suggestedWeight,
+        getLocalDateString(),
+        'NO'
+      ];
+      csvContent += row.join(';') + '\n';
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `plantilla_carga_historica_${histBulkCategory}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast(`Plantilla descargada para la categoría ${categories.find(c => c.id === histBulkCategory)?.name}.`);
+  };
+
+  // Admin Historic Bulk Template Upload & Process
+  const handleUploadHistTemplate = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setLoading(true);
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const text = event.target.result;
+        const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
+        if (lines.length <= 1) {
+          throw new Error('El archivo está vacío o solo contiene la cabecera.');
+        }
+
+        // Detect delimiter (semicolon or comma)
+        const firstLine = lines[0];
+        let delimiter = ';';
+        if (firstLine.includes(';')) {
+          delimiter = ';';
+        } else if (firstLine.includes(',')) {
+          delimiter = ',';
+        }
+
+        const rowsToProcess = [];
+        let skippedCount = 0;
+
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(delimiter).map(c => c.trim().replace(/^["']|["']$/g, ''));
+          if (cols.length < 4) continue;
+
+          const pId = parseInt(cols[0]);
+          const qty = parseInt(cols[3]);
+
+          if (isNaN(pId) || isNaN(qty) || qty <= 0) {
+            skippedCount++;
+            continue;
+          }
+
+          const product = productos.find(p => p.id === pId);
+          if (!product) {
+            throw new Error(`Línea ${i + 1}: El producto con ID ${pId} no se encuentra en el sistema.`);
+          }
+
+          const rawWeights = cols[4] || '';
+          const dateVal = cols[5] ? new Date(cols[5]) : new Date();
+          const esEventoVal = cols[6] && (cols[6].toUpperCase() === 'SI' || cols[6].toUpperCase() === 'TRUE');
+
+          rowsToProcess.push({
+            product,
+            qty,
+            rawWeights,
+            dateVal: isNaN(dateVal.getTime()) ? new Date() : dateVal,
+            esEventoVal
+          });
+        }
+
+        if (rowsToProcess.length === 0) {
+          throw new Error('No se encontraron filas con "Cantidad" mayor a 0 para procesar.');
+        }
+
+        let successCount = 0;
+        let failCount = 0;
+        let lastErrorMsg = '';
+
+        for (const row of rowsToProcess) {
+          try {
+            const { product, qty, rawWeights, dateVal, esEventoVal } = row;
+
+            const dateStr = dateVal.toISOString().slice(0, 10).replace(/-/g, '');
+            const rand = Math.floor(1000 + Math.random() * 9000);
+            const codigo_lote = `L-${dateStr}-${rand}`;
+
+            let pesosArray = [];
+            if (product.categoria === 'helados') {
+              const tare = getTareByTipo(product.tipo);
+              const fallbackGross = tare + getProductNetWeight(product.id, product.tipo);
+              
+              if (rawWeights) {
+                // Split by semicolon, slash, vertical bar, or whitespace (except decimal dots)
+                const weightStrings = rawWeights.split(/[;/|\s]+/).filter(w => w.trim() !== '');
+                if (weightStrings.length > 1) {
+                  // Parse list of weights
+                  pesosArray = weightStrings.map(w => {
+                    const cleaned = w.replace(',', '.');
+                    return parseFloat(cleaned) || fallbackGross;
+                  });
+                  // Pad to match quantity
+                  while (pesosArray.length < qty) {
+                    pesosArray.push(pesosArray[pesosArray.length - 1] || fallbackGross);
+                  }
+                  // Truncate to match quantity
+                  if (pesosArray.length > qty) {
+                    pesosArray = pesosArray.slice(0, qty);
+                  }
+                } else {
+                  // Single weight provided, repeat it
+                  const cleaned = rawWeights.replace(',', '.');
+                  const gross = parseFloat(cleaned) || fallbackGross;
+                  pesosArray = Array(qty).fill(gross);
+                }
+              } else {
+                pesosArray = Array(qty).fill(fallbackGross);
+              }
+              
+              if (pesosArray.some(w => w <= 0)) {
+                throw new Error(`Pesos brutos inválidos calculados para el helado ${product.nombre}`);
+              }
+            }
+
+            const isEvent = product.categoria === 'helados' && product.tipo === 'vasqueta_5_6k' ? false : esEventoVal;
+
+            const { error: rpcErr } = await supabase.rpc('registrar_produccion', {
+              p_codigo_lote: codigo_lote,
+              p_producto_id: product.id,
+              p_cantidad: qty,
+              p_pesos: pesosArray,
+              p_fecha_produccion: dateVal.toISOString(),
+              p_creado_por: user.id,
+              p_es_evento: isEvent
+            });
+
+            if (rpcErr) throw rpcErr;
+            successCount++;
+          } catch (err) {
+            failCount++;
+            lastErrorMsg = err.message || String(err);
+          }
+        }
+
+        showToast(`Carga masiva finalizada. Éxito: ${successCount} productos. Fallidos: ${failCount}.${failCount > 0 ? ` Último error: ${lastErrorMsg}` : ''}`, failCount > 0 ? 'error' : 'success');
+        fetchData();
+        e.target.value = '';
+      } catch (err) {
+        showToast(err.message || 'Error al procesar la planilla.', 'error');
+        e.target.value = '';
+      } finally {
+        setLoading(false);
+      }
+    };
+    reader.onerror = () => {
+      showToast('Error al leer el archivo.', 'error');
+      setLoading(false);
+      e.target.value = '';
+    };
+    reader.readAsText(file);
   };
 
   // Branch Consumption Form Submit
@@ -1274,7 +1306,7 @@ export default function App() {
         .insert({
           sucursal_destino_id: user.sucursal_id,
           creado_por_id: user.id,
-          es_evento: orderIsEvent
+          es_evento: (user.rol === 'admin' || user.rol === 'heladero') ? orderIsEvent : false
         })
         .select('id')
         .single();
@@ -2337,9 +2369,6 @@ export default function App() {
                   if (!selectedCat) return null;
 
                   let catProds = productos.filter(p => p.categoria === selectedCat.id);
-                  if (adminStockSupplierFilter) {
-                    catProds = catProds.filter(p => p.proveedor_id === parseInt(adminStockSupplierFilter));
-                  }
                   if (selectedCat.id === 'helados') {
                     if (stockGroupFilter !== 'Todos') {
                       catProds = catProds.filter(p => getFlavorGroup(p.nombre) === stockGroupFilter);
@@ -2354,35 +2383,39 @@ export default function App() {
                     }
                   }
 
+                  if (adminStockSearch) {
+                    catProds = catProds.filter(p => 
+                      p.nombre.toLowerCase().includes(adminStockSearch.toLowerCase()) ||
+                      (p.tipo && formatTipo(p.tipo).toLowerCase().includes(adminStockSearch.toLowerCase()))
+                    );
+                  }
+
                   return (
                     <div className="glass-card">
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
                         <h3 className="section-title" style={{ margin: 0, border: 'none' }}>{selectedCat.name}</h3>
                         
                         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                            <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Proveedor:</span>
-                            <select
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span style={{ fontSize: '0.85rem', color: 'var(--text-light)', fontWeight: 600 }}>Buscar:</span>
+                            <input
+                              type="text"
                               className="form-control"
+                              placeholder="🔍 Buscar sabor..."
+                              value={adminStockSearch}
+                              onChange={e => setAdminStockSearch(e.target.value)}
                               style={{
-                                padding: '0.2rem 0.5rem',
-                                borderRadius: '6px',
+                                padding: '0.5rem 1rem',
+                                borderRadius: '10px',
                                 background: 'rgba(255,255,255,0.05)',
-                                border: '1px solid rgba(255,255,255,0.1)',
+                                border: '1px solid rgba(255,255,255,0.15)',
                                 color: 'var(--text)',
-                                fontSize: '0.75rem',
-                                width: '160px',
+                                fontSize: '0.95rem',
+                                width: '320px',
                                 height: 'auto',
                                 minHeight: 'unset'
                               }}
-                              value={adminStockSupplierFilter}
-                              onChange={e => setAdminStockSupplierFilter(e.target.value)}
-                            >
-                              <option value="">Todos</option>
-                              {proveedores.map(p => (
-                                <option key={p.id} value={p.id}>{p.nombre}</option>
-                              ))}
-                            </select>
+                            />
                           </div>
 
                           {selectedCat.id === 'helados' && (
@@ -2559,12 +2592,12 @@ export default function App() {
                         placeholder="🔍 Buscar producto o sabor..."
                         className="form-control"
                         style={{
-                          paddingLeft: '2.5rem',
-                          borderRadius: '10px',
+                          padding: '0.75rem 1.2rem 0.75rem 2.8rem',
+                          borderRadius: '12px',
                           background: 'rgba(255,255,255,0.05)',
-                          border: '1px solid rgba(255,255,255,0.1)',
+                          border: '1px solid rgba(255,255,255,0.15)',
                           color: 'var(--text)',
-                          fontSize: '0.95rem',
+                          fontSize: '1.05rem',
                           width: '100%'
                         }}
                         value={adminOrderSearch}
@@ -2780,7 +2813,27 @@ export default function App() {
 
             {activeTab === 'flujo' && (
               <div className="glass-card">
-                <h3 className="section-title">Flujo y Auditoría de Pedidos</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', flexWrap: 'wrap', gap: '1rem' }}>
+                  <h3 className="section-title" style={{ margin: 0, border: 'none' }}>Flujo y Auditoría de Pedidos</h3>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="🔍 Buscar por ID, Destino o Estado..."
+                    value={adminFlujoSearch}
+                    onChange={e => setAdminFlujoSearch(e.target.value)}
+                    style={{
+                      padding: '0.6rem 1.2rem',
+                      fontSize: '0.95rem',
+                      borderRadius: '10px',
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      color: 'var(--text)',
+                      width: '320px',
+                      height: 'auto',
+                      minHeight: 'unset'
+                    }}
+                  />
+                </div>
                 <div className="table-container">
                   <table>
                     <thead>
@@ -2795,24 +2848,49 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody>
-                      {orders.map(order => (
-                        <tr key={order.id} style={{ cursor: 'pointer' }} onClick={() => viewOrderDetail(order.id)}>
-                          <td>
-                            #{order.id}
-                            {order.es_evento && (
-                              <span className="badge" style={{ background: 'var(--primary)', color: 'white', fontSize: '0.65rem', padding: '0.1rem 0.35rem', marginLeft: '0.3rem' }}>
-                                Evento
-                              </span>
-                            )}
+                      {orders
+                        .filter(order => {
+                          if (!adminFlujoSearch) return true;
+                          const q = adminFlujoSearch.toLowerCase();
+                          return (
+                            order.id.toString().includes(q) ||
+                            (order.destino_nombre && order.destino_nombre.toLowerCase().includes(q)) ||
+                            (order.estado && translateState(order.estado).toLowerCase().includes(q))
+                          );
+                        })
+                        .map(order => (
+                          <tr key={order.id} style={{ cursor: 'pointer' }} onClick={() => viewOrderDetail(order.id)}>
+                            <td>
+                              #{order.id}
+                              {order.es_evento && (
+                                <span className="badge" style={{ background: 'var(--primary)', color: 'white', fontSize: '0.65rem', padding: '0.1rem 0.35rem', marginLeft: '0.3rem' }}>
+                                  Evento
+                                </span>
+                              )}
+                            </td>
+                            <td><strong>{order.destino_nombre}</strong></td>
+                            <td><span className={getBadgeClass(order.estado)}>{translateState(order.estado)}</span></td>
+                            <td>{order.fecha_solicitud ? new Date(order.fecha_solicitud).toLocaleDateString() : '-'}</td>
+                            <td>{order.fecha_preparacion ? new Date(order.fecha_preparacion).toLocaleDateString() : 'Pendiente'}</td>
+                            <td>{order.fecha_despacho ? new Date(order.fecha_despacho).toLocaleDateString() : 'Pendiente'}</td>
+                            <td>{order.fecha_entrega ? new Date(order.fecha_entrega).toLocaleDateString() : 'Pendiente'}</td>
+                          </tr>
+                        ))}
+                      {orders.filter(order => {
+                        if (!adminFlujoSearch) return true;
+                        const q = adminFlujoSearch.toLowerCase();
+                        return (
+                          order.id.toString().includes(q) ||
+                          (order.destino_nombre && order.destino_nombre.toLowerCase().includes(q)) ||
+                          (order.estado && translateState(order.estado).toLowerCase().includes(q))
+                        );
+                      }).length === 0 && (
+                        <tr>
+                          <td colSpan="7" style={{ textAlign: 'center', color: 'var(--text-light)', padding: '2rem 1rem' }}>
+                            No se encontraron pedidos.
                           </td>
-                          <td><strong>{order.destino_nombre}</strong></td>
-                          <td><span className={getBadgeClass(order.estado)}>{translateState(order.estado)}</span></td>
-                          <td>{order.fecha_solicitud ? new Date(order.fecha_solicitud).toLocaleDateString() : '-'}</td>
-                          <td>{order.fecha_preparacion ? new Date(order.fecha_preparacion).toLocaleDateString() : 'Pendiente'}</td>
-                          <td>{order.fecha_despacho ? new Date(order.fecha_despacho).toLocaleDateString() : 'Pendiente'}</td>
-                          <td>{order.fecha_entrega ? new Date(order.fecha_entrega).toLocaleDateString() : 'Pendiente'}</td>
                         </tr>
-                      ))}
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -2821,7 +2899,27 @@ export default function App() {
 
             {activeTab === 'discrepancias' && (
               <div className="glass-card">
-                <h3 className="section-title">Historial de Pérdidas y Diferencias</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', flexWrap: 'wrap', gap: '1rem' }}>
+                  <h3 className="section-title" style={{ margin: 0, border: 'none' }}>Historial de Pérdidas y Diferencias</h3>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="🔍 Buscar por producto, motivo o usuario..."
+                    value={adminDiscrepanciaSearch}
+                    onChange={e => setAdminDiscrepanciaSearch(e.target.value)}
+                    style={{
+                      padding: '0.6rem 1.2rem',
+                      fontSize: '0.95rem',
+                      borderRadius: '10px',
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      color: 'var(--text)',
+                      width: '320px',
+                      height: 'auto',
+                      minHeight: 'unset'
+                    }}
+                  />
+                </div>
                 <div className="table-container">
                   <table>
                     <thead>
@@ -2835,27 +2933,50 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody>
-                      {dashboardStats?.discrepancies.map(disc => (
-                        <tr key={disc.id}>
-                          <td>{new Date(disc.fecha_reporte).toLocaleDateString()}</td>
-                          <td><strong>{disc.producto_nombre}</strong></td>
-                          <td>
-                            <span className={`badge ${disc.tipo === 'transito' ? 'badge-en_transito' :
-                                disc.tipo === 'recepcion' ? 'badge-con_discrepancia' : 'badge-solicitado'
-                              }`}>
-                              {disc.tipo === 'transito' ? 'En Tránsito' :
-                                disc.tipo === 'recepcion' ? 'Recepción' : 'Merma Fábrica'}
-                            </span>
-                          </td>
-                          <td style={{ color: 'var(--danger)', fontWeight: 600 }}>{formatQuantity(disc.cantidad_perdida, productos.find(p => p.id === disc.producto_id))}</td>
-                          <td>{disc.motivo}</td>
-                          <td>{disc.reportado_por_nombre}</td>
-                        </tr>
-                      ))}
-                      {(!dashboardStats?.discrepancies || dashboardStats.discrepancies.length === 0) && (
+                      {dashboardStats?.discrepancies
+                        .filter(disc => {
+                          if (!adminDiscrepanciaSearch) return true;
+                          const q = adminDiscrepanciaSearch.toLowerCase();
+                          return (
+                            (disc.producto_nombre && disc.producto_nombre.toLowerCase().includes(q)) ||
+                            (disc.motivo && disc.motivo.toLowerCase().includes(q)) ||
+                            (disc.reportado_por_nombre && disc.reportado_por_nombre.toLowerCase().includes(q)) ||
+                            (disc.tipo && disc.tipo.toLowerCase().includes(q)) ||
+                            (disc.tipo === 'transito' && 'en tránsito'.includes(q)) ||
+                            (disc.tipo === 'recepcion' && 'recepción'.includes(q)) ||
+                            (disc.tipo === 'produccion' && 'merma fábrica'.includes(q))
+                          );
+                        })
+                        .map(disc => (
+                          <tr key={disc.id}>
+                            <td>{new Date(disc.fecha_reporte).toLocaleDateString()}</td>
+                            <td><strong>{disc.producto_nombre}</strong></td>
+                            <td>
+                              <span className={`badge ${disc.tipo === 'transito' ? 'badge-en_transito' :
+                                  disc.tipo === 'recepcion' ? 'badge-con_discrepancia' : 'badge-solicitado'
+                                }`}>
+                                {disc.tipo === 'transito' ? 'En Tránsito' :
+                                  disc.tipo === 'recepcion' ? 'Recepción' : 'Merma Fábrica'}
+                              </span>
+                            </td>
+                            <td style={{ color: 'var(--danger)', fontWeight: 600 }}>{formatQuantity(disc.cantidad_perdida, productos.find(p => p.id === disc.producto_id))}</td>
+                            <td>{disc.motivo}</td>
+                            <td>{disc.reportado_por_nombre}</td>
+                          </tr>
+                        ))}
+                      {(!dashboardStats?.discrepancies || dashboardStats.discrepancies.filter(disc => {
+                        if (!adminDiscrepanciaSearch) return true;
+                        const q = adminDiscrepanciaSearch.toLowerCase();
+                        return (
+                          (disc.producto_nombre && disc.producto_nombre.toLowerCase().includes(q)) ||
+                          (disc.motivo && disc.motivo.toLowerCase().includes(q)) ||
+                          (disc.reportado_por_nombre && disc.reportado_por_nombre.toLowerCase().includes(q)) ||
+                          (disc.tipo && disc.tipo.toLowerCase().includes(q))
+                        );
+                      }).length === 0) && (
                         <tr>
-                          <td colSpan="6" style={{ textAlign: 'center', color: 'var(--text-light)' }}>
-                            No hay mermas o discrepancias registradas.
+                          <td colSpan="6" style={{ textAlign: 'center', color: 'var(--text-light)', padding: '2rem 1rem' }}>
+                            No hay mermas o discrepancias registradas que coincidan con la búsqueda.
                           </td>
                         </tr>
                       )}
@@ -2868,10 +2989,35 @@ export default function App() {
             {activeTab === 'produccion_req' && (
               <div>
                 <div className="glass-card" style={{ marginBottom: '1.5rem' }}>
-                  <h3 className="section-title">Sugerencias de Fabricación (Demanda vs Stock Fábrica)</h3>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: '1.2rem' }}>
-                    Flujo de planificación inteligente: sabores solicitados por sucursales en pedidos activos que superan el stock actual en fábrica.
-                  </p>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.2rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.8rem' }}>
+                    <div>
+                      <h3 className="section-title" style={{ margin: 0, border: 'none' }}>Sugerencias de Fabricación (Demanda vs Stock Fábrica)</h3>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: '0.25rem', marginBottom: 0 }}>
+                        Flujo de planificación inteligente: sabores solicitados por sucursales en pedidos activos que superan el stock actual en fábrica.
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>Buscar:</span>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="🔍 Buscar producto..."
+                        value={prodReqSearch}
+                        onChange={e => setProdReqSearch(e.target.value)}
+                        style={{
+                          padding: '0.5rem 1rem',
+                          borderRadius: '10px',
+                          background: 'rgba(255,255,255,0.05)',
+                          border: '1px solid rgba(255,255,255,0.15)',
+                          color: 'var(--text)',
+                          fontSize: '0.95rem',
+                          width: '280px',
+                          height: 'auto',
+                          minHeight: 'unset'
+                        }}
+                      />
+                    </div>
+                  </div>
                   <div className="table-container">
                     <table>
                       <thead>
@@ -2884,17 +3030,26 @@ export default function App() {
                         </tr>
                       </thead>
                       <tbody>
-                        {dashboardStats?.productionNeeded.map(prod => (
-                          <tr key={prod.producto_id}>
-                            <td><strong>{prod.producto_nombre}</strong></td>
-                            <td style={{ textTransform: 'capitalize' }}>{prod.tipo}</td>
-                            <td style={{ fontWeight: 600 }}>{prod.cantidad_pendiente}</td>
-                            <td>{prod.stock_fabrica || 0}</td>
-                            <td style={{ color: 'var(--danger)', fontWeight: 700 }}>
-                              {Math.max(0, prod.cantidad_pendiente - (prod.stock_fabrica || 0))}
-                            </td>
-                          </tr>
-                        ))}
+                        {(() => {
+                          let items = dashboardStats?.productionNeeded || [];
+                          if (prodReqSearch) {
+                            items = items.filter(prod => 
+                              prod.producto_nombre.toLowerCase().includes(prodReqSearch.toLowerCase()) ||
+                              (prod.tipo && prod.tipo.toLowerCase().includes(prodReqSearch.toLowerCase()))
+                            );
+                          }
+                          return items.map(prod => (
+                            <tr key={prod.producto_id}>
+                              <td><strong>{prod.producto_nombre}</strong></td>
+                              <td style={{ textTransform: 'capitalize' }}>{prod.tipo}</td>
+                              <td style={{ fontWeight: 600 }}>{prod.cantidad_pendiente}</td>
+                              <td>{prod.stock_fabrica || 0}</td>
+                              <td style={{ color: 'var(--danger)', fontWeight: 700 }}>
+                                {Math.max(0, prod.cantidad_pendiente - (prod.stock_fabrica || 0))}
+                              </td>
+                            </tr>
+                          ));
+                        })()}
                         {(!dashboardStats?.productionNeeded || dashboardStats.productionNeeded.length === 0) && (
                           <tr>
                             <td colSpan="5" style={{ textAlign: 'center', color: 'var(--success)', fontWeight: 600 }}>
@@ -3004,12 +3159,12 @@ export default function App() {
                         placeholder="🔍 Buscar producto o sabor..."
                         className="form-control"
                         style={{
-                          paddingLeft: '2.5rem',
-                          borderRadius: '10px',
+                          padding: '0.75rem 1.2rem 0.75rem 2.8rem',
+                          borderRadius: '12px',
                           background: 'rgba(255,255,255,0.05)',
-                          border: '1px solid rgba(255,255,255,0.1)',
+                          border: '1px solid rgba(255,255,255,0.15)',
                           color: 'var(--text-dark)',
-                          fontSize: '0.95rem',
+                          fontSize: '1.05rem',
                           width: '100%'
                         }}
                         value={catalogSearch}
@@ -3182,7 +3337,7 @@ export default function App() {
                               <td>
                                 <strong>{p.nombre}</strong>
                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', textTransform: 'capitalize' }}>
-                                  Categoría: {p.categoria?.replace(/_/g, ' ')} | Medida: {p.unidad_medida === 'peso' ? 'Peso (g/kg)' : `Unidad (Cj: ${p.cant_por_caja || 24}${p.cant_por_pack ? `, Pk: ${p.cant_por_pack}` : ''})`}
+                                  Categoría: {p.categoria?.replace(/_/g, ' ')} | Medida: {p.unidad_medida === 'peso' ? 'Peso (kg)' : 'Unidad'}
                                 </div>
                               </td>
                               <td><span style={{ fontSize: '0.85rem' }}>{formatTipo(p.tipo)}</span></td>
@@ -3339,40 +3494,10 @@ export default function App() {
                             onChange={e => setNewProductForm({ ...newProductForm, unidad_medida: e.target.value })}
                             style={{ border: '1px solid rgba(0,0,0,0.15)' }}
                           >
-                            <option value="unidad">Unidades (cj, pk, un)</option>
-                            <option value="peso">Peso (kg, g)</option>
+                            <option value="unidad">Unidad</option>
+                            <option value="peso">Peso (kg)</option>
                           </select>
                         </div>
-
-                        {newProductForm.unidad_medida === 'unidad' && (
-                          <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <div className="form-group" style={{ flex: 1 }}>
-                              <label style={{ color: 'var(--text-dark)' }}>Unidades por Caja/Cartón</label>
-                              <input
-                                type="number"
-                                className="form-control"
-                                value={newProductForm.cant_por_caja}
-                                onChange={e => setNewProductForm({ ...newProductForm, cant_por_caja: e.target.value === '' ? '' : parseInt(e.target.value) || 0 })}
-                                style={{ border: '1px solid rgba(0,0,0,0.15)' }}
-                                min="1"
-                                required
-                              />
-                            </div>
-                            <div className="form-group" style={{ flex: 1 }}>
-                              <label style={{ color: 'var(--text-dark)' }}>Unidades por Pack</label>
-                              <select
-                                className="form-control"
-                                value={newProductForm.cant_por_pack || ''}
-                                onChange={e => setNewProductForm({ ...newProductForm, cant_por_pack: e.target.value === '' ? '' : parseInt(e.target.value) || null })}
-                                style={{ border: '1px solid rgba(0,0,0,0.15)' }}
-                              >
-                                <option value="">Sin Pack</option>
-                                <option value="6">Pack de 6</option>
-                                <option value="12">Pack de 12</option>
-                              </select>
-                            </div>
-                          </div>
-                        )}
 
                         {showSupplierForm && (
                           <div style={{
@@ -3454,191 +3579,409 @@ export default function App() {
                   <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: '1.2rem' }}>
                     Registra producciones anteriores al sistema para inicializar el stock en fábrica y mantener la trazabilidad de lotes y pesos.
                   </p>
-                  <form onSubmit={handleAdminHistSubmit}>
-                    <div className="form-group">
-                      <label>Seleccionar Producto / Sabor</label>
-                      <select
-                        className="form-control"
-                        value={adminHistForm.producto_id}
-                        onChange={e => {
-                          const pId = e.target.value;
-                          const selectedProd = productos.find(p => p.id === parseInt(pId));
-                          const isVasqueta = selectedProd && selectedProd.categoria === 'helados' && selectedProd.tipo === 'vasqueta_5_6k';
-                          setAdminHistForm({
-                            ...adminHistForm,
-                            producto_id: pId,
-                            cantidad: '',
-                            es_evento: isVasqueta ? false : adminHistForm.es_evento
-                          });
-                          setAdminHistWeights([]);
-                        }}
-                        required
-                      >
-                        <option value="">-- Seleccionar --</option>
-                        {categories
-                          .filter(cat => cat.id === 'helados')
-                          .map(cat => {
-                            const catProds = productos.filter(p => p.categoria === cat.id);
-                            return (
-                              <optgroup key={cat.id} label={cat.name}>
-                                {catProds.map(p => (
-                                  <option key={p.id} value={p.id}>{getProductOptionLabel(p)}</option>
-                                ))}
-                              </optgroup>
-                            );
-                          })
-                        }
-                      </select>
-                    </div>
+                  <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', background: 'rgba(0,0,0,0.03)', padding: '4px', borderRadius: '10px' }}>
+                    <button 
+                      type="button"
+                      className={`btn btn-sm ${histCargaMode === 'individual' ? 'btn-primary' : 'btn-outline'}`}
+                      style={{ flex: 1, border: 'none', borderRadius: '8px', padding: '0.5rem', minHeight: 'unset', fontSize: '0.85rem', fontWeight: 600 }}
+                      onClick={() => setHistCargaMode('individual')}
+                    >
+                      Individual
+                    </button>
+                    <button 
+                      type="button"
+                      className={`btn btn-sm ${histCargaMode === 'masiva' ? 'btn-primary' : 'btn-outline'}`}
+                      style={{ flex: 1, border: 'none', borderRadius: '8px', padding: '0.5rem', minHeight: 'unset', fontSize: '0.85rem', fontWeight: 600 }}
+                      onClick={() => setHistCargaMode('masiva')}
+                    >
+                      Carga Masiva (Excel)
+                    </button>
+                  </div>
 
-                    <div className="form-group">
-                      <label>Fecha de Fabricación Histórica</label>
-                      <input
-                        type="date"
-                        className="form-control"
-                        value={adminHistForm.fecha}
-                        onChange={e => setAdminHistForm({ ...adminHistForm, fecha: e.target.value })}
-                        required
-                      />
-                    </div>
-
-                    {/* Event Checkbox */}
-                    {(() => {
-                      const selectedProd = productos.find(p => p.id === parseInt(adminHistForm.producto_id));
-                      const isVasqueta = selectedProd && selectedProd.categoria === 'helados' && selectedProd.tipo === 'vasqueta_5_6k';
-                      if (!selectedProd || isVasqueta) return null;
-                      return (
-                        <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.8rem 0' }}>
-                          <input
-                            type="checkbox"
-                            id="adminHistEsEvento"
-                            checked={adminHistForm.es_evento}
-                            onChange={e => setAdminHistForm({ ...adminHistForm, es_evento: e.target.checked })}
-                            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                          />
-                          <label htmlFor="adminHistEsEvento" style={{ margin: 0, cursor: 'pointer', userSelect: 'none', fontSize: '0.85rem', fontWeight: 600 }}>
-                            Destinar a Stock de Eventos (Separado del stock inicial)
-                          </label>
-                        </div>
-                      );
-                    })()}
-
-                    <div className="form-group">
-                      <label>Cantidad Fabricada</label>
-                      <UnitCalculatorInput
-                        value={adminHistForm.cantidad}
-                        onChange={val => {
-                          setAdminHistForm({ ...adminHistForm, cantidad: val });
-                          const qty = parseInt(val) || 0;
-                          setAdminHistWeights(prev => {
-                            const next = [...prev];
-                            if (next.length < qty) {
-                              while (next.length < qty) next.push(adminHistDefaultWeight || '');
-                            } else if (next.length > qty) {
-                              next.splice(qty);
-                            }
-                            return next;
-                          });
-                        }}
-                        product={productos.find(p => p.id === parseInt(adminHistForm.producto_id))}
-                        placeholder="Ej. 5"
-                        min={1}
-                      />
-                    </div>
-
-                    {/* Weight Inputs for Helado */}
-                    {productos.find(p => p.id === parseInt(adminHistForm.producto_id)) && parseInt(adminHistForm.cantidad) > 0 && (
-                      <div style={{ marginTop: '1.2rem', padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                        <h4 style={{ fontSize: '0.9rem', marginBottom: '0.8rem', color: 'var(--primary)', fontWeight: 600 }}>
-                          Pesos Individuales (Balanza)
-                        </h4>
-                        <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: 'var(--text-light)' }}>
-                          Envase: <strong style={{ color: 'var(--text)' }}>{formatTipo(productos.find(p => p.id === parseInt(adminHistForm.producto_id))?.tipo)}</strong> | Tara: <strong style={{ color: 'var(--text)' }}>{getTareByTipo(productos.find(p => p.id === parseInt(adminHistForm.producto_id))?.tipo).toFixed(3)} kg</strong>
-                        </div>
-
-                        {/* Autofill helper input for bulk entry */}
-                        <div className="form-group" style={{ marginBottom: '1.2rem', paddingBottom: '0.8rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                          <label style={{ fontSize: '0.8rem', marginBottom: '4px', display: 'block', fontWeight: 600 }}>
-                            Autocompletar Peso Bruto Unitario (kg)
-                          </label>
-                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  {histCargaMode === 'individual' ? (
+                    <form onSubmit={handleAdminHistSubmit}>
+                      <div className="form-group" style={{ position: 'relative' }}>
+                        <label>Seleccionar Producto / Sabor</label>
+                        {adminHistForm.producto_id ? (
+                          <div 
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              padding: '0.8rem 1rem',
+                              background: 'hsla(24, 85%, 55%, 0.08)',
+                              border: '1px solid hsla(24, 85%, 55%, 0.2)',
+                              borderRadius: '10px',
+                              marginTop: '0.2rem'
+                            }}
+                          >
+                            <div>
+                              <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--primary)', fontWeight: 700, display: 'block', marginBottom: '2px' }}>
+                                Helado Seleccionado
+                              </span>
+                              <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-dark)' }}>
+                                {productos.find(p => p.id === parseInt(adminHistForm.producto_id)) 
+                                  ? getProductOptionLabel(productos.find(p => p.id === parseInt(adminHistForm.producto_id)))
+                                  : 'Cargando...'}
+                              </span>
+                              <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginLeft: '8px' }}>
+                                ({productos.find(p => p.id === parseInt(adminHistForm.producto_id)) 
+                                  ? formatTipo(productos.find(p => p.id === parseInt(adminHistForm.producto_id))?.tipo)
+                                  : ''})
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              className="btn btn-outline btn-sm"
+                              style={{
+                                padding: '0.3rem 0.6rem',
+                                borderRadius: '6px',
+                                fontSize: '0.8rem',
+                                borderColor: 'var(--danger)',
+                                color: 'var(--danger)',
+                                background: 'transparent'
+                              }}
+                              onClick={() => {
+                                setAdminHistForm({
+                                  ...adminHistForm,
+                                  producto_id: ''
+                                });
+                                setAdminHistWeights([]);
+                              }}
+                            >
+                              Cambiar
+                            </button>
+                          </div>
+                        ) : (
+                          <>
                             <input
-                              type="number"
-                              step="0.001"
-                              min="0.001"
+                              type="text"
                               className="form-control"
-                              style={{ padding: '0.35rem 0.5rem', fontSize: '0.85rem' }}
-                              placeholder="Ej. 6.120"
-                              value={adminHistDefaultWeight}
-                              onChange={e => {
-                                const val = e.target.value;
-                                setAdminHistDefaultWeight(val);
-                                if (val) {
-                                  const qty = parseInt(adminHistForm.cantidad) || 0;
-                                  setAdminHistWeights(Array(qty).fill(val));
-                                }
+                              placeholder="🔍 Buscar helado por nombre..."
+                              value={adminHistSearch}
+                              onChange={e => setAdminHistSearch(e.target.value)}
+                              style={{
+                                marginBottom: '0.4rem',
+                                padding: '0.8rem 1.2rem',
+                                fontSize: '1.05rem',
+                                borderRadius: '12px',
+                                border: '1px solid rgba(0, 0, 0, 0.1)',
+                                background: 'var(--input-bg)',
+                                color: 'var(--text-dark)',
+                                width: '100%'
                               }}
                             />
-                            {adminHistDefaultWeight && (
-                              <button
-                                type="button"
-                                className="btn btn-secondary"
-                                style={{ padding: '0.35rem 0.8rem', fontSize: '0.75rem', height: 'auto', whiteSpace: 'nowrap', minHeight: 'unset', background: 'rgba(255,255,255,0.1)', color: 'var(--text)' }}
-                                onClick={() => {
-                                  setAdminHistDefaultWeight('');
-                                  setAdminHistWeights(Array(parseInt(adminHistForm.cantidad) || 0).fill(''));
-                                }}
-                              >
-                                Limpiar
-                              </button>
-                            )}
-                          </div>
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', display: 'block', marginTop: '4px' }}>
-                            Ingresa un peso bruto aquí para rellenar automáticamente todas las unidades y evitar cargarlas una por una.
-                          </span>
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.6rem', maxHeight: '200px', overflowY: 'auto', paddingRight: '0.2rem' }}>
-                          {adminHistWeights.map((w, idx) => {
-                            const tare = getTareByTipo(productos.find(p => p.id === parseInt(adminHistForm.producto_id))?.tipo);
-                            const gross = parseFloat(w) || 0;
-                            const net = Math.max(0, gross - tare);
+                            {(() => {
+                              const matchedProducts = productos.filter(p => {
+                                if (p.categoria !== 'helados') return false;
+                                if (!adminHistSearch) return true;
+                                const searchLower = adminHistSearch.toLowerCase();
+                                return (
+                                  p.nombre.toLowerCase().includes(searchLower) ||
+                                  (p.tipo && formatTipo(p.tipo).toLowerCase().includes(searchLower))
+                                );
+                              });
 
-                            return (
-                              <div key={idx} className="form-group" style={{ margin: 0 }}>
-                                <label style={{ fontSize: '0.75rem', marginBottom: '2px', display: 'block' }}># {idx + 1} (Peso Bruto)</label>
-                                <input
-                                  type="number"
-                                  step="0.001"
-                                  min="0.001"
-                                  required
-                                  className="form-control"
-                                  style={{ padding: '0.3rem', fontSize: '0.85rem' }}
-                                  value={w}
-                                  onChange={e => {
-                                    const next = [...adminHistWeights];
-                                    next[idx] = e.target.value;
-                                    setAdminHistWeights(next);
+                              return matchedProducts.length > 0 ? (
+                                <div 
+                                  style={{
+                                    maxHeight: '220px',
+                                    overflowY: 'auto',
+                                    border: '1px solid rgba(0, 0, 0, 0.1)',
+                                    borderRadius: '10px',
+                                    background: 'white',
+                                    marginTop: '0.2rem',
+                                    boxShadow: 'var(--shadow-sm)'
                                   }}
-                                  placeholder="kg"
-                                />
-                                <div style={{ fontSize: '0.7rem', color: net > 0 ? 'var(--success)' : 'var(--text-light)', marginTop: '2px', textAlign: 'right' }}>
-                                  Neto: {net.toFixed(3)} kg
+                                >
+                                  {matchedProducts.map(p => (
+                                    <div
+                                      key={p.id}
+                                      onClick={() => {
+                                        const isVasqueta = p.categoria === 'helados' && p.tipo === 'vasqueta_5_6k';
+                                        setAdminHistForm({
+                                          ...adminHistForm,
+                                          producto_id: String(p.id),
+                                          cantidad: '',
+                                          es_evento: isVasqueta ? false : adminHistForm.es_evento
+                                        });
+                                        setAdminHistWeights([]);
+                                        setAdminHistSearch('');
+                                      }}
+                                      style={{
+                                        padding: '0.75rem 1rem',
+                                        cursor: 'pointer',
+                                        borderBottom: '1px solid rgba(0, 0, 0, 0.05)',
+                                        transition: 'background-color 0.2s',
+                                        fontSize: '0.95rem',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center'
+                                      }}
+                                      onMouseEnter={e => e.currentTarget.style.backgroundColor = 'hsl(210, 20%, 95%)'}
+                                      onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                                    >
+                                      <span style={{ fontWeight: 600, color: 'var(--text-dark)' }}>{p.nombre}</span>
+                                      <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', background: 'rgba(0,0,0,0.05)', padding: '2px 8px', borderRadius: '6px', fontWeight: 600 }}>
+                                        {formatTipo(p.tipo)}
+                                      </span>
+                                    </div>
+                                  ))}
                                 </div>
-                              </div>
-                            );
-                          })}
+                              ) : (
+                                <div style={{ padding: '1rem', fontSize: '0.9rem', color: 'var(--text-light)', textAlign: 'center', background: 'rgba(0,0,0,0.02)', borderRadius: '10px', marginTop: '0.2rem' }}>
+                                  No se encontraron helados
+                                </div>
+                              );
+                            })()}
+                          </>
+                        )}
+                      </div>
+
+                      <div className="form-group">
+                        <label>Fecha de Fabricación Histórica</label>
+                        <input
+                          type="date"
+                          className="form-control"
+                          value={adminHistForm.fecha}
+                          onChange={e => setAdminHistForm({ ...adminHistForm, fecha: e.target.value })}
+                          required
+                        />
+                      </div>
+
+                      {/* Event Checkbox */}
+                      {(() => {
+                        const selectedProd = productos.find(p => p.id === parseInt(adminHistForm.producto_id));
+                        const isVasqueta = selectedProd && selectedProd.categoria === 'helados' && selectedProd.tipo === 'vasqueta_5_6k';
+                        if (!selectedProd || isVasqueta) return null;
+                        return (
+                          <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.8rem 0' }}>
+                            <input
+                              type="checkbox"
+                              id="adminHistEsEvento"
+                              checked={adminHistForm.es_evento}
+                              onChange={e => setAdminHistForm({ ...adminHistForm, es_evento: e.target.checked })}
+                              style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                            />
+                            <label htmlFor="adminHistEsEvento" style={{ margin: 0, cursor: 'pointer', userSelect: 'none', fontSize: '0.85rem', fontWeight: 600 }}>
+                              Destinar a Stock de Eventos (Separado del stock inicial)
+                            </label>
+                          </div>
+                        );
+                      })()}
+
+                      <div className="form-group">
+                        <label>Cantidad Fabricada</label>
+                        <UnitCalculatorInput
+                          value={adminHistForm.cantidad}
+                          onChange={val => {
+                            setAdminHistForm({ ...adminHistForm, cantidad: val });
+                            const qty = parseInt(val) || 0;
+                            setAdminHistWeights(prev => {
+                              const next = [...prev];
+                              if (next.length < qty) {
+                                while (next.length < qty) next.push(adminHistDefaultWeight || '');
+                              } else if (next.length > qty) {
+                                next.splice(qty);
+                              }
+                              return next;
+                            });
+                          }}
+                          product={productos.find(p => p.id === parseInt(adminHistForm.producto_id))}
+                          placeholder="Ej. 5"
+                          min={1}
+                        />
+                      </div>
+
+                      {/* Weight Inputs for Helado */}
+                      {productos.find(p => p.id === parseInt(adminHistForm.producto_id)) && parseInt(adminHistForm.cantidad) > 0 && (
+                        <div style={{ marginTop: '1.2rem', padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                          <h4 style={{ fontSize: '0.9rem', marginBottom: '0.8rem', color: 'var(--primary)', fontWeight: 600 }}>
+                            Pesos Individuales (Balanza)
+                          </h4>
+                          <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: 'var(--text-light)' }}>
+                            Envase: <strong style={{ color: 'var(--text)' }}>{formatTipo(productos.find(p => p.id === parseInt(adminHistForm.producto_id))?.tipo)}</strong> | Tara: <strong style={{ color: 'var(--text)' }}>{getTareByTipo(productos.find(p => p.id === parseInt(adminHistForm.producto_id))?.tipo).toFixed(3)} kg</strong>
+                          </div>
+
+                          {/* Autofill helper input for bulk entry */}
+                          <div className="form-group" style={{ marginBottom: '1.2rem', paddingBottom: '0.8rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                            <label style={{ fontSize: '0.8rem', marginBottom: '4px', display: 'block', fontWeight: 600 }}>
+                              Autocompletar Peso Bruto Unitario (kg)
+                            </label>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                              <input
+                                type="number"
+                                step="0.001"
+                                min="0.001"
+                                className="form-control"
+                                style={{ padding: '0.35rem 0.5rem', fontSize: '0.85rem' }}
+                                placeholder="Ej. 6.120"
+                                value={adminHistDefaultWeight}
+                                onChange={e => {
+                                  const val = e.target.value;
+                                  setAdminHistDefaultWeight(val);
+                                  if (val) {
+                                    const qty = parseInt(adminHistForm.cantidad) || 0;
+                                    setAdminHistWeights(Array(qty).fill(val));
+                                  }
+                                }}
+                              />
+                              {adminHistDefaultWeight && (
+                                <button
+                                  type="button"
+                                  className="btn btn-secondary"
+                                  style={{ padding: '0.35rem 0.8rem', fontSize: '0.75rem', height: 'auto', whiteSpace: 'nowrap', minHeight: 'unset', background: 'rgba(255,255,255,0.1)', color: 'var(--text)' }}
+                                  onClick={() => {
+                                    setAdminHistDefaultWeight('');
+                                    setAdminHistWeights(Array(parseInt(adminHistForm.cantidad) || 0).fill(''));
+                                  }}
+                                >
+                                  Limpiar
+                                </button>
+                              )}
+                            </div>
+                            <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', display: 'block', marginTop: '4px' }}>
+                              Ingresa un peso bruto aquí para rellenar automáticamente todas las unidades y evitar cargarlas una por una.
+                            </span>
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.6rem', maxHeight: '200px', overflowY: 'auto', paddingRight: '0.2rem' }}>
+                            {adminHistWeights.map((w, idx) => {
+                              const tare = getTareByTipo(productos.find(p => p.id === parseInt(adminHistForm.producto_id))?.tipo);
+                              const gross = parseFloat(w) || 0;
+                              const net = Math.max(0, gross - tare);
+
+                              return (
+                                <div key={idx} className="form-group" style={{ margin: 0 }}>
+                                  <label style={{ fontSize: '0.75rem', marginBottom: '2px', display: 'block' }}># {idx + 1} (Peso Bruto)</label>
+                                  <input
+                                    type="number"
+                                    step="0.001"
+                                    min="0.001"
+                                    required
+                                    className="form-control"
+                                    style={{ padding: '0.3rem', fontSize: '0.85rem' }}
+                                    value={w}
+                                    onChange={e => {
+                                      const next = [...adminHistWeights];
+                                      next[idx] = e.target.value;
+                                      setAdminHistWeights(next);
+                                    }}
+                                    placeholder="kg"
+                                  />
+                                  <div style={{ fontSize: '0.7rem', color: net > 0 ? 'var(--success)' : 'var(--text-light)', marginTop: '2px', textAlign: 'right' }}>
+                                    Neto: {net.toFixed(3)} kg
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div style={{ marginTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '0.8rem', fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between' }}>
+                            <span><strong>Total Bruto:</strong> {(adminHistWeights.reduce((acc, curr) => acc + (parseFloat(curr) || 0), 0)).toFixed(3)} kg</span>
+                            <span><strong>Total Neto:</strong> {(adminHistWeights.reduce((acc, curr) => acc + Math.max(0, (parseFloat(curr) || 0) - getTareByTipo(productos.find(p => p.id === parseInt(adminHistForm.producto_id))?.tipo)), 0)).toFixed(3)} kg</span>
+                          </div>
                         </div>
-                        <div style={{ marginTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '0.8rem', fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between' }}>
-                          <span><strong>Total Bruto:</strong> {(adminHistWeights.reduce((acc, curr) => acc + (parseFloat(curr) || 0), 0)).toFixed(3)} kg</span>
-                          <span><strong>Total Neto:</strong> {(adminHistWeights.reduce((acc, curr) => acc + Math.max(0, (parseFloat(curr) || 0) - getTareByTipo(productos.find(p => p.id === parseInt(adminHistForm.producto_id))?.tipo)), 0)).toFixed(3)} kg</span>
+                      )}
+
+                      <button type="submit" className="btn btn-primary" style={{ marginTop: '1rem', width: '100%' }} disabled={loading || !adminHistForm.producto_id}>
+                        Cargar Producción Pre-Sistema
+                      </button>
+                    </form>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                      <div>
+                        <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-dark)', marginBottom: '0.4rem' }}>
+                          1. Descargar Plantilla por Categoría
+                        </h4>
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '0.8rem' }}>
+                          Selecciona una categoría para generar una plantilla CSV precargada con todos sus productos activos.
+                        </p>
+                        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.8rem' }}>
+                          <select 
+                            className="form-control"
+                            value={histBulkCategory}
+                            onChange={e => setHistBulkCategory(e.target.value)}
+                            style={{
+                              borderRadius: '10px',
+                              background: 'var(--input-bg)',
+                              border: '1px solid rgba(0, 0, 0, 0.1)',
+                              color: 'var(--text-dark)',
+                              fontSize: '0.95rem',
+                              flex: 1,
+                              padding: '0.5rem',
+                              height: 'auto',
+                              minHeight: 'unset'
+                            }}
+                          >
+                            {categories.map(cat => (
+                              <option key={cat.id} value={cat.id}>{cat.name}</option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            onClick={handleDownloadHistTemplate}
+                            style={{
+                              padding: '0.5rem 1rem',
+                              borderRadius: '10px',
+                              fontSize: '0.85rem',
+                              whiteSpace: 'nowrap',
+                              height: 'auto',
+                              minHeight: 'unset'
+                            }}
+                          >
+                            📥 Descargar
+                          </button>
                         </div>
                       </div>
-                    )}
 
-                    <button type="submit" className="btn btn-primary" style={{ marginTop: '1rem', width: '100%' }} disabled={loading}>
-                      Cargar Producción Pre-Sistema
-                    </button>
-                  </form>
+                      <div style={{ borderTop: '1px solid rgba(0, 0, 0, 0.08)', paddingTop: '1.2rem', marginTop: '0.4rem' }}>
+                        <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-dark)', marginBottom: '0.4rem' }}>
+                          2. Subir Planilla Completada
+                        </h4>
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '1rem', lineHeight: '1.4' }}>
+                          Sube la planilla completada en formato CSV. Las filas con cantidad mayor a 0 se registrarán como lotes de producción histórica.
+                          <br />
+                          💡 <strong>Múltiples pesos de helados:</strong> Si la cantidad es mayor a 1, puedes indicar los pesos brutos individuales separados por espacios, barras o punto y coma (ej: <code>8,120; 8,250; 8,180</code>) en la columna de peso unitario.
+                        </p>
+                        
+                        <div 
+                          style={{
+                            border: '2px dashed hsl(24, 85%, 55%)',
+                            borderRadius: '12px',
+                            padding: '1.5rem',
+                            textAlign: 'center',
+                            background: 'hsla(24, 85%, 55%, 0.02)',
+                            cursor: 'pointer',
+                            position: 'relative',
+                            transition: 'var(--transition)'
+                          }}
+                        >
+                          <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}>📄</span>
+                          <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-dark)', display: 'block' }}>
+                            {loading ? 'Procesando planilla...' : 'Haga clic para seleccionar el archivo CSV'}
+                          </span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '0.2rem', display: 'block' }}>
+                            Formatos aceptados: .csv (delimitado por coma o punto y coma)
+                          </span>
+                          <input
+                            type="file"
+                            accept=".csv"
+                            onChange={handleUploadHistTemplate}
+                            disabled={loading}
+                            style={{
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              width: '100%',
+                              height: '100%',
+                              opacity: 0,
+                              cursor: 'pointer'
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="glass-card">
@@ -3717,10 +4060,31 @@ export default function App() {
                   )}
                 </div>
 
-                {maintenanceSubTab === 'inventario' && (
+                 {maintenanceSubTab === 'inventario' && (
                   <div>
                     {/* Filtros */}
                     <div className="glass-card" style={{ padding: '1.2rem', marginBottom: '1.5rem', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                      <div style={{ flex: '1 1 200px' }}>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Buscar por Nombre / Marca / N/S</span>
+                        <input
+                          type="text"
+                          className="form-control"
+                          placeholder="🔍 Buscar equipo..."
+                          value={adminMaquinaSearch}
+                          onChange={e => setAdminMaquinaSearch(e.target.value)}
+                          style={{
+                            padding: '0.6rem 1rem',
+                            borderRadius: '10px',
+                            background: 'rgba(255,255,255,0.05)',
+                            border: '1px solid rgba(255,255,255,0.15)',
+                            color: 'var(--text)',
+                            fontSize: '0.95rem',
+                            height: 'auto',
+                            minHeight: 'unset'
+                          }}
+                        />
+                      </div>
+
                       <div style={{ flex: '1 1 200px' }}>
                         <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Filtrar por Sucursal</span>
                         <select className="form-control" value={selectedSucursalFilter} onChange={e => setSelectedSucursalFilter(e.target.value)}>
@@ -3749,6 +4113,17 @@ export default function App() {
                       {maquinas
                         .filter(m => selectedSucursalFilter === 'Todos' || m.sucursal_id === parseInt(selectedSucursalFilter))
                         .filter(m => selectedTipoEquipoFilter === 'Todos' || m.tipo_equipo === selectedTipoEquipoFilter)
+                        .filter(m => {
+                          if (!adminMaquinaSearch) return true;
+                          const q = adminMaquinaSearch.toLowerCase();
+                          return (
+                            m.nombre.toLowerCase().includes(q) ||
+                            (m.marca && m.marca.toLowerCase().includes(q)) ||
+                            (m.modelo && m.modelo.toLowerCase().includes(q)) ||
+                            (m.numero_serie && m.numero_serie.toLowerCase().includes(q)) ||
+                            (m.sucursal_nombre && m.sucursal_nombre.toLowerCase().includes(q))
+                          );
+                        })
                         .map(m => {
                           const icon = getEquipoIcon(m.tipo_equipo);
                           const stateColors = {
@@ -3826,6 +4201,24 @@ export default function App() {
                             </div>
                           );
                         })}
+                      {maquinas
+                        .filter(m => selectedSucursalFilter === 'Todos' || m.sucursal_id === parseInt(selectedSucursalFilter))
+                        .filter(m => selectedTipoEquipoFilter === 'Todos' || m.tipo_equipo === selectedTipoEquipoFilter)
+                        .filter(m => {
+                          if (!adminMaquinaSearch) return true;
+                          const q = adminMaquinaSearch.toLowerCase();
+                          return (
+                            m.nombre.toLowerCase().includes(q) ||
+                            (m.marca && m.marca.toLowerCase().includes(q)) ||
+                            (m.modelo && m.modelo.toLowerCase().includes(q)) ||
+                            (m.numero_serie && m.numero_serie.toLowerCase().includes(q)) ||
+                            (m.sucursal_nombre && m.sucursal_nombre.toLowerCase().includes(q))
+                          );
+                        }).length === 0 && (
+                          <div className="glass-card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-light)', width: '100%' }}>
+                            No se encontraron equipos registrados.
+                          </div>
+                        )}
                     </div>
                   </div>
                 )}
@@ -3904,14 +4297,38 @@ export default function App() {
                           📋 Historial de Trabajos Realizados
                         </h4>
 
-                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontWeight: 600 }}>Filtrar por Máquina:</span>
-                          <select className="form-control" style={{ width: '220px', padding: '0.4rem 0.8rem', fontSize: '0.85rem' }} value={selectedMaquinaFilter} onChange={e => setSelectedMaquinaFilter(e.target.value)}>
-                            <option value="Todos">Todas las máquinas</option>
-                            {maquinas.map(m => (
-                              <option key={m.id} value={m.id}>{m.nombre} ({m.sucursal_nombre})</option>
-                            ))}
-                          </select>
+                        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontWeight: 600 }}>Buscar:</span>
+                            <input
+                              type="text"
+                              className="form-control"
+                              placeholder="🔍 Buscar trabajo..."
+                              style={{
+                                width: '280px',
+                                padding: '0.6rem 1rem',
+                                fontSize: '0.95rem',
+                                borderRadius: '10px',
+                                background: 'rgba(255,255,255,0.05)',
+                                border: '1px solid rgba(255,255,255,0.15)',
+                                color: 'var(--text)',
+                                height: 'auto',
+                                minHeight: 'unset'
+                              }}
+                              value={adminMantenimientoSearch}
+                              onChange={e => setAdminMantenimientoSearch(e.target.value)}
+                            />
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontWeight: 600 }}>Filtrar por Máquina:</span>
+                            <select className="form-control" style={{ width: '220px', padding: '0.4rem 0.8rem', fontSize: '0.85rem' }} value={selectedMaquinaFilter} onChange={e => setSelectedMaquinaFilter(e.target.value)}>
+                              <option value="Todos">Todas las máquinas</option>
+                              {maquinas.map(m => (
+                                <option key={m.id} value={m.id}>{m.nombre} ({m.sucursal_nombre})</option>
+                              ))}
+                            </select>
+                          </div>
                         </div>
                       </div>
 
@@ -3932,6 +4349,16 @@ export default function App() {
                           <tbody>
                             {mantenimientos
                               .filter(m => selectedMaquinaFilter === 'Todos' || m.maquina_id === parseInt(selectedMaquinaFilter))
+                              .filter(m => {
+                                if (!adminMantenimientoSearch) return true;
+                                const q = adminMantenimientoSearch.toLowerCase();
+                                return (
+                                  (m.maquina_nombre && m.maquina_nombre.toLowerCase().includes(q)) ||
+                                  (m.descripcion && m.descripcion.toLowerCase().includes(q)) ||
+                                  (m.realizado_por && m.realizado_por.toLowerCase().includes(q)) ||
+                                  (m.tipo && getMaintenanceTypeLabel(m.tipo).toLowerCase().includes(q))
+                                );
+                              })
                               .map(m => (
                                 <tr key={m.id}>
                                   <td><strong>{new Date(m.fecha).toLocaleDateString()}</strong></td>
@@ -3939,7 +4366,7 @@ export default function App() {
                                     <strong>{m.maquina_nombre}</strong>
                                     {m.maquina_marca && <div style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>{m.maquina_marca} {m.maquina_modelo}</div>}
                                   </td>
-                                  <td style={{ fontSize: '0.85rem' }}>{getMaintenanceTypeLabel(m.tipo)}</td>
+                                  <td style={{ fontSize: '0.85rem' }}>{getMainMaintenanceTypeLabel(m.tipo)}</td>
                                   <td>
                                     <div style={{ fontSize: '0.9rem' }}>{m.descripcion}</div>
                                     {m.cambio_repuesto && (
@@ -3986,13 +4413,24 @@ export default function App() {
                                   </td>
                                 </tr>
                               ))}
-                            {mantenimientos.filter(m => selectedMaquinaFilter === 'Todos' || m.maquina_id === parseInt(selectedMaquinaFilter)).length === 0 && (
-                              <tr>
-                                <td colSpan="8" style={{ textAlign: 'center', color: 'var(--text-light)', padding: '2rem' }}>
-                                  No hay registros de mantenimiento para esta selección.
-                                </td>
-                              </tr>
-                            )}
+                            {mantenimientos
+                              .filter(m => selectedMaquinaFilter === 'Todos' || m.maquina_id === parseInt(selectedMaquinaFilter))
+                              .filter(m => {
+                                if (!adminMantenimientoSearch) return true;
+                                const q = adminMantenimientoSearch.toLowerCase();
+                                return (
+                                  (m.maquina_nombre && m.maquina_nombre.toLowerCase().includes(q)) ||
+                                  (m.descripcion && m.descripcion.toLowerCase().includes(q)) ||
+                                  (m.realizado_por && m.realizado_por.toLowerCase().includes(q)) ||
+                                  (m.tipo && getMaintenanceTypeLabel(m.tipo).toLowerCase().includes(q))
+                                );
+                              }).length === 0 && (
+                                <tr>
+                                  <td colSpan="8" style={{ textAlign: 'center', color: 'var(--text-light)', padding: '2rem' }}>
+                                    No hay registros de mantenimiento para esta selección.
+                                  </td>
+                                </tr>
+                              )}
                           </tbody>
                         </table>
                       </div>
@@ -4012,6 +4450,9 @@ export default function App() {
                 {user.rol === 'heladero' ? 'Cargar Producción' : user.rol === 'pastelero_helado' ? 'Cargar Pastelería Helada' : 'Cargar Pastelería'}
               </button>
               <button className={`tab-btn ${activeTab === 'stock' ? 'active' : ''}`} onClick={() => setActiveTab('stock')}>Mi Stock Fábrica</button>
+              {user.rol === 'heladero' && (
+                <button className={`tab-btn ${activeTab === 'pedidos_eventos' ? 'active' : ''}`} onClick={() => setActiveTab('pedidos_eventos')}>Pedidos de Eventos</button>
+              )}
             </div>
 
             {activeTab === 'produccion' && (
@@ -4023,6 +4464,23 @@ export default function App() {
                   <form onSubmit={handleProductionSubmit}>
                     <div className="form-group">
                       <label>Seleccionar Producto / Sabor</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="🔍 Filtrar productos por nombre..."
+                        value={prodFormSearch}
+                        onChange={e => setProdFormSearch(e.target.value)}
+                        style={{
+                          marginBottom: '0.6rem',
+                          padding: '0.6rem 1rem',
+                          fontSize: '0.95rem',
+                          borderRadius: '10px',
+                          background: 'rgba(255,255,255,0.05)',
+                          border: '1px solid rgba(255,255,255,0.15)',
+                          color: 'var(--text)',
+                          width: '100%'
+                        }}
+                      />
                       <select
                         className="form-control"
                         value={prodForm.producto_id}
@@ -4043,7 +4501,13 @@ export default function App() {
                         {categories
                           .filter(cat => isCategoryVisibleToRole(cat.id, user.rol))
                           .map(cat => {
-                            const catProds = productos.filter(p => p.categoria === cat.id);
+                            let catProds = productos.filter(p => p.categoria === cat.id);
+                            if (prodFormSearch) {
+                              catProds = catProds.filter(p => 
+                                p.nombre.toLowerCase().includes(prodFormSearch.toLowerCase()) ||
+                                (p.tipo && formatTipo(p.tipo).toLowerCase().includes(prodFormSearch.toLowerCase()))
+                              );
+                            }
                             if (catProds.length === 0) return null;
                             return (
                               <optgroup key={cat.id} label={cat.name}>
@@ -4237,6 +4701,28 @@ export default function App() {
                   </div>
                 </div>
 
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>Buscar sabor/producto:</span>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="🔍 Buscar por nombre..."
+                    value={factoryStockSearch}
+                    onChange={e => setFactoryStockSearch(e.target.value)}
+                    style={{
+                      padding: '0.6rem 1rem',
+                      borderRadius: '10px',
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      color: 'var(--text)',
+                      fontSize: '0.95rem',
+                      width: '320px',
+                      height: 'auto',
+                      minHeight: 'unset'
+                    }}
+                  />
+                </div>
+
                 {user.rol === 'heladero' ? (
                   <>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
@@ -4281,10 +4767,10 @@ export default function App() {
                               <th style={{ textAlign: 'center' }}>Vasqueta</th>
                             )}
                             {(iceCreamFormatFilter === 'Todos' || iceCreamFormatFilter === 'Balde') && (
-                              <th style={{ textAlign: 'center' }}>Balde 5k</th>
+                              <th style={{ textAlign: 'center' }}>Balde 5L</th>
                             )}
                             {(iceCreamFormatFilter === 'Todos' || iceCreamFormatFilter === 'Balde') && (
-                              <th style={{ textAlign: 'center' }}>Balde 10k</th>
+                              <th style={{ textAlign: 'center' }}>Balde 10L</th>
                             )}
                             <th>Kilos Netos Totales</th>
                           </tr>
@@ -4292,7 +4778,13 @@ export default function App() {
                         <tbody>
                           {(() => {
                             const groupedStock = getGroupedStock(showEventStock);
-                            const filteredStock = groupedStock.filter(s => stockGroupFilter === 'Todos' || s.group === stockGroupFilter);
+                            let filteredStock = groupedStock.filter(s => stockGroupFilter === 'Todos' || s.group === stockGroupFilter);
+                            if (factoryStockSearch) {
+                              filteredStock = filteredStock.filter(s => 
+                                s.flavor.toLowerCase().includes(factoryStockSearch.toLowerCase()) ||
+                                s.group.toLowerCase().includes(factoryStockSearch.toLowerCase())
+                              );
+                            }
 
                             if (filteredStock.length === 0) {
                               const dynamicColSpan = iceCreamFormatFilter === 'Todos' ? 5 : iceCreamFormatFilter === 'Vasqueta' ? 3 : 4;
@@ -4307,12 +4799,12 @@ export default function App() {
 
                             return filteredStock.map(s => {
                               const wVasqueta = s.vasqueta_id ? getProductNetWeight(s.vasqueta_id, 'vasqueta_5_6k') : 5.5;
-                              const wBalde5k = s.balde_4k_id ? getProductNetWeight(s.balde_4k_id, 'balde_4k') : 5.0;
-                              const wBalde10k = s.balde_8k_id ? getProductNetWeight(s.balde_8k_id, 'balde_8k') : 10.0;
+                              const wBalde5l = s.balde_4k_id ? getProductNetWeight(s.balde_4k_id, 'balde_4k') : 4.0;
+                              const wBalde10l = s.balde_8k_id ? getProductNetWeight(s.balde_8k_id, 'balde_8k') : 8.0;
 
                               const totalKilos = 
                                 ((iceCreamFormatFilter === 'Todos' || iceCreamFormatFilter === 'Vasqueta') ? (showEventStock ? 0 : (s.vasqueta_qty * wVasqueta)) : 0) +
-                                ((iceCreamFormatFilter === 'Todos' || iceCreamFormatFilter === 'Balde') ? (s.balde_4k_qty * wBalde5k) + (s.balde_8k_qty * wBalde10k) : 0);
+                                ((iceCreamFormatFilter === 'Todos' || iceCreamFormatFilter === 'Balde') ? (s.balde_4k_qty * wBalde5l) + (s.balde_8k_qty * wBalde10l) : 0);
 
                               return (
                                 <tr key={s.flavor}>
@@ -4363,29 +4855,119 @@ export default function App() {
                         </tr>
                       </thead>
                       <tbody>
-                        {stockData
-                          .filter(s => s.sucursal_id === 1 && isCategoryVisibleToRole(s.categoria, user.rol) && s.es_evento === showEventStock)
-                          .map(s => (
-                            <tr key={s.producto_id}>
-                              <td><strong>{s.producto_nombre}</strong></td>
-                              <td style={{ textTransform: 'capitalize' }}>{formatTipo(s.tipo)}</td>
-                              <td style={{ fontWeight: 700, color: s.cantidad > 5 ? 'var(--success)' : 'var(--danger)' }}>
-                                {formatQuantity(s.cantidad, productos.find(p => p.id === s.producto_id))}
-                              </td>
-                            </tr>
-                          ))
-                        }
-                        {stockData.filter(s => s.sucursal_id === 1 && isCategoryVisibleToRole(s.categoria, user.rol) && s.es_evento === showEventStock).length === 0 && (
-                          <tr>
-                            <td colSpan="3" style={{ textAlign: 'center', color: 'var(--text-light)' }}>
-                              No hay stock registrado en esta sección.
-                            </td>
-                          </tr>
-                        )}
+                        {(() => {
+                          let items = stockData.filter(s => s.sucursal_id === 1 && isCategoryVisibleToRole(s.categoria, user.rol) && s.es_evento === showEventStock);
+                          if (factoryStockSearch) {
+                            items = items.filter(s => 
+                              s.producto_nombre.toLowerCase().includes(factoryStockSearch.toLowerCase()) ||
+                              (s.tipo && formatTipo(s.tipo).toLowerCase().includes(factoryStockSearch.toLowerCase()))
+                            );
+                          }
+                          return (
+                            <>
+                              {items.map(s => (
+                                <tr key={s.producto_id}>
+                                  <td><strong>{s.producto_nombre}</strong></td>
+                                  <td style={{ textTransform: 'capitalize' }}>{formatTipo(s.tipo)}</td>
+                                  <td style={{ fontWeight: 700, color: s.cantidad > 5 ? 'var(--success)' : 'var(--danger)' }}>
+                                    {formatQuantity(s.cantidad, productos.find(p => p.id === s.producto_id))}
+                                  </td>
+                                </tr>
+                              ))}
+                              {items.length === 0 && (
+                                <tr>
+                                  <td colSpan="3" style={{ textAlign: 'center', color: 'var(--text-light)' }}>
+                                    No hay stock registrado en esta sección.
+                                  </td>
+                                </tr>
+                              )}
+                            </>
+                          );
+                        })()}
                       </tbody>
                     </table>
                   </div>
                 )}
+              </div>
+            )}
+
+            {activeTab === 'pedidos_eventos' && user.rol === 'heladero' && (
+              <div className="glass-card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', flexWrap: 'wrap', gap: '1rem' }}>
+                  <h3 className="section-title" style={{ margin: 0, border: 'none' }}>Pedidos de Eventos por Preparar</h3>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="🔍 Buscar por ID o Destino..."
+                    value={heladeroEventSearch}
+                    onChange={e => setHeladeroEventSearch(e.target.value)}
+                    style={{
+                      padding: '0.6rem 1.2rem',
+                      fontSize: '0.95rem',
+                      borderRadius: '10px',
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      color: 'var(--text)',
+                      width: '320px',
+                      height: 'auto',
+                      minHeight: 'unset'
+                    }}
+                  />
+                </div>
+                <div className="table-container">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>ID Pedido</th>
+                        <th>Destino</th>
+                        <th>Estado</th>
+                        <th>Fecha de Solicitud</th>
+                        <th>Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {orders
+                        .filter(o => o.es_evento && o.estado === 'solicitado')
+                        .filter(order => {
+                          if (!heladeroEventSearch) return true;
+                          const q = heladeroEventSearch.toLowerCase();
+                          return (
+                            order.id.toString().includes(q) ||
+                            (order.destino_nombre && order.destino_nombre.toLowerCase().includes(q))
+                          );
+                        })
+                        .map(order => (
+                          <tr key={order.id}>
+                            <td>#{order.id}</td>
+                            <td><strong>{order.destino_nombre}</strong></td>
+                            <td><span className={getBadgeClass(order.estado)}>{translateState(order.estado)}</span></td>
+                            <td>{new Date(order.fecha_solicitud).toLocaleString()}</td>
+                            <td>
+                              <button className="btn btn-secondary btn-sm" onClick={() => viewOrderDetail(order.id)}>
+                                Revisar y Preparar
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      {orders
+                        .filter(o => o.es_evento && o.estado === 'solicitado')
+                        .filter(order => {
+                          if (!heladeroEventSearch) return true;
+                          const q = heladeroEventSearch.toLowerCase();
+                          return (
+                            order.id.toString().includes(q) ||
+                            (order.destino_nombre && order.destino_nombre.toLowerCase().includes(q))
+                          );
+                        }).length === 0 && (
+                          <tr>
+                            <td colSpan="5" style={{ textAlign: 'center', color: 'var(--text-light)', padding: '2rem 1rem' }}>
+                              No se encontraron pedidos de eventos.
+                            </td>
+                          </tr>
+                        )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
@@ -4402,7 +4984,27 @@ export default function App() {
 
             {activeTab === 'pedidos' && (
               <div className="glass-card">
-                <h3 className="section-title">Pedidos por Preparar para Despacho</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', flexWrap: 'wrap', gap: '1rem' }}>
+                  <h3 className="section-title" style={{ margin: 0, border: 'none' }}>Pedidos por Preparar para Despacho</h3>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="🔍 Buscar por ID o Destino..."
+                    value={driverOrderSearch}
+                    onChange={e => setDriverOrderSearch(e.target.value)}
+                    style={{
+                      padding: '0.6rem 1.2rem',
+                      fontSize: '0.95rem',
+                      borderRadius: '10px',
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      color: 'var(--text)',
+                      width: '320px',
+                      height: 'auto',
+                      minHeight: 'unset'
+                    }}
+                  />
+                </div>
                 <div className="table-container">
                   <table>
                     <thead>
@@ -4415,26 +5017,45 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody>
-                      {orders.filter(o => o.estado === 'solicitado').map(order => (
-                        <tr key={order.id}>
-                          <td>#{order.id}</td>
-                          <td><strong>{order.destino_nombre}</strong></td>
-                          <td><span className={getBadgeClass(order.estado)}>{translateState(order.estado)}</span></td>
-                          <td>{new Date(order.fecha_solicitud).toLocaleString()}</td>
-                          <td>
-                            <button className="btn btn-secondary btn-sm" onClick={() => viewOrderDetail(order.id)}>
-                              Revisar y Preparar
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                      {orders.filter(o => o.estado === 'solicitado').length === 0 && (
-                        <tr>
-                          <td colSpan="5" style={{ textAlign: 'center', color: 'var(--text-light)' }}>
-                            No hay pedidos pendientes de preparación en este momento.
-                          </td>
-                        </tr>
-                      )}
+                      {orders
+                        .filter(o => o.estado === 'solicitado')
+                        .filter(order => {
+                          if (!driverOrderSearch) return true;
+                          const q = driverOrderSearch.toLowerCase();
+                          return (
+                            order.id.toString().includes(q) ||
+                            (order.destino_nombre && order.destino_nombre.toLowerCase().includes(q))
+                          );
+                        })
+                        .map(order => (
+                          <tr key={order.id}>
+                            <td>#{order.id}</td>
+                            <td><strong>{order.destino_nombre}</strong></td>
+                            <td><span className={getBadgeClass(order.estado)}>{translateState(order.estado)}</span></td>
+                            <td>{new Date(order.fecha_solicitud).toLocaleString()}</td>
+                            <td>
+                              <button className="btn btn-secondary btn-sm" onClick={() => viewOrderDetail(order.id)}>
+                                Revisar y Preparar
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      {orders
+                        .filter(o => o.estado === 'solicitado')
+                        .filter(order => {
+                          if (!driverOrderSearch) return true;
+                          const q = driverOrderSearch.toLowerCase();
+                          return (
+                            order.id.toString().includes(q) ||
+                            (order.destino_nombre && order.destino_nombre.toLowerCase().includes(q))
+                          );
+                        }).length === 0 && (
+                          <tr>
+                            <td colSpan="5" style={{ textAlign: 'center', color: 'var(--text-light)', padding: '2rem 1rem' }}>
+                              No se encontraron pedidos.
+                            </td>
+                          </tr>
+                        )}
                     </tbody>
                   </table>
                 </div>
@@ -4443,7 +5064,27 @@ export default function App() {
 
             {activeTab === 'rutas' && (
               <div className="glass-card">
-                <h3 className="section-title">Control de Envíos y Carga</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', flexWrap: 'wrap', gap: '1rem' }}>
+                  <h3 className="section-title" style={{ margin: 0, border: 'none' }}>Control de Envíos y Carga</h3>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="🔍 Buscar por ID o Destino..."
+                    value={driverRouteSearch}
+                    onChange={e => setDriverRouteSearch(e.target.value)}
+                    style={{
+                      padding: '0.6rem 1.2rem',
+                      fontSize: '0.95rem',
+                      borderRadius: '10px',
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      color: 'var(--text)',
+                      width: '320px',
+                      height: 'auto',
+                      minHeight: 'unset'
+                    }}
+                  />
+                </div>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: '1.2rem' }}>
                   Visualiza los pedidos armados en fábrica, confirma qué estás subiendo a tu camión, registra mermas de viaje y confirma entregas.
                 </p>
@@ -4459,26 +5100,47 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody>
-                      {orders.filter(order => order.sucursal_destino_id !== user.sucursal_id).map(order => (
-                        <tr key={order.id}>
-                          <td>#{order.id}</td>
-                          <td><strong>{order.destino_nombre}</strong></td>
-                          <td><span className={getBadgeClass(order.estado)}>{translateState(order.estado)}</span></td>
-                          <td>{order.fecha_preparacion ? new Date(order.fecha_preparacion).toLocaleString() : '-'}</td>
-                          <td>
-                            <button className="btn btn-primary btn-sm" onClick={() => viewOrderDetail(order.id)}>
-                              {order.estado === 'preparado' ? 'Iniciar Carga' : 'Ver y Gestionar'}
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                      {orders.filter(order => order.sucursal_destino_id !== user.sucursal_id).length === 0 && (
-                        <tr>
-                          <td colSpan="5" style={{ textAlign: 'center', color: 'var(--text-light)' }}>
-                            No tienes viajes activos asignados en este momento.
-                          </td>
-                        </tr>
-                      )}
+                      {orders
+                        .filter(order => order.sucursal_destino_id !== user.sucursal_id)
+                        .filter(order => {
+                          if (!driverRouteSearch) return true;
+                          const q = driverRouteSearch.toLowerCase();
+                          return (
+                            order.id.toString().includes(q) ||
+                            (order.destino_nombre && order.destino_nombre.toLowerCase().includes(q)) ||
+                            (order.estado && translateState(order.estado).toLowerCase().includes(q))
+                          );
+                        })
+                        .map(order => (
+                          <tr key={order.id}>
+                            <td>#{order.id}</td>
+                            <td><strong>{order.destino_nombre}</strong></td>
+                            <td><span className={getBadgeClass(order.estado)}>{translateState(order.estado)}</span></td>
+                            <td>{order.fecha_preparacion ? new Date(order.fecha_preparacion).toLocaleString() : '-'}</td>
+                            <td>
+                              <button className="btn btn-primary btn-sm" onClick={() => viewOrderDetail(order.id)}>
+                                {order.estado === 'preparado' ? 'Iniciar Carga' : 'Ver y Gestionar'}
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      {orders
+                        .filter(order => order.sucursal_destino_id !== user.sucursal_id)
+                        .filter(order => {
+                          if (!driverRouteSearch) return true;
+                          const q = driverRouteSearch.toLowerCase();
+                          return (
+                            order.id.toString().includes(q) ||
+                            (order.destino_nombre && order.destino_nombre.toLowerCase().includes(q)) ||
+                            (order.estado && translateState(order.estado).toLowerCase().includes(q))
+                          );
+                        }).length === 0 && (
+                          <tr>
+                            <td colSpan="5" style={{ textAlign: 'center', color: 'var(--text-light)', padding: '2rem 1rem' }}>
+                              No se encontraron viajes activos.
+                            </td>
+                          </tr>
+                        )}
                     </tbody>
                   </table>
                 </div>
@@ -4515,6 +5177,27 @@ export default function App() {
                       Inventario actual de insumos, materias primas y packaging asignados a tu vehículo/depósito.
                     </p>
 
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="🔍 Buscar insumo..."
+                        value={driverDepotSearch}
+                        onChange={e => setDriverDepotSearch(e.target.value)}
+                        style={{
+                          padding: '0.6rem 1.2rem',
+                          fontSize: '0.95rem',
+                          borderRadius: '10px',
+                          background: 'rgba(255,255,255,0.05)',
+                          border: '1px solid rgba(255,255,255,0.15)',
+                          color: 'var(--text)',
+                          width: '100%',
+                          height: 'auto',
+                          minHeight: 'unset'
+                        }}
+                      />
+                    </div>
+
                     <div className="table-container">
                       <table>
                         <thead>
@@ -4527,6 +5210,14 @@ export default function App() {
                         <tbody>
                           {productos
                             .filter(p => p.categoria === 'termicos' || p.categoria === 'otros')
+                            .filter(prod => {
+                              if (!driverDepotSearch) return true;
+                              const q = driverDepotSearch.toLowerCase();
+                              return (
+                                prod.nombre.toLowerCase().includes(q) ||
+                                (prod.tipo && formatTipo(prod.tipo).toLowerCase().includes(q))
+                              );
+                            })
                             .map(prod => {
                               const stock = stockData.find(s => s.producto_id === prod.id && s.sucursal_id === user.sucursal_id && s.es_evento === showEventStockDepot)?.cantidad || 0;
                               return (
@@ -4547,6 +5238,22 @@ export default function App() {
                                 </tr>
                               );
                             })}
+                          {productos
+                            .filter(p => p.categoria === 'termicos' || p.categoria === 'otros')
+                            .filter(prod => {
+                              if (!driverDepotSearch) return true;
+                              const q = driverDepotSearch.toLowerCase();
+                              return (
+                                prod.nombre.toLowerCase().includes(q) ||
+                                (prod.tipo && formatTipo(prod.tipo).toLowerCase().includes(q))
+                              );
+                            }).length === 0 && (
+                              <tr>
+                                <td colSpan="3" style={{ textAlign: 'center', color: 'var(--text-light)', padding: '2rem 1rem' }}>
+                                  No se encontraron insumos.
+                                </td>
+                              </tr>
+                            )}
                         </tbody>
                       </table>
                     </div>
@@ -4630,20 +5337,22 @@ export default function App() {
                     </p>
                   </div>
                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.05)', padding: '0.5rem 0.8rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                      <input
-                        type="checkbox"
-                        id="orderIsEventCheck"
-                        checked={orderIsEvent}
-                        onChange={e => {
-                          setOrderIsEvent(e.target.checked);
-                        }}
-                        style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                      />
-                      <label htmlFor="orderIsEventCheck" style={{ margin: 0, cursor: 'pointer', userSelect: 'none', fontSize: '0.85rem', fontWeight: 600 }}>
-                        🚨 Pedido para EVENTO (Stock de Eventos)
-                      </label>
-                    </div>
+                    {(user.rol === 'admin' || user.rol === 'heladero') && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.05)', padding: '0.5rem 0.8rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        <input
+                          type="checkbox"
+                          id="orderIsEventCheck"
+                          checked={orderIsEvent}
+                          onChange={e => {
+                            setOrderIsEvent(e.target.checked);
+                          }}
+                          style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                        />
+                        <label htmlFor="orderIsEventCheck" style={{ margin: 0, cursor: 'pointer', userSelect: 'none', fontSize: '0.85rem', fontWeight: 600 }}>
+                          🚨 Pedido para EVENTO (Stock de Eventos)
+                        </label>
+                      </div>
+                    )}
                     <button className="btn btn-secondary btn-sm" onClick={applyAllSuggestions}>
                       ⚡ Aplicar Sugerencias
                     </button>
@@ -4720,12 +5429,12 @@ export default function App() {
                       placeholder="🔍 Buscar producto o sabor..."
                       className="form-control"
                       style={{
-                        paddingLeft: '2.5rem',
-                        borderRadius: '10px',
+                        padding: '0.75rem 1.2rem 0.75rem 2.8rem',
+                        borderRadius: '12px',
                         background: 'rgba(255,255,255,0.05)',
-                        border: '1px solid rgba(255,255,255,0.1)',
+                        border: '1px solid rgba(255,255,255,0.15)',
                         color: 'var(--text)',
-                        fontSize: '0.95rem',
+                        fontSize: '1.05rem',
                         width: '100%'
                       }}
                       value={orderSearchQuery}
@@ -4940,7 +5649,27 @@ export default function App() {
 
             {activeTab === 'pedidos_lista' && (
               <div className="glass-card">
-                <h3 className="section-title">Pedidos y Envíos Entrantes</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', flexWrap: 'wrap', gap: '1rem' }}>
+                  <h3 className="section-title" style={{ margin: 0, border: 'none' }}>Pedidos y Envíos Entrantes</h3>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="🔍 Buscar por ID o Estado..."
+                    value={sucursalOrderSearch}
+                    onChange={e => setSucursalOrderSearch(e.target.value)}
+                    style={{
+                      padding: '0.6rem 1.2rem',
+                      fontSize: '0.95rem',
+                      borderRadius: '10px',
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      color: 'var(--text)',
+                      width: '320px',
+                      height: 'auto',
+                      minHeight: 'unset'
+                    }}
+                  />
+                </div>
                 <div className="table-container">
                   <table>
                     <thead>
@@ -4952,29 +5681,45 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody>
-                      {orders.map(order => (
-                        <tr key={order.id}>
-                          <td>
-                            #{order.id}
-                            {order.es_evento && (
-                              <span className="badge" style={{ background: 'var(--primary)', color: 'white', fontSize: '0.65rem', padding: '0.1rem 0.35rem', marginLeft: '0.3rem' }}>
-                                Evento
-                              </span>
-                            )}
-                          </td>
-                          <td><span className={getBadgeClass(order.estado)}>{translateState(order.estado)}</span></td>
-                          <td>{new Date(order.fecha_solicitud).toLocaleString()}</td>
-                          <td>
-                            <button className="btn btn-primary btn-sm" onClick={() => viewOrderDetail(order.id)}>
-                              {order.estado === 'en_transito' || (user.sucursal_id === 4 && order.estado === 'preparado') ? 'Controlar y Recibir' : 'Ver Detalle'}
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                      {orders.length === 0 && (
+                      {orders
+                        .filter(order => {
+                          if (!sucursalOrderSearch) return true;
+                          const q = sucursalOrderSearch.toLowerCase();
+                          return (
+                            order.id.toString().includes(q) ||
+                            (order.estado && translateState(order.estado).toLowerCase().includes(q))
+                          );
+                        })
+                        .map(order => (
+                          <tr key={order.id}>
+                            <td>
+                              #{order.id}
+                              {order.es_evento && (
+                                <span className="badge" style={{ background: 'var(--primary)', color: 'white', fontSize: '0.65rem', padding: '0.1rem 0.35rem', marginLeft: '0.3rem' }}>
+                                  Evento
+                                </span>
+                              )}
+                            </td>
+                            <td><span className={getBadgeClass(order.estado)}>{translateState(order.estado)}</span></td>
+                            <td>{new Date(order.fecha_solicitud).toLocaleString()}</td>
+                            <td>
+                              <button className="btn btn-primary btn-sm" onClick={() => viewOrderDetail(order.id)}>
+                                {order.estado === 'en_transito' || (user.sucursal_id === 4 && order.estado === 'preparado') ? 'Controlar y Recibir' : 'Ver Detalle'}
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      {orders.filter(order => {
+                        if (!sucursalOrderSearch) return true;
+                        const q = sucursalOrderSearch.toLowerCase();
+                        return (
+                          order.id.toString().includes(q) ||
+                          (order.estado && translateState(order.estado).toLowerCase().includes(q))
+                        );
+                      }).length === 0 && (
                         <tr>
-                          <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-light)' }}>
-                            No has realizado pedidos aún.
+                          <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-light)', padding: '2rem 1rem' }}>
+                            No se encontraron pedidos.
                           </td>
                         </tr>
                       )}
@@ -4993,6 +5738,23 @@ export default function App() {
                 <form onSubmit={handleConsumoSubmit}>
                   <div className="form-group">
                     <label>Seleccionar Sabor / Producto</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="🔍 Filtrar productos por nombre..."
+                      value={sucursalConsumoSearch}
+                      onChange={e => setSucursalConsumoSearch(e.target.value)}
+                      style={{
+                        marginBottom: '0.6rem',
+                        padding: '0.6rem 1rem',
+                        fontSize: '0.95rem',
+                        borderRadius: '10px',
+                        background: 'rgba(255,255,255,0.05)',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        color: 'var(--text)',
+                        width: '100%'
+                      }}
+                    />
                     <select
                       className="form-control"
                       value={consumoForm.producto_id}
@@ -5010,7 +5772,13 @@ export default function App() {
                     >
                       <option value="">-- Seleccionar --</option>
                       {categories.map(cat => {
-                        const catProds = productos.filter(p => p.categoria === cat.id);
+                        let catProds = productos.filter(p => p.categoria === cat.id);
+                        if (sucursalConsumoSearch) {
+                          catProds = catProds.filter(p =>
+                            p.nombre.toLowerCase().includes(sucursalConsumoSearch.toLowerCase()) ||
+                            (p.tipo && formatTipo(p.tipo).toLowerCase().includes(sucursalConsumoSearch.toLowerCase()))
+                          );
+                        }
                         if (catProds.length === 0) return null;
                         return (
                           <optgroup key={cat.id} label={cat.name}>
@@ -5083,10 +5851,38 @@ export default function App() {
                   </div>
                 </div>
 
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>Buscar sabor/producto:</span>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="🔍 Buscar por nombre..."
+                    value={branchStockSearch}
+                    onChange={e => setBranchStockSearch(e.target.value)}
+                    style={{
+                      padding: '0.6rem 1rem',
+                      borderRadius: '10px',
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      color: 'var(--text)',
+                      fontSize: '0.95rem',
+                      width: '320px',
+                      height: 'auto',
+                      minHeight: 'unset'
+                    }}
+                  />
+                </div>
+
                 {categories.map(cat => {
                   let catStock = stockData.filter(s => s.categoria === cat.id && s.es_evento === showEventStock);
                   if (cat.id === 'helados' && showEventStock) {
                     catStock = catStock.filter(s => s.tipo !== 'vasqueta_5_6k');
+                  }
+                  if (branchStockSearch) {
+                    catStock = catStock.filter(s => 
+                      s.producto_nombre.toLowerCase().includes(branchStockSearch.toLowerCase()) ||
+                      (s.tipo && formatTipo(s.tipo).toLowerCase().includes(branchStockSearch.toLowerCase()))
+                    );
                   }
                   if (catStock.length === 0) return null;
 
@@ -5185,8 +5981,8 @@ export default function App() {
                 </table>
               </div>
 
-              {/* ACTION: PREPARE ORDER (Transportista / Admin) */}
-              {(user.rol === 'transportista' || user.rol === 'admin') && selectedPedido.estado === 'solicitado' && (
+              {/* ACTION: PREPARE ORDER (Transportista / Admin / Heladero for event orders) */}
+              {(user.rol === 'transportista' || user.rol === 'admin' || (user.rol === 'heladero' && selectedPedido.es_evento)) && selectedPedido.estado === 'solicitado' && (
                 <div>
                   <div className="warning-banner">
                     💡 Al presionar "Confirmar Preparación", se descontará la cantidad del stock en fábrica y quedará listo para ser cargado y enviado.
