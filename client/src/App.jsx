@@ -2267,14 +2267,14 @@ export default function App() {
           <div style={{ marginTop: '2rem', borderTop: '1px solid rgba(0,0,0,0.08)', paddingTop: '1rem' }}>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '0.5rem', fontWeight: 600 }}>Cuentas de Prueba:</p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-              <button className="btn btn-sm btn-outline" onClick={() => quickLogin('admin@biscui.com', 'admin')}>Admin</button>
-              <button className="btn btn-sm btn-outline" onClick={() => quickLogin('heladero@biscui.com', '123')}>Heladero</button>
-              <button className="btn btn-sm btn-outline" onClick={() => quickLogin('pastelero@biscui.com', '123')}>Pastelero</button>
-              <button className="btn btn-sm btn-outline" onClick={() => quickLogin('pastelero_helado@biscui.com', '123')}>Pastelero Helado</button>
-              <button className="btn btn-sm btn-outline" onClick={() => quickLogin('driver@biscui.com', '123')}>Transportista</button>
-              <button className="btn btn-sm btn-outline" onClick={() => quickLogin('empleado1@biscui.com', '123')}>Suc. Principal</button>
-              <button className="btn btn-sm btn-outline" onClick={() => quickLogin('empleado2@biscui.com', '123')}>Suc. Centro</button>
-              <button className="btn btn-sm btn-outline" onClick={() => quickLogin('empleado3@biscui.com', '123')}>Suc. Shopping</button>
+              <button className="btn btn-sm btn-outline" onClick={() => quickLogin('luchyandreolli92@gmail.com', 'Sofia26')}>Admin</button>
+              <button className="btn btn-sm btn-outline" onClick={() => quickLogin('heladero@biscui.com', 'heladero123')}>Heladero</button>
+              <button className="btn btn-sm btn-outline" onClick={() => quickLogin('pastelero@biscui.com', 'pastelero123')}>Pastelero</button>
+              <button className="btn btn-sm btn-outline" onClick={() => quickLogin('pastelero_helado@biscui.com', 'pastelerohelado123')}>Pastelero Helado</button>
+              <button className="btn btn-sm btn-outline" onClick={() => quickLogin('driver@biscui.com', 'Transportista123')}>Transportista</button>
+              <button className="btn btn-sm btn-outline" onClick={() => quickLogin('empleado1@biscui.com', 'casacentral123')}>Suc. Principal</button>
+              <button className="btn btn-sm btn-outline" onClick={() => quickLogin('empleado2@biscui.com', 'estacion123')}>Suc. Estación</button>
+              <button className="btn btn-sm btn-outline" onClick={() => quickLogin('empleado3@biscui.com', 'tulum123')}>Suc. Tulum</button>
             </div>
           </div>
         </div>
@@ -4462,63 +4462,149 @@ export default function App() {
                     {user.rol === 'heladero' ? 'Registro de Fabricación' : user.rol === 'pastelero_helado' ? 'Registro de Pastelería Helada' : 'Registro de Pastelería'}
                   </h3>
                   <form onSubmit={handleProductionSubmit}>
-                    <div className="form-group">
+                    <div className="form-group" style={{ position: 'relative' }}>
                       <label>Seleccionar Producto / Sabor</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        placeholder="🔍 Filtrar productos por nombre..."
-                        value={prodFormSearch}
-                        onChange={e => setProdFormSearch(e.target.value)}
-                        style={{
-                          marginBottom: '0.6rem',
-                          padding: '0.6rem 1rem',
-                          fontSize: '0.95rem',
-                          borderRadius: '10px',
-                          background: 'rgba(255,255,255,0.05)',
-                          border: '1px solid rgba(255,255,255,0.15)',
-                          color: 'var(--text)',
-                          width: '100%'
-                        }}
-                      />
-                      <select
-                        className="form-control"
-                        value={prodForm.producto_id}
-                        onChange={e => {
-                          const pId = e.target.value;
-                          const selectedProd = productos.find(p => p.id === parseInt(pId));
-                          const isVasqueta = selectedProd && selectedProd.categoria === 'helados' && selectedProd.tipo === 'vasqueta_5_6k';
-                          setProdForm({
-                            producto_id: pId,
-                            cantidad: '',
-                            es_evento: isVasqueta ? false : prodForm.es_evento
-                          });
-                          setProdWeights([]);
-                        }}
-                        required
-                      >
-                        <option value="">-- Seleccionar --</option>
-                        {categories
-                          .filter(cat => isCategoryVisibleToRole(cat.id, user.rol))
-                          .map(cat => {
-                            let catProds = productos.filter(p => p.categoria === cat.id);
-                            if (prodFormSearch) {
-                              catProds = catProds.filter(p => 
-                                p.nombre.toLowerCase().includes(prodFormSearch.toLowerCase()) ||
-                                (p.tipo && formatTipo(p.tipo).toLowerCase().includes(prodFormSearch.toLowerCase()))
+                      <input type="hidden" name="producto_id" value={prodForm.producto_id} required />
+                      {prodForm.producto_id ? (
+                        <div 
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '0.8rem 1rem',
+                            background: 'hsla(24, 85%, 55%, 0.08)',
+                            border: '1px solid hsla(24, 85%, 55%, 0.2)',
+                            borderRadius: '10px',
+                            marginTop: '0.2rem'
+                          }}
+                        >
+                          <div>
+                            <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--primary)', fontWeight: 700, display: 'block', marginBottom: '2px' }}>
+                              Producto Seleccionado
+                            </span>
+                            <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-dark)' }}>
+                              {productos.find(p => p.id === parseInt(prodForm.producto_id)) 
+                                ? getProductOptionLabel(productos.find(p => p.id === parseInt(prodForm.producto_id)))
+                                : 'Cargando...'}
+                            </span>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginLeft: '8px' }}>
+                              ({productos.find(p => p.id === parseInt(prodForm.producto_id)) 
+                                ? formatTipo(productos.find(p => p.id === parseInt(prodForm.producto_id))?.tipo)
+                                : ''})
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            className="btn btn-outline btn-sm"
+                            style={{
+                              padding: '0.3rem 0.6rem',
+                              borderRadius: '6px',
+                              fontSize: '0.8rem',
+                              borderColor: 'var(--danger)',
+                              color: 'var(--danger)',
+                              background: 'transparent'
+                            }}
+                            onClick={() => {
+                              setProdForm({
+                                ...prodForm,
+                                producto_id: ''
+                              });
+                              setProdWeights([]);
+                            }}
+                          >
+                            Cambiar
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <input
+                            type="text"
+                            className="form-control"
+                            placeholder="🔍 Buscar producto por nombre..."
+                            value={prodFormSearch}
+                            onChange={e => setProdFormSearch(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') e.preventDefault(); }}
+                            style={{
+                              marginBottom: '0.4rem',
+                              padding: '0.8rem 1.2rem',
+                              fontSize: '1.05rem',
+                              borderRadius: '12px',
+                              border: '1px solid rgba(0, 0, 0, 0.1)',
+                              background: 'var(--input-bg)',
+                              color: 'var(--text-dark)',
+                              width: '100%'
+                            }}
+                          />
+                          {(() => {
+                            const matchedProducts = productos.filter(p => {
+                              if (!isCategoryVisibleToRole(p.categoria, user.rol)) return false;
+                              if (!prodFormSearch) return true;
+                              const searchLower = prodFormSearch.toLowerCase();
+                              return (
+                                p.nombre.toLowerCase().includes(searchLower) ||
+                                (p.tipo && formatTipo(p.tipo).toLowerCase().includes(searchLower))
                               );
-                            }
-                            if (catProds.length === 0) return null;
-                            return (
-                              <optgroup key={cat.id} label={cat.name}>
-                                {catProds.map(p => (
-                                  <option key={p.id} value={p.id}>{getProductOptionLabel(p)}</option>
+                            });
+
+                            return matchedProducts.length > 0 ? (
+                              <div 
+                                style={{
+                                  maxHeight: '220px',
+                                  overflowY: 'auto',
+                                  border: '1px solid rgba(0, 0, 0, 0.1)',
+                                  borderRadius: '10px',
+                                  background: 'white',
+                                  marginTop: '0.2rem',
+                                  boxShadow: 'var(--shadow-sm)'
+                                }}
+                              >
+                                {matchedProducts.map(p => (
+                                  <div
+                                    key={p.id}
+                                    onClick={() => {
+                                      const isVasqueta = p.categoria === 'helados' && p.tipo === 'vasqueta_5_6k';
+                                      setProdForm({
+                                        ...prodForm,
+                                        producto_id: String(p.id),
+                                        cantidad: '',
+                                        es_evento: isVasqueta ? false : prodForm.es_evento
+                                      });
+                                      setProdWeights([]);
+                                      setProdFormSearch('');
+                                    }}
+                                    style={{
+                                      padding: '0.75rem 1rem',
+                                      cursor: 'pointer',
+                                      borderBottom: '1px solid rgba(0, 0, 0, 0.05)',
+                                      transition: 'background-color 0.2s',
+                                      fontSize: '0.95rem',
+                                      display: 'flex',
+                                      justifyContent: 'space-between',
+                                      alignItems: 'center'
+                                    }}
+                                    onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.02)'}
+                                    onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                                  >
+                                    <div>
+                                      <strong style={{ color: 'var(--text-dark)' }}>{p.nombre}</strong>
+                                      <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginLeft: '8px' }}>
+                                        ({formatTipo(p.tipo)})
+                                      </span>
+                                    </div>
+                                    <span style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 600, textTransform: 'capitalize' }}>
+                                      {p.categoria.replace(/_/g, ' ')}
+                                    </span>
+                                  </div>
                                 ))}
-                              </optgroup>
+                              </div>
+                            ) : (
+                              <div style={{ padding: '0.75rem 1rem', color: 'var(--text-light)', fontSize: '0.9rem', textAlign: 'center' }}>
+                                No se encontraron productos.
+                              </div>
                             );
-                          })
-                        }
-                      </select>
+                          })()}
+                        </>
+                      )}
                     </div>
                     <div className="form-group">
                       <label>Fecha de Fabricación</label>
@@ -5791,26 +5877,7 @@ export default function App() {
                     </select>
                   </div>
 
-                  {/* Event Checkbox */}
-                  {(() => {
-                    const selectedProd = productos.find(p => p.id === parseInt(consumoForm.producto_id));
-                    const isVasqueta = selectedProd && selectedProd.categoria === 'helados' && selectedProd.tipo === 'vasqueta_5_6k';
-                    if (!selectedProd || isVasqueta) return null;
-                    return (
-                      <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.8rem 0' }}>
-                        <input
-                          type="checkbox"
-                          id="consumoEsEvento"
-                          checked={consumoForm.es_evento}
-                          onChange={e => setConsumoForm({ ...consumoForm, es_evento: e.target.checked })}
-                          style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                        />
-                        <label htmlFor="consumoEsEvento" style={{ margin: 0, cursor: 'pointer', userSelect: 'none', fontSize: '0.85rem', fontWeight: 600 }}>
-                          Descontar de Stock de Eventos
-                        </label>
-                      </div>
-                    );
-                  })()}
+                  {/* Event Checkbox removed for sucursales */}
 
                   <div className="form-group">
                     <label>Cantidad Consumida</label>
@@ -5833,22 +5900,6 @@ export default function App() {
               <div className="glass-card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
                   <h3 className="section-title" style={{ margin: 0, border: 'none' }}>Stock Actual en mi Sucursal</h3>
-                  <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', padding: '4px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                    <button
-                      className={`btn btn-sm ${!showEventStock ? 'btn-primary' : 'btn-outline'}`}
-                      style={{ border: 'none', borderRadius: '8px', padding: '0.4rem 1rem', fontSize: '0.8rem', minHeight: 'unset' }}
-                      onClick={() => setShowEventStock(false)}
-                    >
-                      📦 Stock Común
-                    </button>
-                    <button
-                      className={`btn btn-sm ${showEventStock ? 'btn-primary' : 'btn-outline'}`}
-                      style={{ border: 'none', borderRadius: '8px', padding: '0.4rem 1rem', fontSize: '0.8rem', minHeight: 'unset' }}
-                      onClick={() => setShowEventStock(true)}
-                    >
-                      🎉 Stock de Eventos
-                    </button>
-                  </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
@@ -5874,10 +5925,7 @@ export default function App() {
                 </div>
 
                 {categories.map(cat => {
-                  let catStock = stockData.filter(s => s.categoria === cat.id && s.es_evento === showEventStock);
-                  if (cat.id === 'helados' && showEventStock) {
-                    catStock = catStock.filter(s => s.tipo !== 'vasqueta_5_6k');
-                  }
+                  let catStock = stockData.filter(s => s.categoria === cat.id && s.es_evento === false);
                   if (branchStockSearch) {
                     catStock = catStock.filter(s => 
                       s.producto_nombre.toLowerCase().includes(branchStockSearch.toLowerCase()) ||
