@@ -204,6 +204,17 @@ h1, h2, h3, h4, h5, h6 {
   background: hsl(354, 70%, 45%);
 }
 
+.btn-success {
+  background: var(--success);
+  color: white;
+  box-shadow: 0 4px 12px hsla(145, 63%, 42%, 0.2);
+}
+
+.btn-success:hover {
+  background: hsl(145, 63%, 35%);
+  transform: translateY(-1px);
+}
+
 .btn-sm {
   padding: 0.4rem 0.8rem;
   font-size: 0.85rem;

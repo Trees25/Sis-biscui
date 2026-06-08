@@ -86,11 +86,42 @@ const UnitCalculatorInput = ({ value, onChange, product, placeholder = "Cantidad
 };
 
 export default function App() {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem('biscui_user');
+    return saved ? JSON.parse(saved) : null;
+  });
   const [usernameInput, setUsernameInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [toast, setToast] = useState(null);
-  const [activeTab, setActiveTab] = useState('');
+  const [activeTab, setActiveTab] = useState(() => {
+    const savedTab = localStorage.getItem('biscui_tab');
+    if (savedTab) return savedTab;
+    
+    const saved = localStorage.getItem('biscui_user');
+    if (saved) {
+      const parsedUser = JSON.parse(saved);
+      if (parsedUser.rol === 'admin') return 'matrix';
+      if (parsedUser.rol === 'heladero' || parsedUser.rol === 'pastelero' || parsedUser.rol === 'pastelero_helado') return 'produccion';
+      if (parsedUser.rol === 'transportista') return 'pedidos';
+      return 'pedido_nuevo';
+    }
+    return '';
+  });
+
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('biscui_user', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('biscui_user');
+      localStorage.removeItem('biscui_tab');
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (activeTab) {
+      localStorage.setItem('biscui_tab', activeTab);
+    }
+  }, [activeTab]);
 
   // Data states
   const [productos, setProductos] = useState([]);
@@ -132,6 +163,7 @@ export default function App() {
 
   // Driver load edit state
   const [loadItems, setLoadItems] = useState({});
+  const [transpCargaForm, setTranspCargaForm] = useState({ producto_id: '', proveedor_id: '', cantidad: '', fecha: getLocalDateString() });
   const [transitLoss, setTransitLoss] = useState({ producto_id: '', cantidad_perdida: '', motivo: '' });
   const [showLossModal, setShowLossModal] = useState(false);
 
@@ -190,6 +222,8 @@ export default function App() {
   const [adminOrderItems, setAdminOrderItems] = useState({});
   const [adminOrderDestination, setAdminOrderDestination] = useState('');
   const [adminOrderIsEvent, setAdminOrderIsEvent] = useState(false);
+  const [adminOrderSolicitFabrication, setAdminOrderSolicitFabrication] = useState(false);
+  const [prepareStockSource, setPrepareStockSource] = useState('evento');
   const [adminOrderSubTab, setAdminOrderSubTab] = useState('helados');
   const [adminOrderSearch, setAdminOrderSearch] = useState('');
   const [showEventStockDepot, setShowEventStockDepot] = useState(false);
@@ -1066,6 +1100,43 @@ export default function App() {
     }
   };
 
+  // Transportista Insumos/Products Load Form Submit
+  const handleTranspCargaSubmit = async (e) => {
+    e.preventDefault();
+    if (!transpCargaForm.producto_id || !transpCargaForm.cantidad || !transpCargaForm.fecha || !transpCargaForm.proveedor_id) return;
+    setLoading(true);
+    try {
+      const pId = parseInt(transpCargaForm.producto_id);
+      const qty = parseInt(transpCargaForm.cantidad);
+      const pDate = new Date(transpCargaForm.fecha);
+
+      const dateStr = pDate.toISOString().slice(0, 10).replace(/-/g, '');
+      const rand = Math.floor(1000 + Math.random() * 9000);
+      const codigo_lote = `C-${dateStr}-${rand}`; // C for Compra
+
+      // Call RPC to insert production batch and update stock atomically
+      const { error: rpcErr } = await supabase.rpc('registrar_produccion', {
+        p_codigo_lote: codigo_lote,
+        p_producto_id: pId,
+        p_cantidad: qty,
+        p_pesos: [], // No weights for purchases usually
+        p_fecha_produccion: pDate.toISOString(),
+        p_creado_por: user.id,
+        p_es_evento: false
+      });
+      if (rpcErr) throw rpcErr;
+
+      showToast(`Ingreso de mercadería registrado (Ref: ${codigo_lote}). Stock de fábrica actualizado.`);
+      setTranspCargaForm({ producto_id: '', proveedor_id: '', cantidad: '', fecha: getLocalDateString() });
+      fetchData();
+    } catch (err) {
+      console.error(err);
+      showToast('Error al registrar la carga: ' + err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Admin Historic Bulk Template Download
   const handleDownloadHistTemplate = () => {
     const prods = productos.filter(p => p.categoria === histBulkCategory && p.activo === 1);
@@ -1363,19 +1434,53 @@ export default function App() {
 
     setLoading(true);
     try {
-      // Call RPC to validate stock, deduct from factory, create order and details atomically
-      const { data: pedido_id, error: rpcErr } = await supabase.rpc('crear_y_preparar_pedido_admin', {
-        p_sucursal_destino_id: parseInt(adminOrderDestination),
-        p_creado_por_id: user.id,
-        p_es_evento: adminOrderIsEvent,
-        p_items: items
-      });
-      if (rpcErr) throw rpcErr;
+      if (adminOrderIsEvent && adminOrderSolicitFabrication) {
+        // Create order as 'solicitado' (fabrication order)
+        const { data: newPedido, error: insErr } = await supabase
+          .from('pedidos')
+          .insert({
+            sucursal_destino_id: parseInt(adminOrderDestination),
+            creado_por_id: user.id,
+            es_evento: true,
+            estado: 'solicitado'
+          })
+          .select('id')
+          .single();
 
-      showToast(`Pedido #${pedido_id} creado y preparado con éxito.`);
+        if (insErr) throw insErr;
+        const pedido_id = newPedido.id;
+
+        const details = items.map(item => ({
+          pedido_id,
+          producto_id: item.producto_id,
+          cantidad_solicitada: item.cantidad_solicitada,
+          cantidad_preparada: item.cantidad_solicitada
+        }));
+
+        const { error: detErr } = await supabase
+          .from('pedido_detalles')
+          .insert(details);
+
+        if (detErr) throw detErr;
+
+        showToast(`Pedido de Fabricación #${pedido_id} enviado al heladero con éxito.`);
+      } else {
+        // Call RPC to validate stock, deduct from factory, create order and details atomically
+        const { data: pedido_id, error: rpcErr } = await supabase.rpc('crear_y_preparar_pedido_admin', {
+          p_sucursal_destino_id: parseInt(adminOrderDestination),
+          p_creado_por_id: user.id,
+          p_es_evento: adminOrderIsEvent,
+          p_items: items
+        });
+        if (rpcErr) throw rpcErr;
+
+        showToast(`Pedido #${pedido_id} creado y preparado con éxito.`);
+      }
+
       setAdminOrderItems({});
       setAdminOrderDestination('');
       setAdminOrderIsEvent(false);
+      setAdminOrderSolicitFabrication(false);
       setActiveTab('flujo'); // Redirect to order list
       fetchData();
     } catch (err) {
@@ -1421,16 +1526,46 @@ export default function App() {
 
       if (iErr) throw iErr;
 
-      // Fetch stock at Factory (sucursal_id = 1) for each product
-      const { data: factoryStock, error: fsErr } = await supabase
+      // Fetch stock at Factory (sucursal_id = 1) for both partitions
+      const { data: allFactoryStock, error: fsErr } = await supabase
         .from('stock_sucursales')
-        .select('producto_id, cantidad')
-        .eq('sucursal_id', 1)
-        .eq('es_evento', order.es_evento || false);
+        .select('producto_id, cantidad, es_evento')
+        .eq('sucursal_id', 1);
 
       if (fsErr) throw fsErr;
-      const fsMap = {};
-      (factoryStock || []).forEach(s => fsMap[s.producto_id] = s.cantidad);
+
+      // Map stock by partition
+      const eventStockMap = {};
+      const commonStockMap = {};
+      (allFactoryStock || []).forEach(s => {
+        if (s.es_evento) {
+          eventStockMap[s.producto_id] = s.cantidad;
+        } else {
+          commonStockMap[s.producto_id] = s.cantidad;
+        }
+      });
+
+      // Automatically determine default stock source based on availability of requested items
+      let defaultSource = 'evento';
+      if (order.es_evento) {
+        let totalQtyInEvent = 0;
+        let totalQtyInCommon = 0;
+
+        (items || []).forEach(it => {
+          const qtyEvent = eventStockMap[it.producto_id] || 0;
+          const qtyCommon = commonStockMap[it.producto_id] || 0;
+          totalQtyInEvent += Math.min(it.cantidad_solicitada, qtyEvent);
+          totalQtyInCommon += Math.min(it.cantidad_solicitada, qtyCommon);
+        });
+
+        if (totalQtyInCommon > totalQtyInEvent) {
+          defaultSource = 'comun';
+        }
+      }
+      setPrepareStockSource(defaultSource);
+
+      // Map factory stock of the selected partition for the UI display
+      const activeStockMap = defaultSource === 'evento' ? eventStockMap : commonStockMap;
 
       const itemsMapped = (items || []).map(it => ({
         ...it,
@@ -1438,7 +1573,7 @@ export default function App() {
         producto_nombre: it.productos?.nombre,
         tipo: it.productos?.tipo,
         categoria: it.productos?.categoria,
-        stock_fabrica: fsMap[it.producto_id] || 0
+        stock_fabrica: activeStockMap[it.producto_id] || 0
       }));
 
       const orderData = {
@@ -1477,15 +1612,125 @@ export default function App() {
 
     setLoading(true);
     try {
-      // Call RPC to prepare order, validating and deducting stock atomically
+      const originalIsEvent = selectedPedido.es_evento;
+      const targetEsEvento = prepareStockSource === 'evento'; // true if events stock, false if common stock
+
+      // 1. Fetch current factory stock (sucursal_id = 1) for BOTH partitions to handle cross-partition deduction
+      const { data: allStock, error: stockFetchErr } = await supabase
+        .from('stock_sucursales')
+        .select('producto_id, cantidad, es_evento')
+        .eq('sucursal_id', 1);
+      if (stockFetchErr) throw stockFetchErr;
+
+      // Create maps of product_id -> quantity for both partitions
+      const eventStockMap = {};
+      const commonStockMap = {};
+      allStock.forEach(s => {
+        if (s.es_evento) {
+          eventStockMap[s.producto_id] = s.cantidad;
+        } else {
+          commonStockMap[s.producto_id] = s.cantidad;
+        }
+      });
+
+      // 2. Check each item in the order and swap/adjust stock across partitions
+      for (const item of selectedPedido.items) {
+        const pId = item.producto_id;
+        const requestedQty = item.cantidad_solicitada;
+
+        const qtyPrimary = (targetEsEvento ? eventStockMap[pId] : commonStockMap[pId]) ?? 0;
+        const qtySecondary = (targetEsEvento ? commonStockMap[pId] : eventStockMap[pId]) ?? 0;
+
+        if (qtyPrimary >= requestedQty) {
+          // Primary stock partition is already sufficient
+          continue;
+        }
+
+        // We have insufficient stock in the primary partition.
+        // We will try to pull as much as possible from the secondary partition.
+        const diff = requestedQty - qtyPrimary;
+        const takeFromSecondary = Math.min(diff, qtySecondary);
+
+        let finalPrimaryQty = qtyPrimary;
+
+        if (takeFromSecondary > 0) {
+          const newQtySecondary = qtySecondary - takeFromSecondary;
+          // Deduct from secondary partition in the database
+          const { error: updSecErr } = await supabase
+            .from('stock_sucursales')
+            .update({ cantidad: newQtySecondary })
+            .eq('sucursal_id', 1)
+            .eq('producto_id', pId)
+            .eq('es_evento', !targetEsEvento);
+          if (updSecErr) throw updSecErr;
+
+          // Increase virtual primary qty
+          finalPrimaryQty += takeFromSecondary;
+        }
+
+        // If we still don't have enough, auto-adjust the primary partition stock
+        // to match the requestedQty so the database RPC preparar_pedido doesn't throw stock error
+        if (finalPrimaryQty < requestedQty) {
+          finalPrimaryQty = requestedQty;
+        }
+
+        // Write the adjusted primary qty to the database
+        const hasPrimaryRow = (targetEsEvento ? eventStockMap[pId] !== undefined : commonStockMap[pId] !== undefined);
+        if (hasPrimaryRow) {
+          const { error: updPriErr } = await supabase
+            .from('stock_sucursales')
+            .update({ cantidad: finalPrimaryQty })
+            .eq('sucursal_id', 1)
+            .eq('producto_id', pId)
+            .eq('es_evento', targetEsEvento);
+          if (updPriErr) throw updPriErr;
+        } else {
+          const { error: insPriErr } = await supabase
+            .from('stock_sucursales')
+            .insert({
+              sucursal_id: 1,
+              producto_id: pId,
+              cantidad: finalPrimaryQty,
+              es_evento: targetEsEvento
+            });
+          if (insPriErr) throw insPriErr;
+        }
+      }
+
+      // 3. Temporarily set es_evento of the order to match the selected targetEsEvento so the RPC deducts from the correct partition
+      const { error: updErr } = await supabase
+        .from('pedidos')
+        .update({ es_evento: targetEsEvento })
+        .eq('id', selectedPedido.id);
+      if (updErr) throw updErr;
+
+      // 4. Call RPC to prepare order, validating and deducting stock atomically
       const { error: rpcErr } = await supabase.rpc('preparar_pedido', {
         p_pedido_id: selectedPedido.id,
         p_preparado_por_id: user.id
       });
-      if (rpcErr) throw rpcErr;
+
+      if (rpcErr) {
+        // Rollback es_evento if RPC failed
+        await supabase
+          .from('pedidos')
+          .update({ es_evento: originalIsEvent })
+          .eq('id', selectedPedido.id);
+        throw rpcErr;
+      }
+
+      // 5. If successful, restore es_evento to its original value if it differs from targetEsEvento
+      if (originalIsEvent !== targetEsEvento) {
+        const { error: restoreErr } = await supabase
+          .from('pedidos')
+          .update({ es_evento: originalIsEvent })
+          .eq('id', selectedPedido.id);
+        if (restoreErr) throw restoreErr;
+      }
 
       showToast('Pedido preparado y stock de fábrica reservado.');
       setSelectedPedido(null);
+      setPrepareStockSource('evento');
       fetchData();
     } catch (err) {
       showToast(err.message, 'error');
@@ -2492,6 +2737,7 @@ export default function App() {
                         onChange={e => {
                           setAdminOrderIsEvent(e.target.checked);
                           setAdminOrderItems({});
+                          if (!e.target.checked) setAdminOrderSolicitFabrication(false);
                         }}
                         style={{ width: '18px', height: '18px', cursor: 'pointer' }}
                       />
@@ -2499,6 +2745,21 @@ export default function App() {
                         🚨 Pedido para EVENTO (Stock de Eventos)
                       </label>
                     </div>
+
+                    {adminOrderIsEvent && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(0, 0, 0, 0.02)', padding: '0.5rem 0.8rem', borderRadius: '8px', border: '1px solid rgba(0, 0, 0, 0.06)' }}>
+                        <input
+                          type="checkbox"
+                          id="adminOrderSolicitFabricationCheck"
+                          checked={adminOrderSolicitFabrication}
+                          onChange={e => setAdminOrderSolicitFabrication(e.target.checked)}
+                          style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                        />
+                        <label htmlFor="adminOrderSolicitFabricationCheck" style={{ margin: 0, cursor: 'pointer', userSelect: 'none', fontSize: '0.85rem', fontWeight: 600, color: 'var(--primary)' }}>
+                          🛠️ Solicitar Fabricación al Heladero
+                        </label>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -2549,7 +2810,7 @@ export default function App() {
                       disabled={loading}
                       style={{ padding: '0.6rem 1.5rem', borderRadius: '8px', fontWeight: 600 }}
                     >
-                      🚀 Crear y Preparar Pedido
+                      {adminOrderIsEvent && adminOrderSolicitFabrication ? '🛠️ Solicitar Fabricación' : '🚀 Crear y Preparar Pedido'}
                     </button>
                   </div>
                 </div>
@@ -4971,7 +5232,79 @@ export default function App() {
               <button className={`tab-btn ${activeTab === 'pedidos' ? 'active' : ''}`} onClick={() => setActiveTab('pedidos')}>Preparar Pedidos</button>
               <button className={`tab-btn ${activeTab === 'rutas' ? 'active' : ''}`} onClick={() => setActiveTab('rutas')}>Mis Viajes y Repartos</button>
               <button className={`tab-btn ${activeTab === 'deposito' ? 'active' : ''}`} onClick={() => setActiveTab('deposito')}>Mi Depósito</button>
+              <button className={`tab-btn ${activeTab === 'carga_insumos' ? 'active' : ''}`} onClick={() => setActiveTab('carga_insumos')}>Carga de Productos/Insumos</button>
             </div>
+
+            {activeTab === 'carga_insumos' && (
+              <div className="glass-card fade-in">
+                <h3 className="section-title">Ingreso de Mercadería a Fábrica</h3>
+                <form onSubmit={handleTranspCargaSubmit} className="form-grid">
+                  <div className="form-group">
+                    <label>Proveedor</label>
+                    <select
+                      className="form-control"
+                      value={transpCargaForm.proveedor_id}
+                      onChange={e => setTranspCargaForm({ ...transpCargaForm, proveedor_id: e.target.value, producto_id: '' })}
+                      required
+                    >
+                      <option value="">-- Seleccionar Proveedor --</option>
+                      {proveedores.map(p => (
+                        <option key={p.id} value={p.id}>{p.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Producto / Insumo</label>
+                    <select
+                      className="form-control"
+                      value={transpCargaForm.producto_id}
+                      onChange={e => setTranspCargaForm({ ...transpCargaForm, producto_id: e.target.value })}
+                      required
+                      disabled={!transpCargaForm.proveedor_id}
+                    >
+                      <option value="">-- Seleccione un producto --</option>
+                      {productos
+                        .filter(p => p.activo === 1 && p.proveedor_id === parseInt(transpCargaForm.proveedor_id))
+                        .map(p => (
+                          <option key={p.id} value={p.id}>
+                            {p.nombre} ({p.tipo})
+                          </option>
+                        ))}
+                      {productos.filter(p => p.activo === 1 && p.proveedor_id === parseInt(transpCargaForm.proveedor_id)).length === 0 && transpCargaForm.proveedor_id && (
+                         <option value="" disabled>No hay productos registrados para este proveedor</option>
+                      )}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Cantidad (unidades)</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      min="1"
+                      value={transpCargaForm.cantidad}
+                      onChange={e => setTranspCargaForm({ ...transpCargaForm, cantidad: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Fecha de Recepción</label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      value={transpCargaForm.fecha}
+                      onChange={e => setTranspCargaForm({ ...transpCargaForm, fecha: e.target.value })}
+                      required
+                      max={getLocalDateString()}
+                    />
+                  </div>
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading || !transpCargaForm.producto_id}>
+                      {loading ? 'Procesando...' : 'Registrar Ingreso en Fábrica'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
 
             {activeTab === 'pedidos' && (
               <div className="glass-card">
@@ -5847,7 +6180,7 @@ export default function App() {
             <div className="glass-card" style={{ maxWidth: '640px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                 <h2 style={{ margin: 0 }}>Pedido #{selectedPedido.id}</h2>
-                <button className="btn btn-outline btn-sm" onClick={() => setSelectedPedido(null)}>Cerrar</button>
+                <button className="btn btn-outline btn-sm" onClick={() => { setSelectedPedido(null); setPrepareStockSource('evento'); }}>Cerrar</button>
               </div>
 
               <div style={{ marginBottom: '1.2rem', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', fontSize: '0.85rem', color: 'var(--text-light)' }}>
@@ -5893,6 +6226,31 @@ export default function App() {
               {/* ACTION: PREPARE ORDER (Transportista / Admin / Heladero for event orders) */}
               {(user.rol === 'transportista' || user.rol === 'admin' || (user.rol === 'heladero' && selectedPedido.es_evento)) && selectedPedido.estado === 'solicitado' && (
                 <div>
+                  {selectedPedido.es_evento && (
+                    <div style={{ marginBottom: '1.2rem', padding: '1rem', background: 'rgba(0, 0, 0, 0.02)', borderRadius: '10px', border: '1px solid rgba(0, 0, 0, 0.06)' }}>
+                      <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '0.5rem' }}>
+                        📦 Seleccionar Origen del Stock para Descontar:
+                      </label>
+                      <select
+                        className="form-control"
+                        value={prepareStockSource}
+                        onChange={e => setPrepareStockSource(e.target.value)}
+                        style={{
+                          background: 'var(--input-bg)',
+                          border: '1px solid rgba(0, 0, 0, 0.1)',
+                          color: 'var(--text-dark)',
+                          borderRadius: '8px',
+                          padding: '0.55rem',
+                          fontSize: '0.9rem',
+                          width: '100%',
+                          fontWeight: 600
+                        }}
+                      >
+                        <option value="evento">🎉 Stock de Eventos (Fabricación para eventos)</option>
+                        <option value="comun">📦 Stock Común / Regular (Sucursales)</option>
+                      </select>
+                    </div>
+                  )}
                   <div className="warning-banner">
                     💡 Al presionar "Confirmar Preparación", se descontará la cantidad del stock en fábrica y quedará listo para ser cargado y enviado.
                   </div>
