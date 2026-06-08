@@ -540,11 +540,6 @@ export default function App() {
     showToast('Sesión cerrada.');
   };
 
-  // Helper for quick login buttons (for testing convenience)
-  const quickLogin = (u, p) => {
-    setUsernameInput(u);
-    setPasswordInput(p);
-  };
 
   // Fetch core data based on logged in user and tab
   const fetchData = useCallback(async () => {
@@ -2264,19 +2259,6 @@ export default function App() {
             </button>
           </form>
 
-          <div style={{ marginTop: '2rem', borderTop: '1px solid rgba(0,0,0,0.08)', paddingTop: '1rem' }}>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '0.5rem', fontWeight: 600 }}>Cuentas de Prueba:</p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-              <button className="btn btn-sm btn-outline" onClick={() => quickLogin('luchyandreolli92@gmail.com', 'Sofia26')}>Admin</button>
-              <button className="btn btn-sm btn-outline" onClick={() => quickLogin('heladero@biscui.com', 'heladero123')}>Heladero</button>
-              <button className="btn btn-sm btn-outline" onClick={() => quickLogin('pastelero@biscui.com', 'pastelero123')}>Pastelero</button>
-              <button className="btn btn-sm btn-outline" onClick={() => quickLogin('pastelero_helado@biscui.com', 'pastelerohelado123')}>Pastelero Helado</button>
-              <button className="btn btn-sm btn-outline" onClick={() => quickLogin('driver@biscui.com', 'Transportista123')}>Transportista</button>
-              <button className="btn btn-sm btn-outline" onClick={() => quickLogin('casacentral@biscui.com', 'casacentral123')}>Suc. Principal</button>
-              <button className="btn btn-sm btn-outline" onClick={() => quickLogin('estacion@biscui.com', 'estacion123')}>Suc. Estación</button>
-              <button className="btn btn-sm btn-outline" onClick={() => quickLogin('tulum@biscui.com', 'tulum123')}>Suc. Tulum</button>
-            </div>
-          </div>
         </div>
       </div>
     );

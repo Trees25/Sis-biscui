@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
-  color-scheme: light;
+  color-scheme: only light;
   --primary-hsl: 24, 85%, 55%; /* Biscuit Gold */
   --primary: hsl(var(--primary-hsl));
   --primary-hover: hsl(24, 85%, 45%);
@@ -40,6 +40,7 @@
 
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  color-scheme: only light;
   background-color: var(--bg-color);
   color: var(--text-dark);
   min-height: 100vh;
