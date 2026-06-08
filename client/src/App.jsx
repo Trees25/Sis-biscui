@@ -2272,9 +2272,9 @@ export default function App() {
               <button className="btn btn-sm btn-outline" onClick={() => quickLogin('pastelero@biscui.com', 'pastelero123')}>Pastelero</button>
               <button className="btn btn-sm btn-outline" onClick={() => quickLogin('pastelero_helado@biscui.com', 'pastelerohelado123')}>Pastelero Helado</button>
               <button className="btn btn-sm btn-outline" onClick={() => quickLogin('driver@biscui.com', 'Transportista123')}>Transportista</button>
-              <button className="btn btn-sm btn-outline" onClick={() => quickLogin('empleado1@biscui.com', 'casacentral123')}>Suc. Principal</button>
-              <button className="btn btn-sm btn-outline" onClick={() => quickLogin('empleado2@biscui.com', 'estacion123')}>Suc. Estación</button>
-              <button className="btn btn-sm btn-outline" onClick={() => quickLogin('empleado3@biscui.com', 'tulum123')}>Suc. Tulum</button>
+              <button className="btn btn-sm btn-outline" onClick={() => quickLogin('casacentral@biscui.com', 'casacentral123')}>Suc. Principal</button>
+              <button className="btn btn-sm btn-outline" onClick={() => quickLogin('estacion@biscui.com', 'estacion123')}>Suc. Estación</button>
+              <button className="btn btn-sm btn-outline" onClick={() => quickLogin('tulum@biscui.com', 'tulum123')}>Suc. Tulum</button>
             </div>
           </div>
         </div>
@@ -2320,7 +2320,7 @@ export default function App() {
                   <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', margin: 0, paddingLeft: '0.5rem' }}>
                     Monitorea los niveles de inventario en tiempo real de cada sabor y producto en todas las locaciones físicas de Biscui.
                   </p>
-                  <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', padding: '4px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                  <div style={{ display: 'flex', background: 'rgba(0, 0, 0, 0.04)', padding: '4px', borderRadius: '10px', border: '1px solid rgba(0, 0, 0, 0.08)' }}>
                     <button
                       className={`btn btn-sm ${!showEventStock ? 'btn-primary' : 'btn-outline'}`}
                       style={{ border: 'none', borderRadius: '8px', padding: '0.4rem 1rem', fontSize: '0.8rem', minHeight: 'unset' }}
@@ -2400,21 +2400,10 @@ export default function App() {
                             <span style={{ fontSize: '0.85rem', color: 'var(--text-light)', fontWeight: 600 }}>Buscar:</span>
                             <input
                               type="text"
-                              className="form-control"
+                              className="form-control search-control-responsive"
                               placeholder="🔍 Buscar sabor..."
                               value={adminStockSearch}
                               onChange={e => setAdminStockSearch(e.target.value)}
-                              style={{
-                                padding: '0.5rem 1rem',
-                                borderRadius: '10px',
-                                background: 'rgba(255,255,255,0.05)',
-                                border: '1px solid rgba(255,255,255,0.15)',
-                                color: 'var(--text)',
-                                fontSize: '0.95rem',
-                                width: '320px',
-                                height: 'auto',
-                                minHeight: 'unset'
-                              }}
                             />
                           </div>
 
@@ -2513,7 +2502,7 @@ export default function App() {
                     </p>
                   </div>
                   <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.05)', padding: '0.5rem 0.8rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(0, 0, 0, 0.02)', padding: '0.5rem 0.8rem', borderRadius: '8px', border: '1px solid rgba(0, 0, 0, 0.06)' }}>
                       <input
                         type="checkbox"
                         id="adminOrderIsEventCheck"
@@ -2584,7 +2573,7 @@ export default function App() {
                 </div>
 
                 {/* Sub-tabs and Search Bar */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', marginBottom: '2rem', background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', marginBottom: '2rem', background: 'rgba(0, 0, 0, 0.02)', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(0, 0, 0, 0.06)' }}>
                   <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
                     <div style={{ position: 'relative', flex: '2 1 200px' }}>
                       <input
@@ -2594,9 +2583,9 @@ export default function App() {
                         style={{
                           padding: '0.75rem 1.2rem 0.75rem 2.8rem',
                           borderRadius: '12px',
-                          background: 'rgba(255,255,255,0.05)',
-                          border: '1px solid rgba(255,255,255,0.15)',
-                          color: 'var(--text)',
+                          background: 'var(--input-bg)',
+                          border: '1px solid rgba(0, 0, 0, 0.1)',
+                          color: 'var(--text-dark)',
                           fontSize: '1.05rem',
                           width: '100%'
                         }}
@@ -2610,9 +2599,9 @@ export default function App() {
                         className="form-control"
                         style={{
                           borderRadius: '10px',
-                          background: 'rgba(255,255,255,0.05)',
-                          border: '1px solid rgba(255,255,255,0.1)',
-                          color: 'var(--text)',
+                          background: 'var(--input-bg)',
+                          border: '1px solid rgba(0, 0, 0, 0.1)',
+                          color: 'var(--text-dark)',
                           fontSize: '0.9rem',
                           padding: '0.5rem',
                           height: 'auto',
@@ -2788,12 +2777,12 @@ export default function App() {
                   <div style={{
                     marginTop: '2rem',
                     background: 'rgba(255, 255, 255, 0.03)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(0, 0, 0, 0.08)',
                     borderRadius: '12px',
                     padding: '1.2rem',
                     boxShadow: '0 4px 15px rgba(0,0,0,0.05)'
                   }}>
-                    <h4 style={{ margin: '0 0 0.8rem 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h4 style={{ margin: '0 0 0.8rem 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
                       <span>📋 Resumen del Pedido {adminOrderIsEvent ? '(EVENTO)' : ''}</span>
                       <span style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>
                         {Object.values(adminOrderItems).filter(q => q > 0).length} productos seleccionados
@@ -2801,7 +2790,7 @@ export default function App() {
                     </h4>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '1.2rem' }}>
                       {productos.filter(p => adminOrderItems[p.id] > 0).map(p => (
-                        <div key={p.id} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', padding: '0.4rem 0.8rem', borderRadius: '8px', fontSize: '0.85rem' }}>
+                        <div key={p.id} style={{ background: 'rgba(0, 0, 0, 0.02)', border: '1px solid rgba(0, 0, 0, 0.06)', padding: '0.4rem 0.8rem', borderRadius: '8px', fontSize: '0.85rem' }}>
                           <strong>{p.nombre}</strong> ({formatTipo(p.tipo)}): <strong style={{ color: 'var(--primary)' }}>{adminOrderItems[p.id]} u.</strong>
                         </div>
                       ))}
@@ -2817,21 +2806,10 @@ export default function App() {
                   <h3 className="section-title" style={{ margin: 0, border: 'none' }}>Flujo y Auditoría de Pedidos</h3>
                   <input
                     type="text"
-                    className="form-control"
+                    className="form-control search-control-responsive"
                     placeholder="🔍 Buscar por ID, Destino o Estado..."
                     value={adminFlujoSearch}
                     onChange={e => setAdminFlujoSearch(e.target.value)}
-                    style={{
-                      padding: '0.6rem 1.2rem',
-                      fontSize: '0.95rem',
-                      borderRadius: '10px',
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.15)',
-                      color: 'var(--text)',
-                      width: '320px',
-                      height: 'auto',
-                      minHeight: 'unset'
-                    }}
                   />
                 </div>
                 <div className="table-container">
@@ -2903,21 +2881,10 @@ export default function App() {
                   <h3 className="section-title" style={{ margin: 0, border: 'none' }}>Historial de Pérdidas y Diferencias</h3>
                   <input
                     type="text"
-                    className="form-control"
+                    className="form-control search-control-responsive"
                     placeholder="🔍 Buscar por producto, motivo o usuario..."
                     value={adminDiscrepanciaSearch}
                     onChange={e => setAdminDiscrepanciaSearch(e.target.value)}
-                    style={{
-                      padding: '0.6rem 1.2rem',
-                      fontSize: '0.95rem',
-                      borderRadius: '10px',
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.15)',
-                      color: 'var(--text)',
-                      width: '320px',
-                      height: 'auto',
-                      minHeight: 'unset'
-                    }}
                   />
                 </div>
                 <div className="table-container">
@@ -3000,21 +2967,10 @@ export default function App() {
                       <span style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>Buscar:</span>
                       <input
                         type="text"
-                        className="form-control"
+                        className="form-control search-control-responsive"
                         placeholder="🔍 Buscar producto..."
                         value={prodReqSearch}
                         onChange={e => setProdReqSearch(e.target.value)}
-                        style={{
-                          padding: '0.5rem 1rem',
-                          borderRadius: '10px',
-                          background: 'rgba(255,255,255,0.05)',
-                          border: '1px solid rgba(255,255,255,0.15)',
-                          color: 'var(--text)',
-                          fontSize: '0.95rem',
-                          width: '280px',
-                          height: 'auto',
-                          minHeight: 'unset'
-                        }}
                       />
                     </div>
                   </div>
@@ -3161,8 +3117,8 @@ export default function App() {
                         style={{
                           padding: '0.75rem 1.2rem 0.75rem 2.8rem',
                           borderRadius: '12px',
-                          background: 'rgba(255,255,255,0.05)',
-                          border: '1px solid rgba(255,255,255,0.15)',
+                          background: 'var(--input-bg)',
+                          border: '1px solid rgba(0, 0, 0, 0.1)',
                           color: 'var(--text-dark)',
                           fontSize: '1.05rem',
                           width: '100%'
@@ -3179,8 +3135,8 @@ export default function App() {
                         className="form-control"
                         style={{
                           borderRadius: '10px',
-                          background: 'rgba(255,255,255,0.05)',
-                          border: '1px solid rgba(255,255,255,0.1)',
+                          background: 'var(--input-bg)',
+                          border: '1px solid rgba(0, 0, 0, 0.1)',
                           color: 'var(--text-dark)',
                           fontSize: '0.9rem',
                           padding: '0.5rem',
@@ -3204,8 +3160,8 @@ export default function App() {
                         className="form-control"
                         style={{
                           borderRadius: '10px',
-                          background: 'rgba(255,255,255,0.05)',
-                          border: '1px solid rgba(255,255,255,0.1)',
+                          background: 'var(--input-bg)',
+                          border: '1px solid rgba(0, 0, 0, 0.1)',
                           color: 'var(--text-dark)',
                           fontSize: '0.9rem',
                           padding: '0.5rem',
@@ -3795,16 +3751,16 @@ export default function App() {
 
                       {/* Weight Inputs for Helado */}
                       {productos.find(p => p.id === parseInt(adminHistForm.producto_id)) && parseInt(adminHistForm.cantidad) > 0 && (
-                        <div style={{ marginTop: '1.2rem', padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        <div style={{ marginTop: '1.2rem', padding: '1rem', background: 'rgba(0, 0, 0, 0.02)', borderRadius: '8px', border: '1px solid rgba(0, 0, 0, 0.06)' }}>
                           <h4 style={{ fontSize: '0.9rem', marginBottom: '0.8rem', color: 'var(--primary)', fontWeight: 600 }}>
                             Pesos Individuales (Balanza)
                           </h4>
                           <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: 'var(--text-light)' }}>
-                            Envase: <strong style={{ color: 'var(--text)' }}>{formatTipo(productos.find(p => p.id === parseInt(adminHistForm.producto_id))?.tipo)}</strong> | Tara: <strong style={{ color: 'var(--text)' }}>{getTareByTipo(productos.find(p => p.id === parseInt(adminHistForm.producto_id))?.tipo).toFixed(3)} kg</strong>
+                            Envase: <strong style={{ color: 'var(--text-dark)' }}>{formatTipo(productos.find(p => p.id === parseInt(adminHistForm.producto_id))?.tipo)}</strong> | Tara: <strong style={{ color: 'var(--text-dark)' }}>{getTareByTipo(productos.find(p => p.id === parseInt(adminHistForm.producto_id))?.tipo).toFixed(3)} kg</strong>
                           </div>
 
                           {/* Autofill helper input for bulk entry */}
-                          <div className="form-group" style={{ marginBottom: '1.2rem', paddingBottom: '0.8rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                          <div className="form-group" style={{ marginBottom: '1.2rem', paddingBottom: '0.8rem', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
                             <label style={{ fontSize: '0.8rem', marginBottom: '4px', display: 'block', fontWeight: 600 }}>
                               Autocompletar Peso Bruto Unitario (kg)
                             </label>
@@ -4109,7 +4065,7 @@ export default function App() {
                     </div>
 
                     {/* Grilla de Equipos */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', gap: '1.5rem' }}>
                       {maquinas
                         .filter(m => selectedSucursalFilter === 'Todos' || m.sucursal_id === parseInt(selectedSucursalFilter))
                         .filter(m => selectedTipoEquipoFilter === 'Todos' || m.tipo_equipo === selectedTipoEquipoFilter)
@@ -4298,31 +4254,20 @@ export default function App() {
                         </h4>
 
                         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                          <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
                             <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontWeight: 600 }}>Buscar:</span>
                             <input
                               type="text"
-                              className="form-control"
+                              className="form-control search-control-responsive"
                               placeholder="🔍 Buscar trabajo..."
-                              style={{
-                                width: '280px',
-                                padding: '0.6rem 1rem',
-                                fontSize: '0.95rem',
-                                borderRadius: '10px',
-                                background: 'rgba(255,255,255,0.05)',
-                                border: '1px solid rgba(255,255,255,0.15)',
-                                color: 'var(--text)',
-                                height: 'auto',
-                                minHeight: 'unset'
-                              }}
                               value={adminMantenimientoSearch}
                               onChange={e => setAdminMantenimientoSearch(e.target.value)}
                             />
                           </div>
 
-                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
                             <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontWeight: 600 }}>Filtrar por Máquina:</span>
-                            <select className="form-control" style={{ width: '220px', padding: '0.4rem 0.8rem', fontSize: '0.85rem' }} value={selectedMaquinaFilter} onChange={e => setSelectedMaquinaFilter(e.target.value)}>
+                            <select className="form-control" style={{ width: '220px', maxWidth: '100%', padding: '0.4rem 0.8rem', fontSize: '0.85rem', background: 'var(--input-bg)', border: '1px solid rgba(0,0,0,0.1)', color: 'var(--text-dark)' }} value={selectedMaquinaFilter} onChange={e => setSelectedMaquinaFilter(e.target.value)}>
                               <option value="Todos">Todas las máquinas</option>
                               {maquinas.map(m => (
                                 <option key={m.id} value={m.id}>{m.nombre} ({m.sucursal_nombre})</option>
@@ -4662,12 +4607,12 @@ export default function App() {
 
                     {/* Weight Inputs for Helado */}
                     {productos.find(p => p.id === parseInt(prodForm.producto_id))?.categoria === 'helados' && parseInt(prodForm.cantidad) > 0 && (
-                      <div style={{ marginTop: '1.2rem', padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                      <div style={{ marginTop: '1.2rem', padding: '1rem', background: 'rgba(0, 0, 0, 0.02)', borderRadius: '8px', border: '1px solid rgba(0, 0, 0, 0.06)' }}>
                         <h4 style={{ fontSize: '0.9rem', marginBottom: '0.8rem', color: 'var(--primary)', fontWeight: 600 }}>
                           Pesos Individuales (Balanza)
                         </h4>
                         <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: 'var(--text-light)' }}>
-                          Envase: <strong style={{ color: 'var(--text)' }}>{formatTipo(productos.find(p => p.id === parseInt(prodForm.producto_id))?.tipo)}</strong> | Tara: <strong style={{ color: 'var(--text)' }}>{getTareByTipo(productos.find(p => p.id === parseInt(prodForm.producto_id))?.tipo).toFixed(3)} kg</strong>
+                          Envase: <strong style={{ color: 'var(--text-dark)' }}>{formatTipo(productos.find(p => p.id === parseInt(prodForm.producto_id))?.tipo)}</strong> | Tara: <strong style={{ color: 'var(--text-dark)' }}>{getTareByTipo(productos.find(p => p.id === parseInt(prodForm.producto_id))?.tipo).toFixed(3)} kg</strong>
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.6rem', maxHeight: '200px', overflowY: 'auto', paddingRight: '0.2rem' }}>
                           {prodWeights.map((w, idx) => {
@@ -4787,25 +4732,14 @@ export default function App() {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>Buscar sabor/producto:</span>
                   <input
                     type="text"
-                    className="form-control"
+                    className="form-control search-control-responsive"
                     placeholder="🔍 Buscar por nombre..."
                     value={factoryStockSearch}
                     onChange={e => setFactoryStockSearch(e.target.value)}
-                    style={{
-                      padding: '0.6rem 1rem',
-                      borderRadius: '10px',
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.15)',
-                      color: 'var(--text)',
-                      fontSize: '0.95rem',
-                      width: '320px',
-                      height: 'auto',
-                      minHeight: 'unset'
-                    }}
                   />
                 </div>
 
@@ -4983,21 +4917,10 @@ export default function App() {
                   <h3 className="section-title" style={{ margin: 0, border: 'none' }}>Pedidos de Eventos por Preparar</h3>
                   <input
                     type="text"
-                    className="form-control"
+                    className="form-control search-control-responsive"
                     placeholder="🔍 Buscar por ID o Destino..."
                     value={heladeroEventSearch}
                     onChange={e => setHeladeroEventSearch(e.target.value)}
-                    style={{
-                      padding: '0.6rem 1.2rem',
-                      fontSize: '0.95rem',
-                      borderRadius: '10px',
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.15)',
-                      color: 'var(--text)',
-                      width: '320px',
-                      height: 'auto',
-                      minHeight: 'unset'
-                    }}
                   />
                 </div>
                 <div className="table-container">
@@ -5074,21 +4997,10 @@ export default function App() {
                   <h3 className="section-title" style={{ margin: 0, border: 'none' }}>Pedidos por Preparar para Despacho</h3>
                   <input
                     type="text"
-                    className="form-control"
+                    className="form-control search-control-responsive"
                     placeholder="🔍 Buscar por ID o Destino..."
                     value={driverOrderSearch}
                     onChange={e => setDriverOrderSearch(e.target.value)}
-                    style={{
-                      padding: '0.6rem 1.2rem',
-                      fontSize: '0.95rem',
-                      borderRadius: '10px',
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.15)',
-                      color: 'var(--text)',
-                      width: '320px',
-                      height: 'auto',
-                      minHeight: 'unset'
-                    }}
                   />
                 </div>
                 <div className="table-container">
@@ -5154,21 +5066,10 @@ export default function App() {
                   <h3 className="section-title" style={{ margin: 0, border: 'none' }}>Control de Envíos y Carga</h3>
                   <input
                     type="text"
-                    className="form-control"
+                    className="form-control search-control-responsive"
                     placeholder="🔍 Buscar por ID o Destino..."
                     value={driverRouteSearch}
                     onChange={e => setDriverRouteSearch(e.target.value)}
-                    style={{
-                      padding: '0.6rem 1.2rem',
-                      fontSize: '0.95rem',
-                      borderRadius: '10px',
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.15)',
-                      color: 'var(--text)',
-                      width: '320px',
-                      height: 'auto',
-                      minHeight: 'unset'
-                    }}
                   />
                 </div>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: '1.2rem' }}>
@@ -5235,7 +5136,7 @@ export default function App() {
 
             {activeTab === 'deposito' && (
               <div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', alignItems: 'start', flexWrap: 'wrap' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', alignItems: 'start' }}>
                   {/* Stock panel */}
                   <div className="glass-card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', flexWrap: 'wrap', gap: '0.5rem' }}>
@@ -5466,10 +5367,10 @@ export default function App() {
                           display: 'flex',
                           alignItems: 'center',
                           gap: '0.75rem',
-                          background: 'rgba(255,255,255,0.05)',
+                          background: 'rgba(0, 0, 0, 0.02)',
                           padding: '0.5rem 0.8rem',
                           borderRadius: '8px',
-                          border: '1px solid rgba(255,255,255,0.08)'
+                          border: '1px solid rgba(0, 0, 0, 0.06)'
                         }}>
                           <div style={{ fontSize: '0.85rem' }}>
                             <strong>{p.nombre}</strong> <span style={{ color: 'var(--text-light)', fontSize: '0.75rem' }}>({formatTipo(p.tipo)})</span>: <strong style={{ color: 'var(--warning)' }}>{p.cantidad} u.</strong>
@@ -5508,7 +5409,7 @@ export default function App() {
                 )}
 
                 {/* Sub-tabs and Search Bar */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', marginBottom: '2rem', background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', marginBottom: '2rem', background: 'rgba(0, 0, 0, 0.02)', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(0, 0, 0, 0.06)' }}>
                   <div style={{ position: 'relative' }}>
                     <input
                       type="text"
@@ -5517,9 +5418,9 @@ export default function App() {
                       style={{
                         padding: '0.75rem 1.2rem 0.75rem 2.8rem',
                         borderRadius: '12px',
-                        background: 'rgba(255,255,255,0.05)',
-                        border: '1px solid rgba(255,255,255,0.15)',
-                        color: 'var(--text)',
+                        background: 'var(--input-bg)',
+                        border: '1px solid rgba(0, 0, 0, 0.1)',
+                        color: 'var(--text-dark)',
                         fontSize: '1.05rem',
                         width: '100%'
                       }}
@@ -5528,7 +5429,7 @@ export default function App() {
                     />
                   </div>
 
-                  <div style={{ display: 'flex', gap: '0.4rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.6rem', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: '0.4rem', borderBottom: '1px solid rgba(0, 0, 0, 0.08)', paddingBottom: '0.6rem', flexWrap: 'wrap' }}>
                     {[
                       { id: 'helados', label: '🍧 Helados' },
                       { id: 'pasteleria_helada', label: '🍦 Pastelería Helada' },
@@ -5739,21 +5640,10 @@ export default function App() {
                   <h3 className="section-title" style={{ margin: 0, border: 'none' }}>Pedidos y Envíos Entrantes</h3>
                   <input
                     type="text"
-                    className="form-control"
+                    className="form-control search-control-responsive"
                     placeholder="🔍 Buscar por ID o Estado..."
                     value={sucursalOrderSearch}
                     onChange={e => setSucursalOrderSearch(e.target.value)}
-                    style={{
-                      padding: '0.6rem 1.2rem',
-                      fontSize: '0.95rem',
-                      borderRadius: '10px',
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.15)',
-                      color: 'var(--text)',
-                      width: '320px',
-                      height: 'auto',
-                      minHeight: 'unset'
-                    }}
                   />
                 </div>
                 <div className="table-container">
@@ -5835,9 +5725,9 @@ export default function App() {
                         padding: '0.6rem 1rem',
                         fontSize: '0.95rem',
                         borderRadius: '10px',
-                        background: 'rgba(255,255,255,0.05)',
-                        border: '1px solid rgba(255,255,255,0.15)',
-                        color: 'var(--text)',
+                        background: 'var(--input-bg)',
+                        border: '1px solid rgba(0, 0, 0, 0.1)',
+                        color: 'var(--text-dark)',
                         width: '100%'
                       }}
                     />
@@ -5902,25 +5792,14 @@ export default function App() {
                   <h3 className="section-title" style={{ margin: 0, border: 'none' }}>Stock Actual en mi Sucursal</h3>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>Buscar sabor/producto:</span>
                   <input
                     type="text"
-                    className="form-control"
+                    className="form-control search-control-responsive"
                     placeholder="🔍 Buscar por nombre..."
                     value={branchStockSearch}
                     onChange={e => setBranchStockSearch(e.target.value)}
-                    style={{
-                      padding: '0.6rem 1rem',
-                      borderRadius: '10px',
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.15)',
-                      color: 'var(--text)',
-                      fontSize: '0.95rem',
-                      width: '320px',
-                      height: 'auto',
-                      minHeight: 'unset'
-                    }}
                   />
                 </div>
 
@@ -5989,12 +5868,12 @@ export default function App() {
                 <button className="btn btn-outline btn-sm" onClick={() => setSelectedPedido(null)}>Cerrar</button>
               </div>
 
-              <div style={{ marginBottom: '1.2rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '0.85rem', color: 'var(--text-light)' }}>
+              <div style={{ marginBottom: '1.2rem', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', fontSize: '0.85rem', color: 'var(--text-light)' }}>
                 <div>
                   <strong>Destino:</strong> {selectedPedido.destino_nombre}<br />
                   <strong>Estado:</strong> <span className={getBadgeClass(selectedPedido.estado)}>{translateState(selectedPedido.estado)}</span>
                 </div>
-                <div style={{ textAlign: 'right' }}>
+                <div>
                   <strong>Solicitado por:</strong> {selectedPedido.creado_por_nombre || 'N/D'}<br />
                   <strong>Fecha:</strong> {new Date(selectedPedido.fecha_solicitud).toLocaleString()}
                 </div>
@@ -6196,7 +6075,7 @@ export default function App() {
                           </span>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '0.75rem', alignItems: 'center' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', alignItems: 'center' }}>
                           <UnitCalculatorInput
                             value={receiveItems[it.producto_id] ?? baseQty}
                             onChange={val => {
@@ -6362,7 +6241,7 @@ export default function App() {
                   </select>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
                   <div className="form-group">
                     <label style={{ color: 'var(--text-dark)', fontWeight: 600 }}>Marca</label>
                     <input
@@ -6387,7 +6266,7 @@ export default function App() {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
                   <div className="form-group">
                     <label style={{ color: 'var(--text-dark)', fontWeight: 600 }}>Número de Serie</label>
                     <input
@@ -6531,7 +6410,7 @@ export default function App() {
                   </select>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
                   <div className="form-group">
                     <label style={{ color: 'var(--text-dark)', fontWeight: 600 }}>Fecha de Trabajo *</label>
                     <input
@@ -6605,7 +6484,7 @@ export default function App() {
                   )}
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
                   <div className="form-group">
                     <label style={{ color: 'var(--text-dark)', fontWeight: 600 }}>Costo ($ ARS)</label>
                     <input
