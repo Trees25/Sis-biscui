@@ -130,6 +130,11 @@ export default function App() {
   const [orders, setOrders] = useState([]);
   const [dashboardStats, setDashboardStats] = useState(null);
 
+  // Auditoria Consumo & Retiro Interno
+  const [auditoriaData, setAuditoriaData] = useState([]);
+  const [auditoriaFilterSucursal, setAuditoriaFilterSucursal] = useState('');
+  const [auditoriaFilterDays, setAuditoriaFilterDays] = useState('7');
+  const [retiroItems, setRetiroItems] = useState({});
   // Action/Form states
   const [loading, setLoading] = useState(false);
   const [selectedPedido, setSelectedPedido] = useState(null);
@@ -190,6 +195,11 @@ export default function App() {
   const [editingProduct, setEditingProduct] = useState(null);
   const [showProductModal, setShowProductModal] = useState(false);
 
+  // States for CRUD Proveedores
+  const [editingProv, setEditingProv] = useState(null);
+  const [showProvModal, setShowProvModal] = useState(false);
+  const [provForm, setProvForm] = useState({ nombre: '', cuit: '', telefono: '', direccion: '', email: '' });
+
   // States for catalog filters
   const [catalogSearch, setCatalogSearch] = useState('');
   const [catalogCategory, setCatalogCategory] = useState('Todos');
@@ -227,6 +237,11 @@ export default function App() {
   const [adminOrderSubTab, setAdminOrderSubTab] = useState('helados');
   const [adminOrderSearch, setAdminOrderSearch] = useState('');
   const [showEventStockDepot, setShowEventStockDepot] = useState(false);
+
+  // States for Edit Stock Admin
+  const [showEditStockModal, setShowEditStockModal] = useState(false);
+  const [editStockForm, setEditStockForm] = useState({ producto_id: '', sucursal_id: '', es_evento: false, cantidad: '' });
+  const [editStockItemDetails, setEditStockItemDetails] = useState({ producto_nombre: '', sucursal_nombre: '', tipo: '' });
 
   // Suppliers state
   const [proveedores, setProveedores] = useState([]);
@@ -931,12 +946,6 @@ export default function App() {
         });
 
         setSuggestions(suggestionsD);
-
-        const initialItems = {};
-        suggestionsD.forEach(s => {
-          initialItems[s.producto_id] = 0;
-        });
-        setOrderItems(initialItems);
       }
 
     } catch (err) {
@@ -997,6 +1006,64 @@ export default function App() {
       fetchMaquinasYMantenimientos();
     }
   }, [activeTab, fetchMaquinasYMantenimientos]);
+
+  const fetchAuditoriaData = useCallback(async () => {
+    if (!user || user.rol !== 'admin') return;
+    try {
+      setLoading(true);
+      let query = supabase.from('consumo_diario').select('*, usuarios:creado_por (nombre)');
+      if (auditoriaFilterSucursal) {
+        query = query.eq('sucursal_id', auditoriaFilterSucursal);
+      }
+      if (auditoriaFilterDays) {
+        const pastDate = new Date();
+        pastDate.setDate(pastDate.getDate() - parseInt(auditoriaFilterDays));
+        query = query.gte('fecha', pastDate.toISOString());
+      }
+      const { data, error } = await query.order('fecha', { ascending: false });
+      if (error) throw error;
+      setAuditoriaData(data || []);
+    } catch (err) {
+      showToast('Error al cargar auditoría: ' + err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [user, auditoriaFilterSucursal, auditoriaFilterDays]);
+
+  useEffect(() => {
+    if (activeTab === 'auditoria_consumo') {
+      fetchAuditoriaData();
+    }
+  }, [activeTab, fetchAuditoriaData]);
+
+  const handleDownloadAuditoriaCSV = () => {
+    if (auditoriaData.length === 0) return;
+    
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += "Fecha,Sucursal,Producto,Cantidad,Unidad,Registrado Por\n";
+    
+    auditoriaData.forEach(row => {
+      const prod = productos.find(p => p.id === row.producto_id);
+      const suc = sucursales.find(s => s.id === row.sucursal_id);
+      const isWeight = prod?.unidad_medida === 'peso';
+      const qty = isWeight ? (row.cantidad / 1000).toFixed(3) : row.cantidad;
+      const unit = isWeight ? "kg" : "unidades";
+      const pName = prod ? prod.nombre.replace(/,/g, '') : "Desconocido";
+      const sName = suc ? suc.nombre.replace(/,/g, '') : "Desconocido";
+      const fDate = new Date(row.fecha).toLocaleString().replace(/,/g, '');
+      const uName = row.usuarios?.nombre ? row.usuarios.nombre.replace(/,/g, '') : '';
+      
+      csvContent += `${fDate},${sName},${pName},${qty},${unit},${uName}\n`;
+    });
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `auditoria_consumo_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // Production Form Submit
   const handleProductionSubmit = async (e) => {
@@ -1107,8 +1174,12 @@ export default function App() {
     setLoading(true);
     try {
       const pId = parseInt(transpCargaForm.producto_id);
-      const qty = parseInt(transpCargaForm.cantidad);
+      const inputQty = parseFloat(transpCargaForm.cantidad);
       const pDate = new Date(transpCargaForm.fecha);
+
+      const selectedProd = productos.find(p => p.id === pId);
+      const isWeight = selectedProd?.unidad_medida === 'peso';
+      const finalQty = isWeight ? Math.round(inputQty * 1000) : inputQty;
 
       const dateStr = pDate.toISOString().slice(0, 10).replace(/-/g, '');
       const rand = Math.floor(1000 + Math.random() * 9000);
@@ -1118,7 +1189,7 @@ export default function App() {
       const { error: rpcErr } = await supabase.rpc('registrar_produccion', {
         p_codigo_lote: codigo_lote,
         p_producto_id: pId,
-        p_cantidad: qty,
+        p_cantidad: finalQty,
         p_pesos: [], // No weights for purchases usually
         p_fecha_produccion: pDate.toISOString(),
         p_creado_por: user.id,
@@ -1126,12 +1197,71 @@ export default function App() {
       });
       if (rpcErr) throw rpcErr;
 
+
       showToast(`Ingreso de mercadería registrado (Ref: ${codigo_lote}). Stock de fábrica actualizado.`);
       setTranspCargaForm({ producto_id: '', proveedor_id: '', cantidad: '', fecha: getLocalDateString() });
       fetchData();
     } catch (err) {
       console.error(err);
       showToast('Error al registrar la carga: ' + err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // CRUD Proveedores
+  const handleProvSubmit = async (e) => {
+    e.preventDefault();
+    if (!provForm.nombre.trim()) return;
+    setLoading(true);
+    try {
+      const payload = {
+        nombre: provForm.nombre.trim(),
+        cuit: provForm.cuit?.trim() || null,
+        telefono: provForm.telefono?.trim() || null,
+        direccion: provForm.direccion?.trim() || null,
+        email: provForm.email?.trim() || null
+      };
+
+      if (editingProv) {
+        const { error } = await supabase
+          .from('proveedores')
+          .update(payload)
+          .eq('id', editingProv.id);
+        if (error) throw error;
+        showToast('Proveedor actualizado con éxito.');
+      } else {
+        const { error } = await supabase
+          .from('proveedores')
+          .insert(payload);
+        if (error) throw error;
+        showToast('Proveedor creado con éxito.');
+      }
+      setShowProvModal(false);
+      setEditingProv(null);
+      setProvForm({ nombre: '', cuit: '', telefono: '', direccion: '', email: '' });
+      fetchData();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleProvDelete = async (id, nombre) => {
+    if (!window.confirm(`¿Estás seguro de eliminar el proveedor "${nombre}"?\nEsto fallará si existen productos asociados a él.`)) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase.from('proveedores').delete().eq('id', id);
+      if (error) throw error;
+      showToast('Proveedor eliminado con éxito.');
+      fetchData();
+    } catch (err) {
+      if (err.message.includes('violates foreign key constraint') || err.code === '23503') {
+        showToast('No se puede eliminar el proveedor porque tiene productos asociados.', 'error');
+      } else {
+        showToast(err.message, 'error');
+      }
     } finally {
       setLoading(false);
     }
@@ -1372,7 +1502,8 @@ export default function App() {
         .insert({
           sucursal_destino_id: user.sucursal_id,
           creado_por_id: user.id,
-          es_evento: (user.rol === 'admin' || user.rol === 'heladero') ? orderIsEvent : false
+          es_evento: (user.rol === 'admin' || user.rol === 'heladero') ? orderIsEvent : false,
+          estado: 'solicitado'
         })
         .select('id')
         .single();
@@ -1498,6 +1629,53 @@ export default function App() {
     });
     setOrderItems(items);
     showToast('Sugerencias aplicadas. Revisa las cantidades antes de enviar.');
+  };
+  // Open Order Detail modal/screen
+  const handleRetiroInternoSubmit = async (e) => {
+    e.preventDefault();
+    const itemsList = Object.entries(retiroItems).filter(([_, qty]) => qty > 0).map(([pId, qty]) => ({
+      producto_id: parseInt(pId),
+      cantidad: qty
+    }));
+    
+    if (itemsList.length === 0) {
+      showToast('No has seleccionado ningún producto.', 'warning');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // 1. Crear y descontar de fabrica
+      const { data: pedido_id, error: rpcErr } = await supabase.rpc('crear_y_preparar_pedido_admin', {
+        p_sucursal_destino_id: user.sucursal_id,
+        p_creado_por_id: user.id,
+        p_es_evento: false,
+        p_items: itemsList
+      });
+      if (rpcErr) throw rpcErr;
+
+      // 2. Recibir inmediatamente para sumarlo al stock local
+      const receivePayload = itemsList.map(it => ({
+        producto_id: it.producto_id,
+        cantidad_recibida: it.cantidad,
+        motivo_discrepancia: null
+      }));
+
+      const { error: recErr } = await supabase.rpc('recibir_pedido', {
+        p_pedido_id: pedido_id,
+        p_recibido_por_id: user.id,
+        p_items: receivePayload
+      });
+      if (recErr) throw recErr;
+
+      showToast(`Retiro interno registrado exitosamente (Ref: #${pedido_id}).`);
+      setRetiroItems({});
+      fetchData();
+    } catch (err) {
+      showToast('Error en retiro interno: ' + err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Open Order Detail modal/screen
@@ -2318,6 +2496,55 @@ export default function App() {
     }
   };
 
+  const handleSaveStockAdmin = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const { producto_id, sucursal_id, es_evento, cantidad } = editStockForm;
+      const numCant = parseInt(cantidad);
+      if (isNaN(numCant) || numCant < 0) throw new Error("La cantidad debe ser un número válido mayor o igual a cero.");
+
+      const { data: existing, error: eErr } = await supabase
+        .from('stock_sucursales')
+        .select('*')
+        .eq('producto_id', producto_id)
+        .eq('sucursal_id', sucursal_id)
+        .eq('es_evento', es_evento);
+      
+      if (eErr) throw eErr;
+
+      if (existing && existing.length > 0) {
+        const { error: updErr } = await supabase
+          .from('stock_sucursales')
+          .update({ cantidad: numCant })
+          .eq('producto_id', producto_id)
+          .eq('sucursal_id', sucursal_id)
+          .eq('es_evento', es_evento);
+        if (updErr) throw updErr;
+      } else {
+        const { error: insErr } = await supabase
+          .from('stock_sucursales')
+          .insert({
+            producto_id,
+            sucursal_id,
+            es_evento,
+            cantidad: numCant,
+            actualizado_por: user.id
+          });
+        if (insErr) throw insErr;
+      }
+
+      showToast("Stock actualizado correctamente.", "success");
+      setShowEditStockModal(false);
+      fetchData();
+    } catch (err) {
+      console.error(err);
+      showToast(err.message || "Error al actualizar stock", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleEditMaquina = (maq) => {
     setEditingMaquina(maq);
     setMaquinaForm({
@@ -2534,10 +2761,12 @@ export default function App() {
               <button className={`tab-btn ${activeTab === 'matrix' ? 'active' : ''}`} onClick={() => setActiveTab('matrix')}>Stock de Sucursales</button>
               <button className={`tab-btn ${activeTab === 'flujo' ? 'active' : ''}`} onClick={() => setActiveTab('flujo')}>Flujo de Pedidos</button>
               <button className={`tab-btn ${activeTab === 'armar_pedido' ? 'active' : ''}`} onClick={() => setActiveTab('armar_pedido')}>Armar Pedido</button>
+              <button className={`tab-btn ${activeTab === 'auditoria_consumo' ? 'active' : ''}`} onClick={() => setActiveTab('auditoria_consumo')}>Auditoría de Consumo</button>
               <button className={`tab-btn ${activeTab === 'discrepancias' ? 'active' : ''}`} onClick={() => setActiveTab('discrepancias')}>Historial de Pérdidas</button>
               <button className={`tab-btn ${activeTab === 'produccion_req' ? 'active' : ''}`} onClick={() => setActiveTab('produccion_req')}>Proyecciones de Fábrica</button>
               <button className={`tab-btn ${activeTab === 'carga_historica' ? 'active' : ''}`} onClick={() => setActiveTab('carga_historica')}>Carga Histórica</button>
               <button className={`tab-btn ${activeTab === 'catalogo' ? 'active' : ''}`} onClick={() => setActiveTab('catalogo')}>Productos</button>
+              <button className={`tab-btn ${activeTab === 'proveedores' ? 'active' : ''}`} onClick={() => setActiveTab('proveedores')}>Proveedores</button>
               <button className={`tab-btn ${activeTab === 'maquinas' ? 'active' : ''}`} onClick={() => setActiveTab('maquinas')}>Mantenimiento y Máquinas</button>
             </div>
 
@@ -2701,7 +2930,28 @@ export default function App() {
                                     {sucursales.map(s => {
                                       const qty = stockData.find(st => st.producto_id === prod.id && st.sucursal_id === s.id && st.es_evento === showEventStock)?.cantidad || 0;
                                       return (
-                                        <td key={s.id} className={getCellClass(qty)}>
+                                        <td 
+                                          key={s.id} 
+                                          className={getCellClass(qty)}
+                                          onClick={() => {
+                                            if (user.rol === 'admin') {
+                                              setEditStockForm({
+                                                producto_id: prod.id,
+                                                sucursal_id: s.id,
+                                                es_evento: showEventStock,
+                                                cantidad: qty
+                                              });
+                                              setEditStockItemDetails({
+                                                producto_nombre: prod.nombre,
+                                                sucursal_nombre: s.nombre,
+                                                tipo: prod.tipo
+                                              });
+                                              setShowEditStockModal(true);
+                                            }
+                                          }}
+                                          style={user.rol === 'admin' ? { cursor: 'pointer' } : {}}
+                                          title={user.rol === 'admin' ? 'Click para editar stock' : ''}
+                                        >
                                           {formatQuantityShort(qty, prod)}
                                         </td>
                                       );
@@ -3110,6 +3360,78 @@ export default function App() {
                           <td colSpan="7" style={{ textAlign: 'center', color: 'var(--text-light)', padding: '2rem 1rem' }}>
                             No se encontraron pedidos.
                           </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'auditoria_consumo' && (
+              <div className="glass-card fade-in">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', flexWrap: 'wrap', gap: '1rem' }}>
+                  <h3 className="section-title" style={{ margin: 0, border: 'none' }}>Auditoría de Consumo Diario</h3>
+                  <button className="btn btn-primary btn-sm" onClick={handleDownloadAuditoriaCSV}>
+                    📥 Descargar CSV
+                  </button>
+                </div>
+                
+                <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                  <div className="form-group" style={{ flex: '1 1 200px' }}>
+                    <label>Sucursal</label>
+                    <select className="form-control" value={auditoriaFilterSucursal} onChange={e => setAuditoriaFilterSucursal(e.target.value)}>
+                      <option value="">Todas las Sucursales</option>
+                      {sucursales.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group" style={{ flex: '1 1 200px' }}>
+                    <label>Rango de Fechas</label>
+                    <select className="form-control" value={auditoriaFilterDays} onChange={e => setAuditoriaFilterDays(e.target.value)}>
+                      <option value="1">Últimas 24 horas</option>
+                      <option value="7">Últimos 7 días</option>
+                      <option value="30">Últimos 30 días</option>
+                      <option value="">Todo el Historial</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="table-container">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Fecha y Hora</th>
+                        <th>Sucursal</th>
+                        <th>Producto / Sabor</th>
+                        <th>Registrado Por</th>
+                        <th style={{ textAlign: 'right' }}>Cantidad</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {auditoriaData.map(row => {
+                        const prod = productos.find(p => p.id === row.producto_id);
+                        const suc = sucursales.find(s => s.id === row.sucursal_id);
+                        const isWeight = prod?.unidad_medida === 'peso';
+                        const qty = isWeight ? (row.cantidad / 1000).toFixed(3) : row.cantidad;
+                        const unit = isWeight ? "kg" : "unidades";
+                        
+                        return (
+                          <tr key={row.id}>
+                            <td>{new Date(row.fecha).toLocaleString()}</td>
+                            <td>{suc ? suc.nombre : '-'}</td>
+                            <td><strong>{prod ? prod.nombre : '-'}</strong></td>
+                            <td>{row.usuarios?.nombre || '-'}</td>
+                            <td style={{ textAlign: 'right' }}>
+                              <span style={{ fontWeight: 600, color: 'var(--primary)' }}>
+                                {qty} {unit}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {auditoriaData.length === 0 && (
+                        <tr>
+                          <td colSpan="5" style={{ textAlign: 'center', padding: '2rem' }}>No hay registros de consumo en este periodo.</td>
                         </tr>
                       )}
                     </tbody>
@@ -4627,6 +4949,139 @@ export default function App() {
                 )}
               </div>
             )}
+
+            {activeTab === 'proveedores' && (
+              <div className="glass-card fade-in">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+                  <h3 className="section-title" style={{ margin: 0, border: 'none' }}>Gestión de Proveedores</h3>
+                  <button className="btn btn-primary" onClick={() => {
+                    setEditingProv(null);
+                    setProvForm({ nombre: '', cuit: '', telefono: '', direccion: '', email: '' });
+                    setShowProvModal(true);
+                  }}>
+                    ➕ Nuevo Proveedor
+                  </button>
+                </div>
+                
+                <div className="table-container">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Nombre</th>
+                        <th>CUIT</th>
+                        <th>Teléfono</th>
+                        <th>Email</th>
+                        <th>Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {proveedores.map(p => (
+                        <tr key={p.id}>
+                          <td>{p.id}</td>
+                          <td><strong>{p.nombre}</strong></td>
+                          <td>{p.cuit || '-'}</td>
+                          <td>{p.telefono || '-'}</td>
+                          <td>{p.email || '-'}</td>
+                          <td>
+                            <button className="btn btn-secondary btn-sm" style={{ marginRight: '0.5rem' }} onClick={() => {
+                              setEditingProv(p);
+                              setProvForm({
+                                nombre: p.nombre,
+                                cuit: p.cuit || '',
+                                telefono: p.telefono || '',
+                                direccion: p.direccion || '',
+                                email: p.email || ''
+                              });
+                              setShowProvModal(true);
+                            }}>
+                              Editar
+                            </button>
+                            <button className="btn btn-danger btn-sm" onClick={() => handleProvDelete(p.id, p.nombre)}>
+                              Eliminar
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {proveedores.length === 0 && (
+                        <tr>
+                          <td colSpan="6" style={{ textAlign: 'center', color: 'var(--text-light)', padding: '2rem 1rem' }}>
+                            No hay proveedores registrados.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* PROVEEDOR MODAL */}
+                {showProvModal && (
+                  <div className="modal-overlay" onClick={() => setShowProvModal(false)}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+                      <h3 className="section-title" style={{ marginTop: 0 }}>
+                        {editingProv ? 'Editar Proveedor' : 'Nuevo Proveedor'}
+                      </h3>
+                      <form onSubmit={handleProvSubmit} className="form-grid" style={{ gridTemplateColumns: '1fr' }}>
+                        <div className="form-group">
+                          <label>Nombre *</label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={provForm.nombre}
+                            onChange={e => setProvForm({ ...provForm, nombre: e.target.value })}
+                            required
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>CUIT (Opcional)</label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={provForm.cuit}
+                            onChange={e => setProvForm({ ...provForm, cuit: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Teléfono (Opcional)</label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={provForm.telefono}
+                            onChange={e => setProvForm({ ...provForm, telefono: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Email (Opcional)</label>
+                          <input
+                            type="email"
+                            className="form-control"
+                            value={provForm.email}
+                            onChange={e => setProvForm({ ...provForm, email: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Dirección (Opcional)</label>
+                          <textarea
+                            className="form-control"
+                            value={provForm.direccion}
+                            onChange={e => setProvForm({ ...provForm, direccion: e.target.value })}
+                            rows="2"
+                          ></textarea>
+                        </div>
+                        <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                          <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={loading}>
+                            {loading ? 'Guardando...' : 'Guardar'}
+                          </button>
+                          <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowProvModal(false)}>
+                            Cancelar
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -5231,8 +5686,8 @@ export default function App() {
             <div className="tabs">
               <button className={`tab-btn ${activeTab === 'pedidos' ? 'active' : ''}`} onClick={() => setActiveTab('pedidos')}>Preparar Pedidos</button>
               <button className={`tab-btn ${activeTab === 'rutas' ? 'active' : ''}`} onClick={() => setActiveTab('rutas')}>Mis Viajes y Repartos</button>
-              <button className={`tab-btn ${activeTab === 'deposito' ? 'active' : ''}`} onClick={() => setActiveTab('deposito')}>Mi Depósito</button>
               <button className={`tab-btn ${activeTab === 'carga_insumos' ? 'active' : ''}`} onClick={() => setActiveTab('carga_insumos')}>Carga de Productos/Insumos</button>
+              <button className={`tab-btn ${activeTab === 'stock_fabrica' ? 'active' : ''}`} onClick={() => setActiveTab('stock_fabrica')}>Stock Fábrica</button>
             </div>
 
             {activeTab === 'carga_insumos' && (
@@ -5276,11 +5731,12 @@ export default function App() {
                     </select>
                   </div>
                   <div className="form-group">
-                    <label>Cantidad (unidades)</label>
+                    <label>Cantidad ({productos.find(p => p.id === parseInt(transpCargaForm.producto_id))?.unidad_medida === 'peso' ? 'kg' : 'unidades'})</label>
                     <input
                       type="number"
                       className="form-control"
-                      min="1"
+                      min={productos.find(p => p.id === parseInt(transpCargaForm.producto_id))?.unidad_medida === 'peso' ? "0.01" : "1"}
+                      step={productos.find(p => p.id === parseInt(transpCargaForm.producto_id))?.unidad_medida === 'peso' ? "0.01" : "1"}
                       value={transpCargaForm.cantidad}
                       onChange={e => setTranspCargaForm({ ...transpCargaForm, cantidad: e.target.value })}
                       required
@@ -5303,6 +5759,57 @@ export default function App() {
                     </button>
                   </div>
                 </form>
+              </div>
+            )}
+
+            {activeTab === 'stock_fabrica' && (
+              <div className="glass-card fade-in">
+                <h3 className="section-title">📦 Stock Actual de Insumos en Fábrica</h3>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '1.2rem' }}>
+                  Consulta el inventario actual de insumos y materias primas en la fábrica.
+                </p>
+                <div className="table-container">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Insumo / Producto</th>
+                        <th>Proveedor</th>
+                        <th style={{ textAlign: 'center' }}>Stock en Fábrica</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {productos
+                        .filter(p => p.activo === 1)
+                        .filter(p => user.rol !== 'transportista' || p.categoria === 'termicos' || p.categoria === 'otros')
+                        .sort((a, b) => a.nombre.localeCompare(b.nombre))
+                        .map(prod => {
+                          const stock = stockData.find(s => s.producto_id === prod.id && s.sucursal_id === 1 && !s.es_evento)?.cantidad || 0;
+                          return (
+                            <tr key={prod.id}>
+                              <td><strong>{prod.nombre}</strong> <span style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>({formatTipo(prod.tipo)})</span></td>
+                              <td>{proveedores.find(prov => prov.id === prod.proveedor_id)?.nombre || '-'}</td>
+                              <td style={{ textAlign: 'center' }}>
+                                <span className={stock > 0 ? 'matrix-cell-ok' : 'matrix-cell-empty'} style={{
+                                  padding: '0.2rem 0.6rem',
+                                  borderRadius: '6px',
+                                  fontWeight: 600,
+                                  display: 'inline-block',
+                                  minWidth: '60px'
+                                }}>
+                                  {formatQuantity(stock, prod)}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      {productos.filter(p => p.activo === 1).length === 0 && (
+                        <tr>
+                          <td colSpan="3" style={{ textAlign: 'center', color: 'var(--text-light)', padding: '2rem 1rem' }}>No hay productos registrados.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
 
@@ -5448,174 +5955,6 @@ export default function App() {
                 </div>
               </div>
             )}
-
-            {activeTab === 'deposito' && (
-              <div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', alignItems: 'start' }}>
-                  {/* Stock panel */}
-                  <div className="glass-card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                      <h3 className="section-title" style={{ margin: 0, border: 'none' }}>📦 Stock de mi Depósito</h3>
-                      
-                      <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', padding: '2px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                        <button
-                          className={`btn btn-sm ${!showEventStockDepot ? 'btn-primary' : 'btn-outline'}`}
-                          style={{ border: 'none', borderRadius: '6px', padding: '0.3rem 0.8rem', fontSize: '0.75rem', minHeight: 'unset' }}
-                          onClick={() => setShowEventStockDepot(false)}
-                        >
-                          Común
-                        </button>
-                        <button
-                          className={`btn btn-sm ${showEventStockDepot ? 'btn-primary' : 'btn-outline'}`}
-                          style={{ border: 'none', borderRadius: '6px', padding: '0.3rem 0.8rem', fontSize: '0.75rem', minHeight: 'unset' }}
-                          onClick={() => setShowEventStockDepot(true)}
-                        >
-                          Eventos
-                        </button>
-                      </div>
-                    </div>
-
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '1.2rem' }}>
-                      Inventario actual de insumos, materias primas y packaging asignados a tu vehículo/depósito.
-                    </p>
-
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
-                      <input
-                        type="text"
-                        className="form-control"
-                        placeholder="🔍 Buscar insumo..."
-                        value={driverDepotSearch}
-                        onChange={e => setDriverDepotSearch(e.target.value)}
-                        style={{
-                          padding: '0.6rem 1.2rem',
-                          fontSize: '0.95rem',
-                          borderRadius: '10px',
-                          background: 'rgba(255,255,255,0.05)',
-                          border: '1px solid rgba(255,255,255,0.15)',
-                          color: 'var(--text)',
-                          width: '100%',
-                          height: 'auto',
-                          minHeight: 'unset'
-                        }}
-                      />
-                    </div>
-
-                    <div className="table-container">
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>Producto</th>
-                            <th>Formato / Tipo</th>
-                            <th style={{ textAlign: 'center' }}>Stock Disponible</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {productos
-                            .filter(p => p.categoria === 'termicos' || p.categoria === 'otros')
-                            .filter(prod => {
-                              if (!driverDepotSearch) return true;
-                              const q = driverDepotSearch.toLowerCase();
-                              return (
-                                prod.nombre.toLowerCase().includes(q) ||
-                                (prod.tipo && formatTipo(prod.tipo).toLowerCase().includes(q))
-                              );
-                            })
-                            .map(prod => {
-                              const stock = stockData.find(s => s.producto_id === prod.id && s.sucursal_id === user.sucursal_id && s.es_evento === showEventStockDepot)?.cantidad || 0;
-                              return (
-                                <tr key={prod.id}>
-                                  <td><strong>{prod.nombre}</strong></td>
-                                  <td><span style={{ fontSize: '0.8rem', textTransform: 'capitalize' }}>{formatTipo(prod.tipo)}</span></td>
-                                  <td style={{ textAlign: 'center' }}>
-                                    <span className={stock > 0 ? 'matrix-cell-ok' : 'matrix-cell-empty'} style={{
-                                      padding: '0.2rem 0.6rem',
-                                      borderRadius: '6px',
-                                      fontWeight: 600,
-                                      display: 'inline-block',
-                                      minWidth: '40px'
-                                    }}>
-                                      {stock}
-                                    </span>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          {productos
-                            .filter(p => p.categoria === 'termicos' || p.categoria === 'otros')
-                            .filter(prod => {
-                              if (!driverDepotSearch) return true;
-                              const q = driverDepotSearch.toLowerCase();
-                              return (
-                                prod.nombre.toLowerCase().includes(q) ||
-                                (prod.tipo && formatTipo(prod.tipo).toLowerCase().includes(q))
-                              );
-                            }).length === 0 && (
-                              <tr>
-                                <td colSpan="3" style={{ textAlign: 'center', color: 'var(--text-light)', padding: '2rem 1rem' }}>
-                                  No se encontraron insumos.
-                                </td>
-                              </tr>
-                            )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  {/* Incoming orders panel */}
-                  <div className="glass-card">
-                    <h3 className="section-title">📥 Pedidos a Recibir en Depósito</h3>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '1.2rem' }}>
-                      Pedidos preparados por Administración con destino a tu depósito. Confirma la recepción física para dar de alta los insumos en tu stock.
-                    </p>
-
-                    <div className="table-container">
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>ID Pedido</th>
-                            <th>Estado</th>
-                            <th>Solicitado el</th>
-                            <th style={{ textAlign: 'right' }}>Acción</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {orders
-                            .filter(o => o.sucursal_destino_id === user.sucursal_id && (o.estado === 'preparado' || o.estado === 'en_transito'))
-                            .map(order => (
-                              <tr key={order.id}>
-                                <td>
-                                  <strong>#{order.id}</strong>
-                                  {order.es_evento && (
-                                    <span className="badge" style={{ background: 'var(--primary)', color: 'white', fontSize: '0.6rem', padding: '0.1rem 0.3rem', marginLeft: '0.3rem' }}>
-                                      Evento
-                                    </span>
-                                  )}
-                                </td>
-                                <td>
-                                  <span className={getBadgeClass(order.estado)}>{translateState(order.estado)}</span>
-                                </td>
-                                <td>{new Date(order.fecha_solicitud).toLocaleDateString()}</td>
-                                <td style={{ textAlign: 'right' }}>
-                                  <button className="btn btn-primary btn-sm" onClick={() => viewOrderDetail(order.id)}>
-                                    Controlar y Recibir
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                          {orders.filter(o => o.sucursal_destino_id === user.sucursal_id && (o.estado === 'preparado' || o.estado === 'en_transito')).length === 0 && (
-                            <tr>
-                              <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-light)', padding: '2rem 1rem' }}>
-                                No hay envíos pendientes hacia tu depósito en este momento.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
@@ -5627,16 +5966,17 @@ export default function App() {
               <button className={`tab-btn ${activeTab === 'pedidos_lista' ? 'active' : ''}`} onClick={() => setActiveTab('pedidos_lista')}>Mis Recepciones</button>
               <button className={`tab-btn ${activeTab === 'consumo' ? 'active' : ''}`} onClick={() => setActiveTab('consumo')}>Registrar Consumo Diario</button>
               <button className={`tab-btn ${activeTab === 'mi_stock' ? 'active' : ''}`} onClick={() => setActiveTab('mi_stock')}>Mi Stock Actual</button>
+              {user.sucursal_id === 4 && (
+                <button className={`tab-btn ${activeTab === 'retiro_interno' ? 'active' : ''}`} onClick={() => setActiveTab('retiro_interno')}>Retiro Interno (Fábrica)</button>
+              )}
             </div>
 
             {activeTab === 'pedido_nuevo' && (
-              <div className="glass-card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
+              <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                <div className="glass-card" style={{ flex: '1 1 60%', minWidth: '300px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
                   <div>
                     <h3 className="section-title" style={{ margin: 0, border: 'none' }}>Armar Pedido</h3>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: '0.25rem' }}>
-                      El sistema calcula sugerencias basadas en tu consumo de los últimos 7 días y tu stock actual.
-                    </p>
                   </div>
                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
                     {(user.rol === 'admin' || user.rol === 'heladero') && (
@@ -5655,9 +5995,6 @@ export default function App() {
                         </label>
                       </div>
                     )}
-                    <button className="btn btn-secondary btn-sm" onClick={applyAllSuggestions}>
-                      ⚡ Aplicar Sugerencias
-                    </button>
                   </div>
                 </div>
 
@@ -5832,69 +6169,52 @@ export default function App() {
                                 <th>Mi Stock</th>
                                 <th>Stock Fábrica</th>
                                 <th>Consumo Prom. Diario</th>
-                                <th>Sugerido</th>
-                                <th>Pedir Cantidad</th>
                               </tr>
                             </thead>
                             <tbody>
                               {catSuggestions.map(s => {
                                 const requestedQty = orderItems[s.producto_id] || 0;
                                 const isExceedingFactoryStock = requestedQty > s.stock_fabrica;
+                                const isSelected = requestedQty > 0;
 
                                 return (
-                                  <tr key={s.producto_id}>
+                                  <tr 
+                                    key={s.producto_id}
+                                    style={{ 
+                                      cursor: 'pointer', 
+                                      background: isSelected ? 'rgba(255, 171, 0, 0.08)' : 'transparent',
+                                      borderLeft: isSelected ? '3px solid var(--warning)' : '3px solid transparent'
+                                    }}
+                                    onClick={() => {
+                                      setOrderItems(prev => {
+                                        const updated = { ...prev };
+                                        const current = updated[s.producto_id] || 0;
+                                        if (current === 0) {
+                                          updated[s.producto_id] = 1;
+                                        } else {
+                                          updated[s.producto_id] = current + 1;
+                                        }
+                                        return updated;
+                                      });
+                                    }}
+                                    title="Clic para agregar/sumar al pedido"
+                                  >
                                     <td>
                                       <strong>{s.nombre}</strong>
                                       <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', textTransform: 'capitalize' }}>{formatTipo(s.tipo)}</div>
                                       {isExceedingFactoryStock && (
                                         <div style={{ fontSize: '0.7rem', color: 'var(--danger)', fontWeight: 600, marginTop: '2px' }}>
-                                          ⚠️ Excede stock disponible en Fábrica ({s.stock_fabrica} disponibles)
+                                          ⚠️ Excede stock ({s.stock_fabrica} disponibles)
                                         </div>
                                       )}
                                     </td>
                                     <td>{s.stock_actual}</td>
                                     <td>
-                                      <span style={{
-                                        fontWeight: 600,
-                                        color: s.stock_fabrica > 0 ? 'var(--success)' : 'var(--danger)'
-                                      }}>
+                                      <span style={{ fontWeight: 600, color: s.stock_fabrica > 0 ? 'var(--success)' : 'var(--danger)' }}>
                                         {s.stock_fabrica}
                                       </span>
                                     </td>
                                     <td>{s.consumo_promedio_diario}</td>
-                                    <td>
-                                      <span
-                                        style={{
-                                          background: 'rgba(0,0,0,0.05)',
-                                          padding: '0.2rem 0.5rem',
-                                          borderRadius: '4px',
-                                          fontSize: '0.85rem',
-                                          fontWeight: 600,
-                                          cursor: s.cantidad_sugerida > 0 ? 'pointer' : 'default'
-                                        }}
-                                        onClick={() => {
-                                          if (s.cantidad_sugerida > 0) {
-                                            setOrderItems(prev => ({ ...prev, [s.producto_id]: s.cantidad_sugerida }));
-                                          }
-                                        }}
-                                        title="Haz clic para aplicar individualmente"
-                                      >
-                                        {s.cantidad_sugerida}
-                                      </span>
-                                    </td>
-                                    <td>
-                                      <div style={{ width: '140px' }}>
-                                        <UnitCalculatorInput
-                                          value={orderItems[s.producto_id] || 0}
-                                          onChange={val => {
-                                            setOrderItems(prev => ({ ...prev, [s.producto_id]: val }));
-                                          }}
-                                          product={productos.find(p => p.id === s.producto_id)}
-                                          placeholder="0"
-                                          min={0}
-                                        />
-                                      </div>
-                                    </td>
                                   </tr>
                                 );
                               })}
@@ -5940,11 +6260,67 @@ export default function App() {
                     </form>
                   </div>
                 )}
+                </div>
 
-                <div style={{ marginTop: '2rem' }}>
-                  <button className="btn btn-primary" onClick={handleCreateOrder} disabled={loading}>
-                    Enviar Pedido a Fábrica
-                  </button>
+                <div className="glass-card" style={{ flex: '1 1 30%', minWidth: '300px', position: 'sticky', top: '1rem' }}>
+                  <h3 className="section-title" style={{ margin: 0, border: 'none', marginBottom: '1rem' }}>🛒 Resumen del Pedido</h3>
+                  {(() => {
+                    const selectedItemsList = Object.entries(orderItems)
+                      .filter(([_, qty]) => parseFloat(qty) > 0)
+                      .map(([id, qty]) => ({ id: parseInt(id), qty: parseFloat(qty) }));
+
+                    if (selectedItemsList.length === 0) {
+                      return <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', textAlign: 'center', padding: '2rem 0' }}>No has seleccionado ningún producto aún.</p>;
+                    }
+
+                    return (
+                      <>
+                        <div style={{ maxHeight: '400px', overflowY: 'auto', marginBottom: '1.5rem', paddingRight: '0.5rem' }}>
+                          {selectedItemsList.map(item => {
+                            const prod = productos.find(p => p.id === item.id);
+                            if (!prod) return null;
+                            return (
+                              <div key={item.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', padding: '0.8rem 0', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                  <div style={{ fontSize: '0.85rem', flex: 1, paddingRight: '0.5rem' }}>
+                                    <strong>{prod.nombre}</strong>
+                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', textTransform: 'capitalize' }}>{formatTipo(prod.tipo)}</div>
+                                  </div>
+                                  <button
+                                    className="btn btn-outline btn-sm"
+                                    style={{ padding: '0.1rem 0.4rem', fontSize: '0.7rem', borderColor: 'transparent', color: 'var(--danger)', cursor: 'pointer' }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOrderItems(prev => { const n = {...prev}; delete n[item.id]; return n; });
+                                    }}
+                                    title="Quitar"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                                <div>
+                                  <UnitCalculatorInput
+                                    value={item.qty}
+                                    onChange={val => {
+                                      setOrderItems(prev => ({ ...prev, [item.id]: val }));
+                                    }}
+                                    product={prod}
+                                    placeholder="0"
+                                    min={0}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div style={{ marginTop: '1rem' }}>
+                          <button className="btn btn-primary" onClick={handleCreateOrder} disabled={loading} style={{ width: '100%' }}>
+                            Enviar Pedido a Fábrica
+                          </button>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             )}
@@ -6167,6 +6543,70 @@ export default function App() {
                 })}
               </div>
             )}
+
+            {activeTab === 'retiro_interno' && user.sucursal_id === 4 && (
+              <div className="glass-card fade-in">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', flexWrap: 'wrap', gap: '1rem' }}>
+                  <h3 className="section-title" style={{ margin: 0, border: 'none' }}>Retiro Interno (Autoabastecimiento)</h3>
+                  <button className="btn btn-primary" onClick={handleRetiroInternoSubmit} disabled={loading}>
+                    {loading ? 'Procesando...' : 'Confirmar Retiro'}
+                  </button>
+                </div>
+                <p style={{ color: 'var(--text-light)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+                  Selecciona los insumos que vas a retirar físicamente de la Fábrica. Al confirmar, el stock se descontará automáticamente de Fábrica y se sumará a Casa Central.
+                </p>
+
+                <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+                  {['helados', 'termicos', 'otros'].map(sub => (
+                    <button
+                      key={sub}
+                      className={`tab-btn ${orderSubTab === sub ? 'active' : ''}`}
+                      onClick={() => setOrderSubTab(sub)}
+                      style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}
+                    >
+                      {sub === 'helados' ? 'Helados' : sub === 'termicos' ? 'Térmicos' : 'Insumos / Otros'}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="table-container">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Producto / Sabor</th>
+                        <th>Stock Fábrica</th>
+                        <th>Cantidad a Retirar</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {productos
+                        .filter(p => p.categoria === orderSubTab)
+                        .map(p => {
+                          const stockFab = stockData.find(s => s.producto_id === p.id && s.sucursal_id === 4)?.cantidad || 0;
+                          return (
+                            <tr key={p.id}>
+                              <td>
+                                <strong>{p.nombre}</strong><br/>
+                                <span style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>{formatTipo(p.tipo)}</span>
+                              </td>
+                              <td style={{ color: stockFab > 0 ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>
+                                {stockFab} {p.unidad_medida === 'peso' ? 'kg' : 'u'}
+                              </td>
+                              <td>
+                                <UnitCalculatorInput
+                                  value={retiroItems[p.id] || ''}
+                                  onChange={(val) => setRetiroItems(prev => ({ ...prev, [p.id]: val }))}
+                                  product={p}
+                                />
+                              </td>
+                            </tr>
+                          );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -6223,8 +6663,8 @@ export default function App() {
                 </table>
               </div>
 
-              {/* ACTION: PREPARE ORDER (Transportista / Admin / Heladero for event orders) */}
-              {(user.rol === 'transportista' || user.rol === 'admin' || (user.rol === 'heladero' && selectedPedido.es_evento)) && selectedPedido.estado === 'solicitado' && (
+              {/* ACTION: PREPARE ORDER (Transportista / Heladero for event orders) */}
+              {(user.rol === 'transportista' || (user.rol === 'heladero' && selectedPedido.es_evento)) && selectedPedido.estado === 'solicitado' && (
                 <div>
                   {selectedPedido.es_evento && (
                     <div style={{ marginBottom: '1.2rem', padding: '1rem', background: 'rgba(0, 0, 0, 0.02)', borderRadius: '10px', border: '1px solid rgba(0, 0, 0, 0.06)' }}>
@@ -6503,6 +6943,49 @@ export default function App() {
 
                 <button type="submit" className="btn btn-danger" style={{ width: '100%' }} disabled={loading}>
                   Guardar Reporte de Daños
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ================= MODAL EDITAR STOCK (ADMIN) ================= */}
+        {showEditStockModal && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+            background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center',
+            alignItems: 'center', zIndex: 1100, padding: '1rem',
+            backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)'
+          }}>
+            <div className="glass-card" style={{ maxWidth: '400px', width: '100%', background: 'rgba(255, 255, 255, 0.98)', color: '#000' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid rgba(0,0,0,0.1)', paddingBottom: '0.8rem' }}>
+                <h3 style={{ margin: 0, color: 'var(--text-dark)', fontFamily: 'Outfit' }}>Editar Stock</h3>
+                <button
+                  className="btn btn-outline btn-sm"
+                  style={{ borderColor: 'rgba(0,0,0,0.2)', color: 'var(--text-dark)' }}
+                  onClick={() => setShowEditStockModal(false)}
+                >✕</button>
+              </div>
+              <form onSubmit={handleSaveStockAdmin}>
+                <div style={{ marginBottom: '1rem', fontSize: '0.9rem' }}>
+                  <strong>Producto:</strong> {editStockItemDetails.producto_nombre} <span style={{color: 'var(--text-light)', fontSize: '0.8rem'}}>({formatTipo(editStockItemDetails.tipo)})</span><br/>
+                  <strong>Sucursal:</strong> {editStockItemDetails.sucursal_nombre}<br/>
+                  <strong>Tipo de Stock:</strong> {editStockForm.es_evento ? 'Eventos' : 'Común'}
+                </div>
+                <div className="form-group">
+                  <label style={{ color: 'var(--text-dark)', fontWeight: 600 }}>Cantidad Actualizada</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    value={editStockForm.cantidad}
+                    onChange={e => setEditStockForm({...editStockForm, cantidad: e.target.value})}
+                    required
+                    style={{ border: '1px solid rgba(0,0,0,0.15)' }}
+                    min="0"
+                  />
+                </div>
+                <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
+                  Guardar Stock
                 </button>
               </form>
             </div>
