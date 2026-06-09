@@ -21,7 +21,7 @@ const formatQuantity = (cantidad, p) => {
   if (cantidad === undefined || cantidad === null) return '-';
   if (!p) return `${cantidad}`;
   if (p.unidad_medida === 'peso') {
-    const kg = cantidad / 1000;
+    const kg = parseFloat(cantidad);
     return `${kg.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 3 })} kg`;
   }
   return `${cantidad} u`;
@@ -32,7 +32,7 @@ const formatQuantityShort = (cantidad, p) => {
   if (cantidad === 0) return '0';
   if (!p) return `${cantidad}`;
   if (p.unidad_medida === 'peso') {
-    const kg = cantidad / 1000;
+    const kg = parseFloat(cantidad);
     return `${kg.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 3 })} kg`;
   }
   return `${cantidad} u`;
@@ -42,7 +42,7 @@ const UnitCalculatorInput = ({ value, onChange, product, placeholder = "Cantidad
   const isWeight = product?.unidad_medida === 'peso';
 
   if (isWeight) {
-    const displayVal = value ? value / 1000 : '';
+    const displayVal = value !== undefined && value !== null && value !== '' ? parseFloat(value) : '';
     return (
       <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', width: '100%' }}>
         <input
@@ -53,7 +53,7 @@ const UnitCalculatorInput = ({ value, onChange, product, placeholder = "Cantidad
           value={displayVal}
           onChange={e => {
             const val = e.target.value;
-            onChange(val === '' ? '' : Math.max(min, Math.round(parseFloat(val) * 1000)));
+            onChange(val === '' ? '' : Math.max(min, parseFloat(val)));
           }}
           placeholder={`${placeholder} (kg)`}
           disabled={disabled}
@@ -1046,7 +1046,7 @@ export default function App() {
       const prod = productos.find(p => p.id === row.producto_id);
       const suc = sucursales.find(s => s.id === row.sucursal_id);
       const isWeight = prod?.unidad_medida === 'peso';
-      const qty = isWeight ? (row.cantidad / 1000).toFixed(3) : row.cantidad;
+      const qty = isWeight ? parseFloat(row.cantidad).toFixed(3) : row.cantidad;
       const unit = isWeight ? "kg" : "unidades";
       const pName = prod ? prod.nombre.replace(/,/g, '') : "Desconocido";
       const sName = suc ? suc.nombre.replace(/,/g, '') : "Desconocido";
@@ -1179,7 +1179,7 @@ export default function App() {
 
       const selectedProd = productos.find(p => p.id === pId);
       const isWeight = selectedProd?.unidad_medida === 'peso';
-      const finalQty = isWeight ? Math.round(inputQty * 1000) : inputQty;
+      const finalQty = isWeight ? parseFloat(inputQty) : inputQty;
 
       const dateStr = pDate.toISOString().slice(0, 10).replace(/-/g, '');
       const rand = Math.floor(1000 + Math.random() * 9000);
@@ -3284,7 +3284,7 @@ export default function App() {
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '1.2rem' }}>
                       {productos.filter(p => adminOrderItems[p.id] > 0).map(p => (
                         <div key={p.id} style={{ background: 'rgba(0, 0, 0, 0.02)', border: '1px solid rgba(0, 0, 0, 0.06)', padding: '0.4rem 0.8rem', borderRadius: '8px', fontSize: '0.85rem' }}>
-                          <strong>{p.nombre}</strong> ({formatTipo(p.tipo)}): <strong style={{ color: 'var(--primary)' }}>{adminOrderItems[p.id]} u.</strong>
+                          <strong>{p.nombre}</strong> ({formatTipo(p.tipo)}): <strong style={{ color: 'var(--primary)' }}>{formatQuantity(adminOrderItems[p.id], p)}</strong>
                         </div>
                       ))}
                     </div>
@@ -3412,7 +3412,7 @@ export default function App() {
                         const prod = productos.find(p => p.id === row.producto_id);
                         const suc = sucursales.find(s => s.id === row.sucursal_id);
                         const isWeight = prod?.unidad_medida === 'peso';
-                        const qty = isWeight ? (row.cantidad / 1000).toFixed(3) : row.cantidad;
+                        const qty = isWeight ? parseFloat(row.cantidad).toFixed(3) : row.cantidad;
                         const unit = isWeight ? "kg" : "unidades";
                         
                         return (
@@ -6025,7 +6025,7 @@ export default function App() {
                           border: '1px solid rgba(0, 0, 0, 0.06)'
                         }}>
                           <div style={{ fontSize: '0.85rem' }}>
-                            <strong>{p.nombre}</strong> <span style={{ color: 'var(--text-light)', fontSize: '0.75rem' }}>({formatTipo(p.tipo)})</span>: <strong style={{ color: 'var(--warning)' }}>{p.cantidad} u.</strong>
+                            <strong>{p.nombre}</strong> <span style={{ color: 'var(--text-light)', fontSize: '0.75rem' }}>({formatTipo(p.tipo)})</span>: <strong style={{ color: 'var(--warning)' }}>{formatQuantity(p.cantidad, productos.find(prod => prod.id === p.producto_id))}</strong>
                           </div>
                           <button
                             className="btn btn-secondary btn-sm"
@@ -6208,13 +6208,13 @@ export default function App() {
                                         </div>
                                       )}
                                     </td>
-                                    <td>{s.stock_actual}</td>
+                                    <td>{formatQuantity(s.stock_actual, productos.find(p => p.id === s.producto_id))}</td>
                                     <td>
                                       <span style={{ fontWeight: 600, color: s.stock_fabrica > 0 ? 'var(--success)' : 'var(--danger)' }}>
-                                        {s.stock_fabrica}
+                                        {formatQuantity(s.stock_fabrica, productos.find(p => p.id === s.producto_id))}
                                       </span>
                                     </td>
-                                    <td>{s.consumo_promedio_diario}</td>
+                                    <td>{formatQuantity(s.consumo_promedio_diario, productos.find(p => p.id === s.producto_id))}</td>
                                   </tr>
                                 );
                               })}
@@ -6531,7 +6531,7 @@ export default function App() {
                                 <td><strong>{s.producto_nombre}</strong></td>
                                 <td style={{ textTransform: 'capitalize' }}>{formatTipo(s.tipo)}</td>
                                 <td style={{ fontWeight: 700, color: s.cantidad > 3 ? 'var(--success)' : 'var(--danger)' }}>
-                                  {s.cantidad} unidades
+                                  {formatQuantity(s.cantidad, productos.find(p => p.id === s.producto_id))}
                                 </td>
                               </tr>
                             ))}
@@ -6788,7 +6788,7 @@ export default function App() {
                               )}
                               {pendingQty > 0 && (
                                 <div style={{ fontSize: '0.75rem', color: 'var(--warning)', fontWeight: 600 }}>
-                                  ⚠️ Quedarán {pendingQty} u. pendientes
+                                  ⚠️ Quedarán {formatQuantity(pendingQty, product)} pendientes
                                 </div>
                               )}
                             </div>
