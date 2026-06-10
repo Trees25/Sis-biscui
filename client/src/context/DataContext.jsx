@@ -4397,11 +4397,23 @@ const fetchData = useCallback(async () => {
 
 
 useEffect(() => {
-  
-  fetchData();
-  
-  const interval = setInterval(fetchData, 15000);
-  return () => clearInterval(interval);
+  let isMounted = true;
+  let timeoutId;
+
+  const pollData = async () => {
+    if (!isMounted) return;
+    await fetchData();
+    if (isMounted) {
+      timeoutId = setTimeout(pollData, 15000);
+    }
+  };
+
+  pollData();
+
+  return () => {
+    isMounted = false;
+    if (timeoutId) clearTimeout(timeoutId);
+  };
 }, [fetchData]);
 
   
