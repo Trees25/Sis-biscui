@@ -3990,9 +3990,12 @@ const handleCategoriaChange = cat => {
 
 
 
-const fetchData = useCallback(async () => {
-  if (!user) return;
-  try {
+  const fetchVersionRef = React.useRef(0);
+
+  const fetchData = useCallback(async () => {
+    if (!user) return;
+    const version = ++fetchVersionRef.current;
+    try {
     
     let pData = [];
     let {
@@ -4012,6 +4015,7 @@ const fetchData = useCallback(async () => {
         proveedor_nombre: p.proveedores?.nombre
       }));
     }
+    if (version !== fetchVersionRef.current) return;
     setProductos(pData);
 
     
@@ -4020,6 +4024,7 @@ const fetchData = useCallback(async () => {
       error: sErr
     } = await supabase.from('sucursales').select('*');
     if (sErr) throw sErr;
+    if (version !== fetchVersionRef.current) return;
     setSucursales(sData || []);
 
     
@@ -4027,6 +4032,7 @@ const fetchData = useCallback(async () => {
       data: provData,
       error: provErr
     } = await supabase.from('proveedores').select('*').order('nombre');
+    if (version !== fetchVersionRef.current) return;
     if (!provErr) {
       setProveedores(provData || []);
     }
@@ -4037,6 +4043,7 @@ const fetchData = useCallback(async () => {
         data: allPData,
         error: allPErr
       } = await supabase.from('productos').select('*, proveedores(nombre)').order('nombre');
+      if (version !== fetchVersionRef.current) return;
       if (!allPErr) {
         const mappedAllP = (allPData || []).map(p => ({
           ...p,
@@ -4046,9 +4053,11 @@ const fetchData = useCallback(async () => {
       }
       
       const { data: stockMatrizData, error: stockMatrizErr } = await supabase.from('v_stock_matriz').select('*');
+      if (version !== fetchVersionRef.current) return;
       if (!stockMatrizErr) setAdminStockMatriz(stockMatrizData || []);
       
       const { data: flujoData, error: flujoErr } = await supabase.from('v_flujo_pedidos_stats').select('*');
+      if (version !== fetchVersionRef.current) return;
       if (!flujoErr) setFlujoPedidosStats(flujoData || []);
     }
 
@@ -4062,6 +4071,7 @@ const fetchData = useCallback(async () => {
         `).order('id', {
       ascending: false
     }).limit(20);
+    if (version !== fetchVersionRef.current) return;
     if (!lotesErr) {
       setRecentLotes(lotesRaw || []);
     }
@@ -4104,6 +4114,7 @@ const fetchData = useCallback(async () => {
     } else {
       rawStock = rawStockJoin || [];
     }
+    if (version !== fetchVersionRef.current) return;
     const stockD = rawStock.filter(s => s.productos && (s.productos.activo == 1 || s.productos.activo === true || s.productos.activo === 'true' || s.productos.activo === '1')).map(s => ({
       sucursal_id: s.sucursal_id,
       sucursal_nombre: s.sucursales?.nombre,
@@ -4142,6 +4153,7 @@ const fetchData = useCallback(async () => {
       ascending: false
     });
     if (ordersErr) throw ordersErr;
+    if (version !== fetchVersionRef.current) return;
     const ordersD = (rawOrders || []).map(o => ({
       ...o,
       origen_nombre: o.s_orig?.nombre,
@@ -4250,6 +4262,7 @@ const fetchData = useCallback(async () => {
         ...p,
         stock_fabrica: stockFabMap[p.producto_id] || 0
       })).filter(p => p.cantidad_pendiente > p.stock_fabrica);
+      if (version !== fetchVersionRef.current) return;
       setDashboardStats({
         stock: stockAll,
         activeOrders,
@@ -4259,7 +4272,14 @@ const fetchData = useCallback(async () => {
     }
 
     
-    if (user.rol === 'sucursal' && activeTab === 'pedido_nuevo') {
+    } catch (err) {
+      console.error('Error fetching data:', err);
+    }
+  }, [user]);
+
+  const fetchBranchOrderData = useCallback(async () => {
+    if (!user || user.rol !== 'sucursal' || activeTab !== 'pedido_nuevo') return;
+    try {
       const {
         data: pendsRaw,
         error: pendsErr
@@ -4334,11 +4354,14 @@ const fetchData = useCallback(async () => {
         };
       });
       setSuggestions(suggestionsD);
-    }
     } catch (err) {
-      console.error('Error fetching data:', err);
+      console.error('Error fetching branch order data:', err);
     }
   }, [user, activeTab, orderIsEvent]);
+
+  useEffect(() => {
+    fetchBranchOrderData();
+  }, [fetchBranchOrderData]);
 
   
 
