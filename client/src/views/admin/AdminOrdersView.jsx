@@ -1,0 +1,464 @@
+import { useData } from '../../context/DataContext';
+import React from 'react';
+import { formatTipo, formatQuantity } from '../../utils/formatters';
+import UnitCalculatorInput from '../../components/common/UnitCalculatorInput';
+const AdminOrdersView = () => {
+  const {
+    adminOrderIsEvent,
+    setAdminOrderIsEvent,
+    adminOrderItems,
+    setAdminOrderItems,
+    adminOrderSolicitFabrication,
+    setAdminOrderSolicitFabrication,
+    adminOrderDestination,
+    setAdminOrderDestination,
+    handleAdminCreateOrder,
+    loading,
+    adminOrderSearch,
+    setAdminOrderSearch,
+    adminOrderSupplierFilter,
+    setAdminOrderSupplierFilter,
+    proveedores,
+    adminOrderSubTab,
+    setAdminOrderSubTab,
+    iceCreamFormatFilter,
+    setIceCreamFormatFilter,
+    productos,
+    stockData,
+    sucursales
+  } = useData();
+  return <div className="glass-card">
+      <div style={{
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: '1.5rem',
+      flexWrap: 'wrap',
+      gap: '1rem'
+    }}>
+        <div>
+          <h3 className="section-title" style={{
+          margin: 0,
+          border: 'none'
+        }}>Armar y Preparar Pedido</h3>
+          <p style={{
+          fontSize: '0.85rem',
+          color: 'var(--text-light)',
+          marginTop: '0.25rem'
+        }}>
+            Crea un pedido desde Fábrica hacia cualquier sucursal o depósito. Se marcará como <strong>Preparado</strong> y descontará el stock de fábrica automáticamente.
+          </p>
+        </div>
+        <div style={{
+        display: 'flex',
+        gap: '1rem',
+        alignItems: 'center',
+        flexWrap: 'wrap'
+      }}>
+          <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          background: 'rgba(0, 0, 0, 0.02)',
+          padding: '0.5rem 0.8rem',
+          borderRadius: '8px',
+          border: '1px solid rgba(0, 0, 0, 0.06)'
+        }}>
+            <input type="checkbox" id="adminOrderIsEventCheck" checked={adminOrderIsEvent} onChange={e => {
+            setAdminOrderIsEvent(e.target.checked);
+            setAdminOrderItems({});
+            if (!e.target.checked) setAdminOrderSolicitFabrication(false);
+          }} style={{
+            width: '18px',
+            height: '18px',
+            cursor: 'pointer'
+          }} />
+            <label htmlFor="adminOrderIsEventCheck" style={{
+            margin: 0,
+            cursor: 'pointer',
+            userSelect: 'none',
+            fontSize: '0.85rem',
+            fontWeight: 600
+          }}>
+              🚨 Pedido para EVENTO (Stock de Eventos)
+            </label>
+          </div>
+
+          {adminOrderIsEvent && <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          background: 'rgba(0, 0, 0, 0.02)',
+          padding: '0.5rem 0.8rem',
+          borderRadius: '8px',
+          border: '1px solid rgba(0, 0, 0, 0.06)'
+        }}>
+              <input type="checkbox" id="adminOrderSolicitFabricationCheck" checked={adminOrderSolicitFabrication} onChange={e => setAdminOrderSolicitFabrication(e.target.checked)} style={{
+            width: '18px',
+            height: '18px',
+            cursor: 'pointer'
+          }} />
+              <label htmlFor="adminOrderSolicitFabricationCheck" style={{
+            margin: 0,
+            cursor: 'pointer',
+            userSelect: 'none',
+            fontSize: '0.85rem',
+            fontWeight: 600,
+            color: 'var(--primary)'
+          }}>
+                🛠️ Solicitar Fabricación al Heladero
+              </label>
+            </div>}
+        </div>
+      </div>
+
+      {/* Destination and Actions bar */}
+      <div style={{
+      display: 'flex',
+      gap: '1.5rem',
+      marginBottom: '2rem',
+      background: 'rgba(255,255,255,0.02)',
+      padding: '1.2rem',
+      borderRadius: '12px',
+      border: '1px solid rgba(255,255,255,0.05)',
+      flexWrap: 'wrap',
+      alignItems: 'flex-end'
+    }}>
+        <div style={{
+        flex: '1 1 250px'
+      }}>
+          <label style={{
+          fontSize: '0.85rem',
+          color: 'var(--text-light)',
+          marginBottom: '0.5rem',
+          display: 'block',
+          fontWeight: 600
+        }}>
+            📍 Seleccionar Sucursal o Depósito Destino:
+          </label>
+          <select className="form-control" value={adminOrderDestination} onChange={e => setAdminOrderDestination(e.target.value)} style={{
+          background: 'rgba(255,255,255,0.08)',
+          border: '1px solid rgba(255,255,255,0.15)',
+          color: 'var(--text)',
+          borderRadius: '8px',
+          padding: '0.6rem',
+          fontSize: '0.9rem',
+          width: '100%',
+          fontWeight: 600
+        }}>
+            <option value="">-- Seleccionar Destino --</option>
+            {sucursales.filter(s => s.id !== 1).map(s => <option key={s.id} value={s.id}>
+                {s.nombre} {s.id === 5 ? '🚚 (Chofer)' : ''}
+              </option>)}
+          </select>
+        </div>
+
+        <div style={{
+        flex: '2 1 300px',
+        display: 'flex',
+        gap: '0.75rem',
+        justifyContent: 'flex-end'
+      }}>
+          <button className="btn btn-outline" onClick={() => {
+          setAdminOrderItems({});
+          setAdminOrderDestination('');
+        }} style={{
+          padding: '0.6rem 1.2rem',
+          borderRadius: '8px'
+        }}>
+            Limpiar Todo
+          </button>
+          <button className="btn btn-primary" onClick={handleAdminCreateOrder} disabled={loading} style={{
+          padding: '0.6rem 1.5rem',
+          borderRadius: '8px',
+          fontWeight: 600
+        }}>
+            {adminOrderIsEvent && adminOrderSolicitFabrication ? '🛠️ Solicitar Fabricación' : '🚀 Crear y Preparar Pedido'}
+          </button>
+        </div>
+      </div>
+
+      {/* Sub-tabs and Search Bar */}
+      <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '1.2rem',
+      marginBottom: '2rem',
+      background: 'rgba(0, 0, 0, 0.02)',
+      padding: '1rem',
+      borderRadius: '12px',
+      border: '1px solid rgba(0, 0, 0, 0.06)'
+    }}>
+        <div style={{
+        display: 'flex',
+        gap: '1rem',
+        flexWrap: 'wrap',
+        alignItems: 'center'
+      }}>
+          <div style={{
+          position: 'relative',
+          flex: '2 1 200px'
+        }}>
+            <input type="text" placeholder="🔍 Buscar producto o sabor..." className="form-control" style={{
+            padding: '0.75rem 1.2rem 0.75rem 2.8rem',
+            borderRadius: '12px',
+            background: 'var(--input-bg)',
+            border: '1px solid rgba(0, 0, 0, 0.1)',
+            color: 'var(--text-dark)',
+            fontSize: '1.05rem',
+            width: '100%'
+          }} value={adminOrderSearch} onChange={e => setAdminOrderSearch(e.target.value)} />
+          </div>
+          <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          flex: '1 1 180px'
+        }}>
+            <span style={{
+            fontSize: '0.85rem',
+            color: 'var(--text-light)',
+            whiteSpace: 'nowrap'
+          }}>Proveedor:</span>
+            <select className="form-control" style={{
+            borderRadius: '10px',
+            background: 'var(--input-bg)',
+            border: '1px solid rgba(0, 0, 0, 0.1)',
+            color: 'var(--text-dark)',
+            fontSize: '0.9rem',
+            padding: '0.5rem',
+            height: 'auto',
+            minHeight: 'unset'
+          }} value={adminOrderSupplierFilter} onChange={e => setAdminOrderSupplierFilter(e.target.value)}>
+              <option value="">Todos</option>
+              {proveedores.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+            </select>
+          </div>
+          {adminOrderSubTab === 'helados' && <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          flex: '1 1 200px'
+        }}>
+              <span style={{
+            fontSize: '0.85rem',
+            color: 'var(--text-light)',
+            whiteSpace: 'nowrap'
+          }}>Formato:</span>
+              <div style={{
+            display: 'flex',
+            gap: '0.2rem'
+          }}>
+                {[{
+              id: 'Todos',
+              label: 'Todos'
+            }, {
+              id: 'Vasqueta',
+              label: 'Vasquetas'
+            }, {
+              id: 'Balde',
+              label: 'Baldes'
+            }].map(fmt => <button key={fmt.id} type="button" className={`btn btn-sm ${iceCreamFormatFilter === fmt.id ? 'btn-primary' : 'btn-outline'}`} style={{
+              fontSize: '0.8rem',
+              padding: '0.25rem 0.5rem',
+              borderRadius: '6px',
+              minHeight: 'unset',
+              fontWeight: 600
+            }} onClick={() => setIceCreamFormatFilter(fmt.id)}>
+                    {fmt.label}
+                  </button>)}
+              </div>
+            </div>}
+        </div>
+
+        <div style={{
+        display: 'flex',
+        gap: '0.4rem',
+        borderBottom: '1px solid rgba(255,255,255,0.08)',
+        paddingBottom: '0.6rem',
+        flexWrap: 'wrap'
+      }}>
+          {[{
+          id: 'helados',
+          label: '🍧 Helados'
+        }, {
+          id: 'pasteleria_helada',
+          label: '🍦 Pastelería Helada'
+        }, {
+          id: 'pasteleria',
+          label: '🍰 Pastelería Clásica'
+        }, {
+          id: 'viennoiserie',
+          label: '🥐 Viennoiserie'
+        }, {
+          id: 'termicos',
+          label: '📦 Térmicos'
+        }, {
+          id: 'otros',
+          label: '✨ Otros'
+        }].map(tab => <button key={tab.id} className={`tab-btn ${adminOrderSubTab === tab.id ? 'active' : ''}`} style={{
+          padding: '0.5rem 1rem',
+          fontSize: '0.85rem',
+          borderRadius: '8px',
+          fontWeight: adminOrderSubTab === tab.id ? 600 : 400
+        }} onClick={() => {
+          setAdminOrderSubTab(tab.id);
+          setAdminOrderSearch('');
+        }}>
+              {tab.label}
+            </button>)}
+        </div>
+      </div>
+
+      {(() => {
+      let filteredProds = productos.filter(p => p.categoria === adminOrderSubTab);
+      if (adminOrderIsEvent && adminOrderSubTab === 'helados') {
+        filteredProds = filteredProds.filter(p => p.tipo !== 'vasqueta_5_6k');
+      }
+      if (adminOrderSubTab === 'helados') {
+        if (iceCreamFormatFilter === 'Vasqueta') {
+          filteredProds = filteredProds.filter(p => p.tipo === 'vasqueta_5_6k');
+        } else if (iceCreamFormatFilter === 'Balde') {
+          filteredProds = filteredProds.filter(p => p.tipo === 'balde_4k' || p.tipo === 'balde_8k');
+        }
+      }
+      if (adminOrderSearch) {
+        filteredProds = filteredProds.filter(p => p.nombre.toLowerCase().includes(adminOrderSearch.toLowerCase()) || formatTipo(p.tipo).toLowerCase().includes(adminOrderSearch.toLowerCase()));
+      }
+      if (adminOrderSupplierFilter) {
+        filteredProds = filteredProds.filter(p => p.proveedor_id === parseInt(adminOrderSupplierFilter));
+      }
+      if (filteredProds.length === 0) {
+        return <div style={{
+          textAlign: 'center',
+          padding: '3rem 1rem',
+          color: 'var(--text-light)'
+        }}>
+              <div style={{
+            fontSize: '2.5rem',
+            marginBottom: '1rem'
+          }}>🔍</div>
+              <p style={{
+            margin: 0,
+            fontWeight: 500
+          }}>No se encontraron productos.</p>
+            </div>;
+      }
+      return <div className="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Producto / Sabor</th>
+                  <th>Stock Fábrica</th>
+                  <th>Stock Destino</th>
+                  <th style={{
+                width: '120px'
+              }}>Pedir Cantidad</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredProds.map(prod => {
+              const qty = adminOrderItems[prod.id] || 0;
+              const factoryStock = stockData.find(s => s.producto_id === prod.id && s.sucursal_id === 1 && s.es_evento === adminOrderIsEvent)?.cantidad || 0;
+              let destStock = '-';
+              if (adminOrderDestination) {
+                destStock = stockData.find(s => s.producto_id === prod.id && s.sucursal_id === parseInt(adminOrderDestination) && s.es_evento === adminOrderIsEvent)?.cantidad || 0;
+              }
+              const isExceeding = qty > factoryStock;
+              return <tr key={prod.id}>
+                      <td>
+                        <strong>{prod.nombre}</strong>
+                        <div style={{
+                    fontSize: '0.75rem',
+                    color: 'var(--text-light)',
+                    textTransform: 'capitalize'
+                  }}>{formatTipo(prod.tipo)}</div>
+                        {isExceeding && <div style={{
+                    fontSize: '0.7rem',
+                    color: 'var(--danger)',
+                    fontWeight: 600,
+                    marginTop: '2px'
+                  }}>
+                            ⚠️ Excede stock disponible en Fábrica ({factoryStock} disponibles)
+                          </div>}
+                      </td>
+                      <td>
+                        <span style={{
+                    fontWeight: 600,
+                    color: factoryStock > 0 ? 'var(--success)' : 'var(--danger)'
+                  }}>
+                          {formatQuantity(factoryStock, prod)}
+                        </span>
+                      </td>
+                      <td>
+                        <span style={{
+                    fontWeight: 600
+                  }}>
+                          {destStock !== '-' ? formatQuantity(destStock, prod) : '-'}
+                        </span>
+                      </td>
+                      <td>
+                        <div style={{
+                    width: '140px'
+                  }}>
+                          <UnitCalculatorInput value={qty || 0} onChange={val => {
+                      setAdminOrderItems(prev => ({
+                        ...prev,
+                        [prod.id]: val
+                      }));
+                    }} product={prod} placeholder="0" min={0} />
+                        </div>
+                      </td>
+                    </tr>;
+            })}
+              </tbody>
+            </table>
+          </div>;
+    })()}
+
+      {Object.values(adminOrderItems).some(q => q > 0) && <div style={{
+      marginTop: '2rem',
+      background: 'rgba(255, 255, 255, 0.03)',
+      border: '1px solid rgba(0, 0, 0, 0.08)',
+      borderRadius: '12px',
+      padding: '1.2rem',
+      boxShadow: '0 4px 15px rgba(0,0,0,0.05)'
+    }}>
+          <h4 style={{
+        margin: '0 0 0.8rem 0',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '0.5rem'
+      }}>
+            <span>📋 Resumen del Pedido {adminOrderIsEvent ? '(EVENTO)' : ''}</span>
+            <span style={{
+          fontSize: '0.8rem',
+          color: 'var(--text-light)'
+        }}>
+              {Object.values(adminOrderItems).filter(q => q > 0).length} productos seleccionados
+            </span>
+          </h4>
+          <div style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: '0.6rem',
+        marginBottom: '1.2rem'
+      }}>
+            {productos.filter(p => adminOrderItems[p.id] > 0).map(p => <div key={p.id} style={{
+          background: 'rgba(0, 0, 0, 0.02)',
+          border: '1px solid rgba(0, 0, 0, 0.06)',
+          padding: '0.4rem 0.8rem',
+          borderRadius: '8px',
+          fontSize: '0.85rem'
+        }}>
+                <strong>{p.nombre}</strong> ({formatTipo(p.tipo)}): <strong style={{
+            color: 'var(--primary)'
+          }}>{formatQuantity(adminOrderItems[p.id], p)}</strong>
+              </div>)}
+          </div>
+        </div>}
+    </div>;
+};
+export default AdminOrdersView;
