@@ -647,6 +647,9 @@ tr:hover td {
     padding: 0.5rem;
     gap: 0.5rem;
   }
+  .header-brand {
+    display: none;
+  }
 }
 /* STICKY COLUMN FOR MOBILE TABLES */
 @media (max-width: 1024px) {
