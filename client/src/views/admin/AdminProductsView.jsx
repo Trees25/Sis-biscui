@@ -300,7 +300,7 @@ const AdminProductsView = () => {
                         </button>
                       </div>
 
-                      <form onSubmit={handleProductFormSubmit}>
+                      <form onSubmit={handleProductFormSubmit} className="form-grid">
                         <div className="form-group">
                           <label style={{ color: 'var(--text-dark)' }}>Nombre del Sabor o Producto</label>
                           <input
@@ -380,49 +380,42 @@ const AdminProductsView = () => {
                         </div>
 
                         {showSupplierForm && (
-                          <div style={{
-                            marginTop: '0.5rem',
-                            marginBottom: '1.2rem',
-                            background: 'rgba(0,0,0,0.03)',
-                            border: '1px dashed rgba(0,0,0,0.15)',
-                            borderRadius: '8px',
-                            padding: '0.8rem',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '0.6rem'
-                          }}>
-                            <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-dark)' }}>
-                              ➕ Agregar Nuevo Proveedor Inline
-                            </div>
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
-                              <input
-                                type="text"
-                                placeholder="Nombre del proveedor"
-                                className="form-control"
-                                value={newSupplierName}
-                                onChange={e => setNewSupplierName(e.target.value)}
-                                style={{ fontSize: '0.85rem', padding: '0.4rem', border: '1px solid rgba(0,0,0,0.15)' }}
-                              />
-                              <button
-                                type="button"
-                                className="btn btn-primary btn-sm"
-                                onClick={handleCreateSupplier}
-                                disabled={loading}
-                                style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', minHeight: 'unset' }}
-                              >
-                                Guardar
-                              </button>
-                              <button
-                                type="button"
-                                className="btn btn-outline btn-sm"
-                                onClick={() => {
-                                  setShowSupplierForm(false);
-                                  setNewSupplierName('');
-                                }}
-                                style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', minHeight: 'unset', borderColor: 'rgba(0,0,0,0.2)', color: 'var(--text-dark)' }}
-                              >
-                                Cancelar
-                              </button>
+                          <div className="modal-overlay" onClick={() => setShowSupplierForm(false)}>
+                            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+                              <h3 className="section-title" style={{ marginTop: 0 }}>➕ Nuevo Proveedor</h3>
+                              <div className="form-group">
+                                <label>Nombre del proveedor *</label>
+                                <input
+                                  type="text"
+                                  className="form-control"
+                                  value={newSupplierName}
+                                  onChange={e => setNewSupplierName(e.target.value)}
+                                  placeholder="Ej: Distribuidora Norte..."
+                                  autoFocus
+                                />
+                              </div>
+                              <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+                                <button
+                                  type="button"
+                                  className="btn btn-primary"
+                                  onClick={handleCreateSupplier}
+                                  disabled={loading || !newSupplierName.trim()}
+                                  style={{ flex: 1 }}
+                                >
+                                  {loading ? 'Guardando...' : 'Guardar'}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn-secondary"
+                                  onClick={() => {
+                                    setShowSupplierForm(false);
+                                    setNewSupplierName('');
+                                  }}
+                                  style={{ flex: 1 }}
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
                             </div>
                           </div>
                         )}

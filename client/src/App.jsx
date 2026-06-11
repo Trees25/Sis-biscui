@@ -26,6 +26,7 @@ import AdminProductsView from './views/admin/AdminProductsView';
 import AdminOrdersView from './views/admin/AdminOrdersView';
 import AdminFlujoView from './views/admin/AdminFlujoView';
 import AdminStockView from './views/admin/AdminStockView';
+import AdminLogisticsHub from './views/admin/AdminLogisticsHub';
 import { DataProvider, useData } from './context/DataContext';
 
 const AppContent = () => {
@@ -122,25 +123,19 @@ const AppContent = () => {
           <div>
             <div className="tabs">
               <button className={`tab-btn ${activeTab === 'matrix' ? 'active' : ''}`} onClick={() => setActiveTab('matrix')}>Stock de Sucursales</button>
-              <button className={`tab-btn ${activeTab === 'flujo' ? 'active' : ''}`} onClick={() => setActiveTab('flujo')}>Flujo de Pedidos</button>
-              <button className={`tab-btn ${activeTab === 'armar_pedido' ? 'active' : ''}`} onClick={() => setActiveTab('armar_pedido')}>Armar Pedido</button>
-              <button className={`tab-btn ${activeTab === 'auditoria_consumo' ? 'active' : ''}`} onClick={() => setActiveTab('auditoria_consumo')}>Auditoría de Consumo</button>
+              <button className={`tab-btn ${activeTab === 'logistics' ? 'active' : ''}`} onClick={() => setActiveTab('logistics')}>Logística y Pedidos</button>
               <button className={`tab-btn ${activeTab === 'discrepancias' ? 'active' : ''}`} onClick={() => setActiveTab('discrepancias')}>Historial de Pérdidas</button>
               <button className={`tab-btn ${activeTab === 'produccion_req' ? 'active' : ''}`} onClick={() => setActiveTab('produccion_req')}>Proyecciones de Fábrica</button>
-              <button className={`tab-btn ${activeTab === 'carga_historica' ? 'active' : ''}`} onClick={() => setActiveTab('carga_historica')}>Carga Histórica</button>
               <button className={`tab-btn ${activeTab === 'catalogo' ? 'active' : ''}`} onClick={() => setActiveTab('catalogo')}>Productos</button>
               <button className={`tab-btn ${activeTab === 'proveedores' ? 'active' : ''}`} onClick={() => setActiveTab('proveedores')}>Proveedores</button>
               <button className={`tab-btn ${activeTab === 'maquinas' ? 'active' : ''}`} onClick={() => setActiveTab('maquinas')}>Mantenimiento y Máquinas</button>
             </div>
 
             {activeTab === 'matrix' && <AdminStockView />}
-            {activeTab === 'armar_pedido' && <AdminOrdersView />}
-            {activeTab === 'flujo' && <AdminFlujoView />}
-            {activeTab === 'auditoria_consumo' && <AdminConsumptionAuditView />}
+            {activeTab === 'logistics' && <AdminLogisticsHub />}
             {activeTab === 'discrepancias' && <AdminDiscrepanciesView />}
             {activeTab === 'produccion_req' && <AdminProjectionsView />}
             {activeTab === 'catalogo' && <AdminProductsView />}
-            {activeTab === 'carga_historica' && <AdminHistoricalView />}
             {activeTab === 'maquinas' && <AdminMaintenanceView />}
             {activeTab === 'proveedores' && <AdminSuppliersView />}
           </div>

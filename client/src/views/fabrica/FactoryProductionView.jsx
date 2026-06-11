@@ -14,15 +14,57 @@ const FactoryProductionView = () => {
     setProdWeights,
     prodFormSearch,
     setProdFormSearch,
-    isCategoryVisibleToRole,
+    isProductVisibleToRole,
     String,
     getTareByTipo,
     prodWeights,
     loading,
     recentLotes,
-    formatQuantity
+    formatQuantity,
+    productionOrders
   } = useData();
-  return <div className="dashboard-grid">
+  return <div>
+    {productionOrders && productionOrders.filter(o => o.estado !== 'completada').length > 0 && (
+      <div className="glass-card" style={{ marginBottom: '2rem', border: '1px solid var(--warning)' }}>
+        <h3 className="section-title" style={{ color: 'var(--warning)', marginTop: 0 }}>📋 Órdenes de Producción Pendientes</h3>
+        <div className="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha Requerida</th>
+                <th>Notas / Evento</th>
+                <th>Productos Solicitados</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {productionOrders.filter(o => o.estado !== 'completada').map(order => {
+                const isRelevant = order.orden_produccion_detalles?.some(d => d.productos && isProductVisibleToRole(d.productos, user.rol));
+                if (!isRelevant) return null;
+                return (
+                  <tr key={order.id}>
+                    <td>{new Date(order.fecha_requerida).toLocaleDateString()}</td>
+                    <td>{order.notas}</td>
+                    <td>
+                      <ul style={{ paddingLeft: '1rem', margin: 0 }}>
+                        {order.orden_produccion_detalles?.filter(d => d.productos && isProductVisibleToRole(d.productos, user.rol)).map(d => (
+                          <li key={d.id}>
+                            <strong>{d.productos.nombre}</strong>: {d.cantidad_producida} / {d.cantidad_solicitada}
+                          </li>
+                        ))}
+                      </ul>
+                    </td>
+                    <td><span className="badge badge-en_transito">{order.estado.toUpperCase()}</span></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )}
+  
+  <div className="dashboard-grid">
                 <div className="glass-card">
                   <h3 className="section-title">
                     {user.rol === 'heladero' ? 'Registro de Fabricación' : user.rol === 'pastelero_helado' ? 'Registro de Pastelería Helada' : 'Registro de Pastelería'}
@@ -100,7 +142,7 @@ const FactoryProductionView = () => {
             }} />
                           {(() => {
               const matchedProducts = productos.filter(p => {
-                if (!isCategoryVisibleToRole(p.categoria, user.rol)) return false;
+                if (!isProductVisibleToRole(p, user.rol)) return false;
                 if (!prodFormSearch) return true;
                 const searchLower = prodFormSearch.toLowerCase();
                 return p.nombre.toLowerCase().includes(searchLower) || p.tipo && formatTipo(p.tipo).toLowerCase().includes(searchLower);
@@ -177,8 +219,9 @@ const FactoryProductionView = () => {
                     {/* Event Checkbox */}
                     {(() => {
           const selectedProd = productos.find(p => p.id === parseInt(prodForm.producto_id));
-          const isVasqueta = selectedProd && selectedProd.categoria === 'helados' && selectedProd.tipo === 'vasqueta_5_6k';
-          if (!selectedProd || isVasqueta) return null;
+          if (!selectedProd) return null;
+          const isVasqueta = selectedProd.categoria === 'helados' && selectedProd.tipo === 'vasqueta_5_6k';
+          if (isVasqueta) return null;
           return <div className="form-group" style={{
             display: 'flex',
             alignItems: 'center',
@@ -328,7 +371,7 @@ const FactoryProductionView = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {recentLotes.filter(l => l.productos && isCategoryVisibleToRole(l.productos.categoria, user.rol)).map(l => {
+                        {recentLotes.filter(l => l.productos && isProductVisibleToRole(l.productos, user.rol)).map(l => {
               const tareVal = l.productos ? getTareByTipo(l.productos.tipo) : 0;
               const netKilos = l.pesos ? l.pesos.reduce((acc, curr) => acc + Math.max(0, parseFloat(curr) - tareVal), 0) : 0;
               return <tr key={l.id}>
@@ -358,7 +401,7 @@ const FactoryProductionView = () => {
                 }}>{new Date(l.fecha_produccion).toLocaleDateString()}</td>
                               </tr>;
             })}
-                        {recentLotes.filter(l => l.productos && isCategoryVisibleToRole(l.productos.categoria, user.rol)).length === 0 && <tr>
+                        {recentLotes.filter(l => l.productos && isProductVisibleToRole(l.productos, user.rol)).length === 0 && <tr>
                             <td colSpan="4" style={{
                 textAlign: 'center',
                 color: 'var(--text-light)'
@@ -370,6 +413,7 @@ const FactoryProductionView = () => {
                     </table>
                   </div>
                 </div>
-              </div>;
+              </div>
+            </div>;
 };
 export default FactoryProductionView;

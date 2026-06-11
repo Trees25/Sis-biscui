@@ -29,7 +29,7 @@ export const useAuth = (showToast, setActiveTab, setLoading) => {
         resolvedEmail = emailData;
       }
 
-      console.log(`Intentando login con email: ${resolvedEmail}`);
+
       const { data: authData, error: authErr } = await supabase.auth.signInWithPassword({
         email: resolvedEmail,
         password: passwordInput,

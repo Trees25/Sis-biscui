@@ -104,9 +104,7 @@ const AdminSuppliersView = () => {
         }}>
                         {editingProv ? 'Editar Proveedor' : 'Nuevo Proveedor'}
                       </h3>
-                      <form onSubmit={handleProvSubmit} className="form-grid" style={{
-          gridTemplateColumns: '1fr'
-        }}>
+                      <form onSubmit={handleProvSubmit} className="form-grid">
                         <div className="form-group">
                           <label>Nombre *</label>
                           <input type="text" className="form-control" value={provForm.nombre} onChange={e => setProvForm({

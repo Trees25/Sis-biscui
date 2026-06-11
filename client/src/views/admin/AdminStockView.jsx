@@ -109,11 +109,11 @@ const AdminStockView = () => {
       if (!selectedCat) return null;
       let catProds = adminStockMatriz.filter(p => p.categoria === selectedCat.id && p.es_evento === showEventStock);
       if (selectedCat.id === 'helados') {
+        if (showEventStock) {
+          catProds = catProds.filter(p => p.tipo && p.tipo.includes('balde'));
+        }
         if (stockGroupFilter !== 'Todos') {
           catProds = catProds.filter(p => getFlavorGroup(p.producto_nombre) === stockGroupFilter);
-        }
-        if (showEventStock) {
-          catProds = catProds.filter(p => p.tipo !== 'vasqueta_5_6k');
         }
         if (iceCreamFormatFilter === 'Vasqueta') {
           catProds = catProds.filter(p => p.tipo === 'vasqueta_5_6k');

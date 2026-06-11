@@ -6,15 +6,10 @@ import { useCatalog } from '../hooks/useCatalog';
 import { useStock } from '../hooks/useStock';
 import { useOrders } from '../hooks/useOrders';
 import { useMaintenance } from '../hooks/useMaintenance';
-
 export const DataContext = createContext();
-
 export const useData = () => {
   return useContext(DataContext);
 };
-
-
-
 const categories = [{
   id: 'helados',
   name: 'Helados'
@@ -34,7 +29,6 @@ const categories = [{
   id: 'otros',
   name: 'Otros'
 }];
-
 const getLocalDateString = () => {
   const d = new Date();
   const year = d.getFullYear();
@@ -42,7 +36,6 @@ const getLocalDateString = () => {
   const day = String(d.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
-
 const formatQuantity = (cantidad, p) => {
   if (cantidad === undefined || cantidad === null) return '-';
   if (!p) return `${cantidad}`;
@@ -55,7 +48,6 @@ const formatQuantity = (cantidad, p) => {
   }
   return `${cantidad} u`;
 };
-
 const formatQuantityShort = (cantidad, p) => {
   if (cantidad === undefined || cantidad === null) return '-';
   if (cantidad === 0) return '0';
@@ -69,7 +61,6 @@ const formatQuantityShort = (cantidad, p) => {
   }
   return `${cantidad} u`;
 };
-
 const UnitCalculatorInput = ({
   value,
   onChange,
@@ -119,57 +110,6 @@ const UnitCalculatorInput = ({
     }}>u</span>
     </div>;
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const flavorGroups = {
   'Dulces de leche': ['Chocotorta', 'Dulce de Leche Biscui', 'Rogel', 'Granizado', 'Coco crunch'],
   'Chocolate': ['Chocolate con almendras', 'Marquise', 'Alfajor', 'Black', 'Patagonia', 'Blanco con maracuyá', 'Dubai'],
@@ -177,120 +117,16 @@ const flavorGroups = {
   'Sin gluten': ['Oreo sin TACC (Sin Gluten)', 'Granizado (Sin Gluten)', 'Frutilla condensada (Sin Gluten)', 'Mascarpone (Sin Gluten)', 'Pistacho (Sin Gluten)', 'Banana split (Sin Gluten)', 'Sambayon (Sin Gluten)'],
   'Frutales al agua': ['Limonada', 'Frutilla citrica', 'Durazno y kiwi', 'Pasion frutal']
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const getFlavorName = fullName => {
   return fullName.replace(/^Vasqueta /, '').replace(/^Balde /, '').replace(/ \(5-6kg\)$/, '').replace(/ \(4kg\)$/, '').replace(/ \(8kg\)$/, '').replace(/ 5k$/, '').replace(/ 10k$/, '').replace(/ \(5k\)$/, '').replace(/ \(10k\)$/, '').replace(/ 5L$/i, '').replace(/ 10L$/i, '').replace(/ \(5L\)$/i, '').replace(/ \(10L\)$/i);
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const formatTipo = tipo => {
   if (tipo === 'vasqueta_5_6k') return 'Vasqueta';
   if (tipo === 'balde_4k') return 'Balde 5L';
   if (tipo === 'balde_8k') return 'Balde 10L';
   return tipo?.replace(/_/g, ' ');
 };
-
 export const DataProvider = ({ children }) => {
-  
   const {
     toast, setToast,
     loading, setLoading,
@@ -312,7 +148,6 @@ export const DataProvider = ({ children }) => {
     catalogFormat, setCatalogFormat,
     catalogStatus, setCatalogStatus
   } = useCatalog();
-
   const {
     stockData, setStockData,
     adminStockMatriz, setAdminStockMatriz,
@@ -329,7 +164,6 @@ export const DataProvider = ({ children }) => {
     editStockItemDetails, setEditStockItemDetails,
     adminStockSupplierFilter, setAdminStockSupplierFilter
   } = useStock();
-
   const {
     flujoPedidosStats, setFlujoPedidosStats,
     orders, setOrders,
@@ -361,7 +195,6 @@ export const DataProvider = ({ children }) => {
     adminOrderSearch, setAdminOrderSearch,
     adminOrderSupplierFilter, setAdminOrderSupplierFilter
   } = useOrders();
-
   const {
     maquinas, setMaquinas,
     mantenimientos, setMantenimientos,
@@ -378,520 +211,45 @@ export const DataProvider = ({ children }) => {
     maquinaForm, setMaquinaForm,
     maintenanceForm, setMaintenanceForm
   } = useMaintenance();
-
   const {
     user, setUser,
     usernameInput, setUsernameInput,
     passwordInput, setPasswordInput,
     handleLogin, handleLogout
   } = useAuth(showToast, setActiveTab, setLoading);
-
-
-
-  
-
-
-  
-
-
-
-  
-
-
-
-
-  
-
-
-
-  
-
 const [dashboardStats, setDashboardStats] = useState(null);
-
-
-
-  
-
-
 const [auditoriaData, setAuditoriaData] = useState([]);
-
-  
-
-
-
 const [auditoriaFilterSucursal, setAuditoriaFilterSucursal] = useState('');
-
-  
-
-
-
 const [auditoriaFilterDays, setAuditoriaFilterDays] = useState('7');
-
-  
-
-
-
-
-
-
-  
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
 const [prodForm, setProdForm] = useState({
   producto_id: '',
   cantidad: '',
   fecha: getLocalDateString(),
   es_evento: false
 });
-
-  
-
-
-
-
-
-
-
 const [prodWeights, setProdWeights] = useState([]);
-
-  
-
-
-
-
-
-
-
+const [discrepancias, setDiscrepancias] = useState([]);
+const [productionOrders, setProductionOrders] = useState([]);
 const [recentLotes, setRecentLotes] = useState([]);
-
-  
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
- 
-
-  
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
 const [branchOtrosForm, setBranchOtrosForm] = useState({
   nombre: '',
   tipo: 'packaging'
 });
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
 const [adminHistForm, setAdminHistForm] = useState({
   producto_id: '',
   cantidad: '',
   fecha: getLocalDateString(),
   es_evento: false
 });
-
-  
-
-
-
-
-
-
-
-
-
-
-
 const [adminHistWeights, setAdminHistWeights] = useState([]);
-
-  
-
-
-
-
-
-
-
-
-
-
-
 const [adminHistDefaultWeight, setAdminHistDefaultWeight] = useState('');
-
-  
-
-
-
-
-
-
-
-
-
-
-
 const [histCargaMode, setHistCargaMode] = useState('individual'); 
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
 const [histBulkCategory, setHistBulkCategory] = useState('helados');
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const [consumoForm, setConsumoForm] = useState({
   producto_id: '',
   cantidad: '',
   es_evento: false
 });
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const [newProductForm, setNewProductForm] = useState({
   nombre: '',
   categoria: 'helados',
@@ -901,222 +259,6 @@ const [newProductForm, setNewProductForm] = useState({
   cant_por_caja: 24,
   cant_por_pack: ''
 });
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const [provForm, setProvForm] = useState({
   nombre: '',
   cuit: '',
@@ -1124,2127 +266,20 @@ const [provForm, setProvForm] = useState({
   direccion: '',
   email: ''
 });
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const [prodFormSearch, setProdFormSearch] = useState('');
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const [adminFlujoSearch, setAdminFlujoSearch] = useState('');
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const [adminDiscrepanciaSearch, setAdminDiscrepanciaSearch] = useState('');
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const [adminHistSearch, setAdminHistSearch] = useState('');
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const [sucursalConsumoSearch, setSucursalConsumoSearch] = useState('');
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const [heladeroEventSearch, setHeladeroEventSearch] = useState('');
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const [showSupplierForm, setShowSupplierForm] = useState(false);
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const [newSupplierName, setNewSupplierName] = useState('');
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const isCategoryVisibleToRole = (category, role) => {
   if (role === 'heladero') return category === 'helados';
   if (role === 'pastelero_helado') return category === 'pasteleria_helada';
   if (role === 'pastelero') return category === 'pasteleria' || category === 'viennoiserie';
   return false;
 };
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const getTiposPorCategoria = categoria => {
   switch (categoria) {
     case 'helados':
@@ -3356,57 +391,6 @@ const getTiposPorCategoria = categoria => {
       return [];
   }
 };
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const getTareByTipo = tipo => {
   switch (tipo) {
     case 'vasqueta_5_6k':
@@ -3419,69 +403,28 @@ const getTareByTipo = tipo => {
       return 0.0;
   }
 };
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+const isProductVisibleToRole = (p, role) => {
+  if (!role) return true;
+  if (role === 'heladero') {
+    return p.categoria === 'helados';
+  }
+  if (role === 'pastelero_helado') {
+    return p.categoria === 'pasteleria_helada';
+  }
+  if (role === 'pastelero') {
+    return p.categoria === 'pasteleria' || p.categoria === 'panaderia';
+  }
+  return true;
+};
 
 const getProductOptionLabel = p => {
   const formatted = formatTipo(p.tipo);
   if (!formatted) return p.nombre;
   const normNombre = p.nombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const normTipo = formatted.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-
-  
   if (normNombre.includes(normTipo) || normTipo.includes(normNombre)) {
     return p.nombre;
   }
-
-  
   const typeWords = normTipo.split(' ');
   if (typeWords.length > 0 && typeWords[0].length > 3) {
     const firstWordStem = typeWords[0].slice(0, 5);
@@ -3491,57 +434,6 @@ const getProductOptionLabel = p => {
   }
   return `${p.nombre} (${formatted})`;
 };
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const getFlavorGroup = fullName => {
   const flavor = getFlavorName(fullName);
   for (const [group, flavorsList] of Object.entries(flavorGroups)) {
@@ -3555,57 +447,6 @@ const getFlavorGroup = fullName => {
   if (flavor.includes('Limón') || flavor.includes('Limonada') || flavor.includes('Frutilla') || flavor.includes('kiwi') || flavor.includes('frutal')) return 'Frutales al agua';
   return 'Otros';
 };
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const getProductNetWeight = (prodId, tipo) => {
   const productLotes = recentLotes.filter(l => l.producto_id === prodId && l.pesos && l.pesos.length > 0);
   const tare = getTareByTipo(tipo);
@@ -3633,57 +474,6 @@ const getProductNetWeight = (prodId, tipo) => {
       return 0.0;
   }
 };
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const getGroupedStock = (forEvent = false) => {
   const iceCreams = productos.filter(p => p.categoria === 'helados');
   const grouped = {};
@@ -3702,10 +492,8 @@ const getGroupedStock = (forEvent = false) => {
         balde_8k_id: null
       };
     }
-    
     const sData = stockData.find(st => st.producto_id === p.id && st.sucursal_id === 1 && st.es_evento === forEvent);
     const cantidad = sData ? sData.cantidad : 0;
-
     if (p.tipo === 'vasqueta_5_6k') {
       grouped[flavor].vasqueta_qty += cantidad;
       grouped[flavor].vasqueta_id = p.id;
@@ -3719,57 +507,6 @@ const getGroupedStock = (forEvent = false) => {
   });
   return Object.values(grouped);
 };
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const handleCategoriaChange = cat => {
   const tipos = getTiposPorCategoria(cat);
   setNewProductForm({
@@ -3778,225 +515,11 @@ const handleCategoriaChange = cat => {
     tipo: tipos.length > 0 ? tipos[0].value : ''
   });
 };
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   const fetchVersionRef = React.useRef(0);
-
   const fetchData = useCallback(async () => {
     if (!user) return;
     const version = ++fetchVersionRef.current;
     try {
-    
     let pData = [];
     let {
       data: pDataJoin,
@@ -4017,8 +540,6 @@ const handleCategoriaChange = cat => {
     }
     if (version !== fetchVersionRef.current) return;
     setProductos(pData);
-
-    
     const {
       data: sData,
       error: sErr
@@ -4026,8 +547,6 @@ const handleCategoriaChange = cat => {
     if (sErr) throw sErr;
     if (version !== fetchVersionRef.current) return;
     setSucursales(sData || []);
-
-    
     const {
       data: provData,
       error: provErr
@@ -4036,8 +555,6 @@ const handleCategoriaChange = cat => {
     if (!provErr) {
       setProveedores(provData || []);
     }
-
-    
     if (user.rol === 'admin') {
       const {
         data: allPData,
@@ -4051,17 +568,11 @@ const handleCategoriaChange = cat => {
         }));
         setAllProducts(mappedAllP);
       }
-      
-      const { data: stockMatrizData, error: stockMatrizErr } = await supabase.from('v_stock_matriz').select('*');
-      if (version !== fetchVersionRef.current) return;
-      if (!stockMatrizErr) setAdminStockMatriz(stockMatrizData || []);
-      
+      // Removed v_stock_matriz because it lacks 'tipo' column and causes bugs
       const { data: flujoData, error: flujoErr } = await supabase.from('v_flujo_pedidos_stats').select('*');
       if (version !== fetchVersionRef.current) return;
       if (!flujoErr) setFlujoPedidosStats(flujoData || []);
     }
-
-    
     const {
       data: lotesRaw,
       error: lotesErr
@@ -4075,8 +586,6 @@ const handleCategoriaChange = cat => {
     if (!lotesErr) {
       setRecentLotes(lotesRaw || []);
     }
-
-    
     let rawStock = [];
     let stockQuery = supabase.from('stock_sucursales').select(`
           sucursal_id,
@@ -4086,88 +595,83 @@ const handleCategoriaChange = cat => {
           cantidad,
           es_evento
         `);
-    if (user.rol === 'sucursal') {
-      stockQuery = stockQuery.in('sucursal_id', [1, user.sucursal_id]);
-    }
-    let {
-      data: rawStockJoin,
-      error: stockErrJoin
-    } = await stockQuery;
-    if (stockErrJoin) {
-      let stockQuerySimple = supabase.from('stock_sucursales').select(`
-            sucursal_id,
-            sucursales ( nombre ),
-            producto_id,
-            productos ( nombre, tipo, categoria, activo, proveedor_id ),
-            cantidad,
-            es_evento
-          `);
-      if (user.rol === 'sucursal') {
-        stockQuerySimple = stockQuerySimple.in('sucursal_id', [1, user.sucursal_id]);
-      }
-      const {
-        data: rawStockSimple,
-        error: stockErrSimple
-      } = await stockQuerySimple;
-      if (stockErrSimple) throw stockErrSimple;
-      rawStock = rawStockSimple || [];
-    } else {
-      rawStock = rawStockJoin || [];
-    }
-    if (version !== fetchVersionRef.current) return;
-    const stockD = rawStock.filter(s => s.productos && (s.productos.activo == 1 || s.productos.activo === true || s.productos.activo === 'true' || s.productos.activo === '1')).map(s => ({
-      sucursal_id: s.sucursal_id,
-      sucursal_nombre: s.sucursales?.nombre,
-      producto_id: s.producto_id,
-      producto_nombre: s.productos?.nombre,
-      tipo: s.productos?.tipo,
-      categoria: s.productos?.categoria,
-      proveedor_id: s.productos?.proveedor_id,
-      proveedor_nombre: s.productos?.proveedores?.nombre,
-      cantidad: s.cantidad,
-      es_evento: s.es_evento
-    }));
-    setStockData(stockD);
-
-    
-    let ordersQuery = supabase.from('pedidos').select(`
-          *,
-          s_orig:sucursal_origen_id ( nombre ),
-          s_dest:sucursal_destino_id ( nombre ),
-          u_crea:creado_por_id ( nombre ),
-          u_prep:preparado_por_id ( nombre ),
-          u_trans:transportista_id ( nombre ),
-          u_recib:recibido_por_id ( nombre )
-        `);
-    if (user.rol === 'sucursal' && user.sucursal_id) {
-      ordersQuery = ordersQuery.eq('sucursal_destino_id', user.sucursal_id);
-    } else if (user.rol === 'heladero' || user.rol === 'pastelero' || user.rol === 'pastelero_helado') {
-      ordersQuery = ordersQuery.in('estado', ['solicitado', 'preparado']);
-    } else if (user.rol === 'transportista') {
-      ordersQuery = ordersQuery.in('estado', ['solicitado', 'preparado', 'en_transito', 'entregado']).neq('sucursal_destino_id', 4);
+    if (user.rol !== 'admin') {
+      stockQuery = stockQuery.eq('sucursal_id', user.sucursal_id || 1);
     }
     const {
-      data: rawOrders,
-      error: ordersErr
-    } = await ordersQuery.order('id', {
+      data: stockData,
+      error: stockErr
+    } = await stockQuery;
+    if (version !== fetchVersionRef.current) return;
+    if (!stockErr) {
+      rawStock = stockData || [];
+      const stockD = rawStock.filter(s => s.productos && (s.productos.activo == 1 || s.productos.activo === true || s.productos.activo === 'true' || s.productos.activo === '1')).map(s => ({
+        sucursal_id: s.sucursal_id,
+        sucursal_nombre: s.sucursales?.nombre,
+        producto_id: s.producto_id,
+        producto_nombre: s.productos?.nombre,
+        tipo: s.productos?.tipo,
+        categoria: s.productos?.categoria,
+        proveedor_id: s.productos?.proveedor_id,
+        proveedor_nombre: s.productos?.proveedores?.nombre,
+        cantidad: s.cantidad,
+        es_evento: s.es_evento
+      }));
+      setStockData(stockD);
+    }
+    const {
+      data: pedidosData,
+      error: pedidosErr
+    } = await supabase.from('pedidos').select(`
+          *,
+          sucursales ( nombre ),
+          u_trans: transportista_id ( nombre ),
+          u_recib: recibido_por_id ( nombre ),
+          pedido_detalles (
+            id,
+            producto_id,
+            cantidad_solicitada,
+            cantidad_enviada,
+            productos ( nombre, tipo, categoria, unidad_medida )
+          )
+        `).order('fecha_pedido', {
       ascending: false
     });
-    if (ordersErr) throw ordersErr;
     if (version !== fetchVersionRef.current) return;
-    const ordersD = (rawOrders || []).map(o => ({
-      ...o,
-      origen_nombre: o.s_orig?.nombre,
-      destino_nombre: o.s_dest?.nombre,
-      creado_por_nombre: o.u_crea?.nombre,
-      preparado_por_nombre: o.u_prep?.nombre,
-      transportista_nombre: o.u_trans?.nombre,
-      recibido_por_nombre: o.u_recib?.nombre
-    }));
-    setOrders(ordersD);
-
-    
+    if (!pedidosErr) {
+      const ordersD = (pedidosData || []).map(o => ({
+        ...o,
+        sucursal_nombre: o.sucursales?.nombre,
+        transportista_nombre: o.u_trans?.nombre,
+        recibido_por_nombre: o.u_recib?.nombre
+      }));
+      setOrders(ordersD);
+    }
+    const {
+      data: pOrdersData,
+      error: pOrdersErr
+    } = await supabase.from('ordenes_produccion').select(`
+          id,
+          estado,
+          notas,
+          fecha_requerida,
+          es_evento,
+          created_at,
+          creado_por_id,
+          usuarios ( nombre ),
+          orden_produccion_detalles (
+            id,
+            producto_id,
+            cantidad_solicitada,
+            cantidad_producida,
+            productos ( nombre, categoria, tipo, unidad_medida )
+          )
+        `).order('created_at', { ascending: false });
+    if (version !== fetchVersionRef.current) return;
+    if (!pOrdersErr) {
+      setProductionOrders(pOrdersData || []);
+    }  
     if (user.rol === 'admin') {
-      
       const {
         data: rawAllStock,
         error: allStockErr
@@ -4191,7 +695,41 @@ const handleCategoriaChange = cat => {
         es_evento: s.es_evento
       }));
 
+      const groupedMatriz = [];
+      const branchList = sData || [];
+      const prodList = pData || [];
       
+      prodList.forEach(prod => {
+        const stockPorSucursalComun = {};
+        const stockPorSucursalEvento = {};
+        
+        branchList.forEach(suc => {
+          const entryComun = stockAll.find(s => s.sucursal_id === suc.id && s.producto_id === prod.id && !s.es_evento);
+          const entryEvento = stockAll.find(s => s.sucursal_id === suc.id && s.producto_id === prod.id && s.es_evento);
+          
+          stockPorSucursalComun[suc.id] = entryComun ? entryComun.cantidad : 0;
+          stockPorSucursalEvento[suc.id] = entryEvento ? entryEvento.cantidad : 0;
+        });
+
+        groupedMatriz.push({
+          producto_id: prod.id,
+          producto_nombre: prod.nombre,
+          categoria: prod.categoria,
+          tipo: prod.tipo,
+          es_evento: false,
+          stock_por_sucursal: stockPorSucursalComun
+        });
+        
+        groupedMatriz.push({
+          producto_id: prod.id,
+          producto_nombre: prod.nombre,
+          categoria: prod.categoria,
+          tipo: prod.tipo,
+          es_evento: true,
+          stock_por_sucursal: stockPorSucursalEvento
+        });
+      });
+      setAdminStockMatriz(groupedMatriz);
       const {
         data: allOrders,
         error: allOrdersErr
@@ -4205,8 +743,6 @@ const handleCategoriaChange = cat => {
         estado,
         count
       }));
-
-      
       const {
         data: rawDiscrepancies,
         error: discErr
@@ -4218,7 +754,7 @@ const handleCategoriaChange = cat => {
               s_dest:sucursal_destino_id ( nombre )
             ),
             usuarios ( nombre )
-          `).order('fecha_reporte', {
+          `).order('fecha', {
         ascending: false
       }).limit(10);
       if (discErr) throw discErr;
@@ -4228,8 +764,6 @@ const handleCategoriaChange = cat => {
         sucursal_nombre: d.pedidos?.s_dest?.nombre,
         reportado_por_nombre: d.usuarios?.nombre
       }));
-
-      
       const {
         data: rawDetails,
         error: detErr
@@ -4270,13 +804,10 @@ const handleCategoriaChange = cat => {
         productionNeeded
       });
     }
-
-    
     } catch (err) {
       console.error('Error fetching data:', err);
     }
   }, [user]);
-
   const fetchBranchOrderData = useCallback(async () => {
     if (!user || user.rol !== 'sucursal' || activeTab !== 'pedido_nuevo') return;
     try {
@@ -4358,71 +889,12 @@ const handleCategoriaChange = cat => {
       console.error('Error fetching branch order data:', err);
     }
   }, [user, activeTab, orderIsEvent]);
-
   useEffect(() => {
     fetchBranchOrderData();
   }, [fetchBranchOrderData]);
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 useEffect(() => {
   let isMounted = true;
   let timeoutId;
-
   const pollData = async () => {
     if (!isMounted) return;
     await fetchData();
@@ -4430,71 +902,12 @@ useEffect(() => {
       timeoutId = setTimeout(pollData, 15000);
     }
   };
-
   pollData();
-
   return () => {
     isMounted = false;
     if (timeoutId) clearTimeout(timeoutId);
   };
 }, [fetchData]);
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const fetchMaquinasYMantenimientos = useCallback(async () => {
   if (!user || user.rol !== 'admin') return;
   try {
@@ -4533,125 +946,11 @@ const fetchMaquinasYMantenimientos = useCallback(async () => {
     console.error('Error fetching machines/maintenance:', err);
   }
 }, [user]);
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 useEffect(() => {
   if (activeTab === 'maquinas') {
     fetchMaquinasYMantenimientos();
   }
 }, [activeTab, fetchMaquinasYMantenimientos]);
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const fetchAuditoriaData = useCallback(async () => {
   if (!user || user.rol !== 'admin') return;
   try {
@@ -4679,125 +978,11 @@ const fetchAuditoriaData = useCallback(async () => {
     setLoading(false);
   }
 }, [user, auditoriaFilterSucursal, auditoriaFilterDays]);
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 useEffect(() => {
   if (activeTab === 'auditoria_consumo') {
     fetchAuditoriaData();
   }
 }, [activeTab, fetchAuditoriaData]);
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const handleDownloadAuditoriaCSV = () => {
   if (auditoriaData.length === 0) return;
   let csvContent = "data:text/csv;charset=utf-8,";
@@ -4822,66 +1007,6 @@ const handleDownloadAuditoriaCSV = () => {
   link.click();
   document.body.removeChild(link);
 };
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const handleProductionSubmit = async e => {
   e.preventDefault();
   if (!prodForm.producto_id || !prodForm.cantidad) return;
@@ -4893,8 +1018,6 @@ const handleProductionSubmit = async e => {
     const dateStr = pDate.toISOString().slice(0, 10).replace(/-/g, '');
     const rand = Math.floor(1000 + Math.random() * 9000);
     const codigo_lote = `L-${dateStr}-${rand}`;
-
-    
     const selectedProd = productos.find(p => p.id === pId);
     let pesosArray = [];
     if (selectedProd && selectedProd.categoria === 'helados') {
@@ -4903,11 +1026,7 @@ const handleProductionSubmit = async e => {
         throw new Error('Por favor, ingresa un peso válido mayor a 0 para cada unidad.');
       }
     }
-
-    
     const isEvent = selectedProd && selectedProd.categoria === 'helados' && selectedProd.tipo === 'vasqueta_5_6k' ? false : prodForm.es_evento || false;
-
-    
     const {
       error: rpcErr
     } = await supabase.rpc('registrar_produccion', {
@@ -4935,68 +1054,6 @@ const handleProductionSubmit = async e => {
     setLoading(false);
   }
 };
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const handleAdminHistSubmit = async e => {
   e.preventDefault();
   if (!adminHistForm.producto_id || !adminHistForm.cantidad || !adminHistForm.fecha) return;
@@ -5008,8 +1065,6 @@ const handleAdminHistSubmit = async e => {
     const dateStr = pDate.toISOString().slice(0, 10).replace(/-/g, '');
     const rand = Math.floor(1000 + Math.random() * 9000);
     const codigo_lote = `L-${dateStr}-${rand}`;
-
-    
     const selectedProd = productos.find(p => p.id === pId);
     let pesosArray = [];
     if (selectedProd && selectedProd.categoria === 'helados') {
@@ -5018,11 +1073,7 @@ const handleAdminHistSubmit = async e => {
         throw new Error('Por favor, ingresa un peso válido mayor a 0 para cada unidad.');
       }
     }
-
-    
     const isEvent = selectedProd && selectedProd.categoria === 'helados' && selectedProd.tipo === 'vasqueta_5_6k' ? false : adminHistForm.es_evento || false;
-
-    
     const {
       error: rpcErr
     } = await supabase.rpc('registrar_produccion', {
@@ -5052,70 +1103,6 @@ const handleAdminHistSubmit = async e => {
     setLoading(false);
   }
 };
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const handleTranspCargaSubmit = async e => {
   e.preventDefault();
   if (!transpCargaForm.producto_id || !transpCargaForm.cantidad || !transpCargaForm.fecha || !transpCargaForm.proveedor_id) return;
@@ -5130,8 +1117,6 @@ const handleTranspCargaSubmit = async e => {
     const dateStr = pDate.toISOString().slice(0, 10).replace(/-/g, '');
     const rand = Math.floor(1000 + Math.random() * 9000);
     const codigo_lote = `C-${dateStr}-${rand}`; 
-
-    
     const {
       error: rpcErr
     } = await supabase.rpc('registrar_produccion', {
@@ -5139,7 +1124,6 @@ const handleTranspCargaSubmit = async e => {
       p_producto_id: pId,
       p_cantidad: finalQty,
       p_pesos: [],
-      
       p_fecha_produccion: pDate.toISOString(),
       p_creado_por: user.id,
       p_es_evento: false
@@ -5160,72 +1144,6 @@ const handleTranspCargaSubmit = async e => {
     setLoading(false);
   }
 };
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const handleProvSubmit = async e => {
   e.preventDefault();
   if (!provForm.nombre.trim()) return;
@@ -5267,71 +1185,6 @@ const handleProvSubmit = async e => {
     setLoading(false);
   }
 };
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const handleProvDelete = async (id, nombre) => {
   if (!window.confirm(`¿Estás seguro de eliminar el proveedor "${nombre}"?\nEsto fallará si existen productos asociados a él.`)) return;
   setLoading(true);
@@ -5352,79 +1205,9 @@ const handleProvDelete = async (id, nombre) => {
     setLoading(false);
   }
 };
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const handleDownloadHistTemplate = () => {
   const prods = productos.filter(p => p.categoria === histBulkCategory && p.activo === 1);
   const headers = ['ID_Producto', 'Nombre', 'Formato', 'Cantidad', 'Peso_Bruto_Unitario_Opcional', 'Fecha_Opcional', 'Destinar_A_Eventos_SI_NO'];
-
-  
   let csvContent = '\uFEFF' + headers.join(';') + '\n';
   prods.forEach(p => {
     let suggestedWeight = '';
@@ -5432,7 +1215,6 @@ const handleDownloadHistTemplate = () => {
       if (p.tipo === 'vasqueta_5_6k') suggestedWeight = '6.120';else if (p.tipo === 'balde_4k') suggestedWeight = '4.155';else if (p.tipo === 'balde_8k') suggestedWeight = '8.270';
     }
     const row = [p.id, p.nombre.replace(/;/g, ','),
-    
     formatTipo(p.tipo) || '', '0', suggestedWeight, getLocalDateString(), 'NO'];
     csvContent += row.join(';') + '\n';
   });
@@ -5448,76 +1230,6 @@ const handleDownloadHistTemplate = () => {
   document.body.removeChild(link);
   showToast(`Plantilla descargada para la categoría ${categories.find(c => c.id === histBulkCategory)?.name}.`);
 };
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const handleUploadHistTemplate = async e => {
   const file = e.target.files[0];
   if (!file) return;
@@ -5530,8 +1242,6 @@ const handleUploadHistTemplate = async e => {
       if (lines.length <= 1) {
         throw new Error('El archivo está vacío o solo contiene la cabecera.');
       }
-
-      
       const firstLine = lines[0];
       let delimiter = ';';
       if (firstLine.includes(';')) {
@@ -5588,24 +1298,19 @@ const handleUploadHistTemplate = async e => {
             const tare = getTareByTipo(product.tipo);
             const fallbackGross = tare + getProductNetWeight(product.id, product.tipo);
             if (rawWeights) {
-              
               const weightStrings = rawWeights.split(/[;/|\s]+/).filter(w => w.trim() !== '');
               if (weightStrings.length > 1) {
-                
                 pesosArray = weightStrings.map(w => {
                   const cleaned = w.replace(',', '.');
                   return parseFloat(cleaned) || fallbackGross;
                 });
-                
                 while (pesosArray.length < qty) {
                   pesosArray.push(pesosArray[pesosArray.length - 1] || fallbackGross);
                 }
-                
                 if (pesosArray.length > qty) {
                   pesosArray = pesosArray.slice(0, qty);
                 }
               } else {
-                
                 const cleaned = rawWeights.replace(',', '.');
                 const gross = parseFloat(cleaned) || fallbackGross;
                 pesosArray = Array(qty).fill(gross);
@@ -5653,78 +1358,6 @@ const handleUploadHistTemplate = async e => {
   };
   reader.readAsText(file);
 };
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const handleConsumoSubmit = async e => {
   e.preventDefault();
   if (!consumoForm.producto_id || !consumoForm.cantidad) return;
@@ -5733,8 +1366,6 @@ const handleConsumoSubmit = async e => {
     const pId = parseInt(consumoForm.producto_id);
     const qty = parseInt(consumoForm.cantidad);
     const isEvent = consumoForm.es_evento || false;
-
-    
     const {
       error: rpcErr
     } = await supabase.rpc('registrar_consumo', {
@@ -5758,80 +1389,6 @@ const handleConsumoSubmit = async e => {
     setLoading(false);
   }
 };
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const handleCreateOrder = async () => {
   const items = Object.entries(orderItems).map(([prodId, qty]) => ({
     producto_id: parseInt(prodId),
@@ -5843,7 +1400,6 @@ const handleCreateOrder = async () => {
   }
   setLoading(true);
   try {
-    
     const {
       data: newPedido,
       error: insErr
@@ -5855,8 +1411,6 @@ const handleCreateOrder = async () => {
     }).select('id').single();
     if (insErr) throw insErr;
     const pedido_id = newPedido.id;
-
-    
     const details = items.map(item => ({
       pedido_id,
       producto_id: item.producto_id,
@@ -5867,8 +1421,6 @@ const handleCreateOrder = async () => {
       error: detErr
     } = await supabase.from('pedido_detalles').insert(details);
     if (detErr) throw detErr;
-
-    
     const orderedProdIds = items.map(item => item.producto_id);
     const {
       error: delPendErr
@@ -5885,82 +1437,6 @@ const handleCreateOrder = async () => {
     setLoading(false);
   }
 };
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const handleAdminCreateOrder = async () => {
   const items = Object.entries(adminOrderItems).map(([prodId, qty]) => ({
     producto_id: parseInt(prodId),
@@ -5977,7 +1453,6 @@ const handleAdminCreateOrder = async () => {
   setLoading(true);
   try {
     if (adminOrderIsEvent && adminOrderSolicitFabrication) {
-      
       const {
         data: newPedido,
         error: insErr
@@ -6001,7 +1476,6 @@ const handleAdminCreateOrder = async () => {
       if (detErr) throw detErr;
       showToast(`Pedido de Fabricación #${pedido_id} enviado al heladero con éxito.`);
     } else {
-      
       const {
         data: pedido_id,
         error: rpcErr
@@ -6026,84 +1500,6 @@ const handleAdminCreateOrder = async () => {
     setLoading(false);
   }
 };
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const applyAllSuggestions = () => {
   const items = {};
   suggestions.forEach(s => {
@@ -6112,85 +1508,6 @@ const applyAllSuggestions = () => {
   setOrderItems(items);
   showToast('Sugerencias aplicadas. Revisa las cantidades antes de enviar.');
 };
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const handleRetiroInternoSubmit = async e => {
   e.preventDefault();
   const itemsList = Object.entries(retiroItems).filter(([_, qty]) => qty > 0).map(([pId, qty]) => ({
@@ -6203,7 +1520,6 @@ const handleRetiroInternoSubmit = async e => {
   }
   setLoading(true);
   try {
-    
     const {
       data: pedido_id,
       error: rpcErr
@@ -6214,8 +1530,6 @@ const handleRetiroInternoSubmit = async e => {
       p_items: itemsList
     });
     if (rpcErr) throw rpcErr;
-
-    
     const receivePayload = itemsList.map(it => ({
       producto_id: it.producto_id,
       cantidad_recibida: it.cantidad,
@@ -6238,88 +1552,6 @@ const handleRetiroInternoSubmit = async e => {
     setLoading(false);
   }
 };
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const viewOrderDetail = async pedidoId => {
   try {
     const {
@@ -6340,15 +1572,11 @@ const viewOrderDetail = async pedidoId => {
           productos ( nombre, tipo, categoria )
         `).eq('pedido_id', pedidoId);
     if (iErr) throw iErr;
-
-    
     const {
       data: allFactoryStock,
       error: fsErr
     } = await supabase.from('stock_sucursales').select('producto_id, cantidad, es_evento').eq('sucursal_id', 1);
     if (fsErr) throw fsErr;
-
-    
     const eventStockMap = {};
     const commonStockMap = {};
     (allFactoryStock || []).forEach(s => {
@@ -6358,8 +1586,6 @@ const viewOrderDetail = async pedidoId => {
         commonStockMap[s.producto_id] = s.cantidad;
       }
     });
-
-    
     let defaultSource = 'evento';
     if (order.es_evento) {
       let totalQtyInEvent = 0;
@@ -6375,8 +1601,6 @@ const viewOrderDetail = async pedidoId => {
       }
     }
     setPrepareStockSource(defaultSource);
-
-    
     const activeStockMap = defaultSource === 'evento' ? eventStockMap : commonStockMap;
     const itemsMapped = (items || []).map(it => ({
       ...it,
@@ -6393,15 +1617,11 @@ const viewOrderDetail = async pedidoId => {
       items: itemsMapped
     };
     setSelectedPedido(orderData);
-
-    
     const loads = {};
     itemsMapped.forEach(it => {
       loads[it.producto_id] = it.cantidad_preparada;
     });
     setLoadItems(loads);
-
-    
     const recs = {};
     const reasons = {};
     itemsMapped.forEach(it => {
@@ -6414,105 +1634,17 @@ const viewOrderDetail = async pedidoId => {
     showToast(err.message || 'Error al cargar detalle del pedido.', 'error');
   }
 };
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const handlePrepareOrder = async () => {
   if (!selectedPedido) return;
   setLoading(true);
   try {
     const originalIsEvent = selectedPedido.es_evento;
     const targetEsEvento = prepareStockSource === 'evento'; 
-
-    
     const {
       data: allStock,
       error: stockFetchErr
     } = await supabase.from('stock_sucursales').select('producto_id, cantidad, es_evento').eq('sucursal_id', 1);
     if (stockFetchErr) throw stockFetchErr;
-
-    
     const eventStockMap = {};
     const commonStockMap = {};
     allStock.forEach(s => {
@@ -6522,44 +1654,30 @@ const handlePrepareOrder = async () => {
         commonStockMap[s.producto_id] = s.cantidad;
       }
     });
-
-    
     for (const item of selectedPedido.items) {
       const pId = item.producto_id;
       const requestedQty = item.cantidad_solicitada;
       const qtyPrimary = (targetEsEvento ? eventStockMap[pId] : commonStockMap[pId]) ?? 0;
       const qtySecondary = (targetEsEvento ? commonStockMap[pId] : eventStockMap[pId]) ?? 0;
       if (qtyPrimary >= requestedQty) {
-        
         continue;
       }
-
-      
-      
       const diff = requestedQty - qtyPrimary;
       const takeFromSecondary = Math.min(diff, qtySecondary);
       let finalPrimaryQty = qtyPrimary;
       if (takeFromSecondary > 0) {
         const newQtySecondary = qtySecondary - takeFromSecondary;
-        
         const {
           error: updSecErr
         } = await supabase.from('stock_sucursales').update({
           cantidad: newQtySecondary
         }).eq('sucursal_id', 1).eq('producto_id', pId).eq('es_evento', !targetEsEvento);
         if (updSecErr) throw updSecErr;
-
-        
         finalPrimaryQty += takeFromSecondary;
       }
-
-      
-      
       if (finalPrimaryQty < requestedQty) {
         finalPrimaryQty = requestedQty;
       }
-
-      
       const hasPrimaryRow = targetEsEvento ? eventStockMap[pId] !== undefined : commonStockMap[pId] !== undefined;
       if (hasPrimaryRow) {
         const {
@@ -6580,16 +1698,12 @@ const handlePrepareOrder = async () => {
         if (insPriErr) throw insPriErr;
       }
     }
-
-    
     const {
       error: updErr
     } = await supabase.from('pedidos').update({
       es_evento: targetEsEvento
     }).eq('id', selectedPedido.id);
     if (updErr) throw updErr;
-
-    
     const {
       error: rpcErr
     } = await supabase.rpc('preparar_pedido', {
@@ -6597,14 +1711,11 @@ const handlePrepareOrder = async () => {
       p_preparado_por_id: user.id
     });
     if (rpcErr) {
-      
       await supabase.from('pedidos').update({
         es_evento: originalIsEvent
       }).eq('id', selectedPedido.id);
       throw rpcErr;
     }
-
-    
     if (originalIsEvent !== targetEsEvento) {
       const {
         error: restoreErr
@@ -6623,92 +1734,6 @@ const handlePrepareOrder = async () => {
     setLoading(false);
   }
 };
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const handleConfirmLoad = async () => {
   if (!selectedPedido) return;
   const items = Object.entries(loadItems).map(([prodId, qty]) => ({
@@ -6717,7 +1742,6 @@ const handleConfirmLoad = async () => {
   }));
   setLoading(true);
   try {
-    
     const {
       error: rpcErr
     } = await supabase.rpc('confirmar_carga_pedido', {
@@ -6735,94 +1759,6 @@ const handleConfirmLoad = async () => {
     setLoading(false);
   }
 };
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const handleReportLoss = async e => {
   e.preventDefault();
   if (!transitLoss.producto_id || !transitLoss.cantidad_perdida) return;
@@ -6869,96 +1805,6 @@ const handleReportLoss = async e => {
     setLoading(false);
   }
 };
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const handleMarkDelivered = async () => {
   if (!selectedPedido) return;
   setLoading(true);
@@ -6978,98 +1824,6 @@ const handleMarkDelivered = async () => {
     setLoading(false);
   }
 };
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const handleConfirmReceive = async () => {
   if (!selectedPedido) return;
   const items = Object.entries(receiveItems).map(([prodId, qty]) => ({
@@ -7079,7 +1833,6 @@ const handleConfirmReceive = async () => {
   }));
   setLoading(true);
   try {
-    
     const {
       error: rpcErr
     } = await supabase.rpc('recibir_pedido', {
@@ -7088,8 +1841,6 @@ const handleConfirmReceive = async () => {
       p_items: items
     });
     if (rpcErr) throw rpcErr;
-
-    
     let hasDiscrepancies = false;
     for (let item of items) {
       const origDetail = selectedPedido.items.find(it => it.producto_id === item.producto_id);
@@ -7109,100 +1860,6 @@ const handleConfirmReceive = async () => {
     setLoading(false);
   }
 };
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const handleCreateSupplier = async () => {
   if (!newSupplierName.trim()) return;
   setLoading(true);
@@ -7217,8 +1874,6 @@ const handleCreateSupplier = async () => {
     showToast(`Proveedor "${newProv.nombre}" creado con éxito.`);
     setNewSupplierName('');
     setShowSupplierForm(false);
-
-    
     setProveedores(prev => [...prev, newProv].sort((a, b) => a.nombre.localeCompare(b.nombre)));
     setNewProductForm(prev => ({
       ...prev,
@@ -7230,102 +1885,6 @@ const handleCreateSupplier = async () => {
     setLoading(false);
   }
 };
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const handleNewProductSubmit = async e => {
   e.preventDefault();
   if (!newProductForm.nombre) return;
@@ -7377,104 +1936,6 @@ const handleNewProductSubmit = async e => {
     setLoading(false);
   }
 };
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const handleUpdateProduct = async () => {
   if (!newProductForm.nombre || !editingProduct) return;
   setLoading(true);
@@ -7510,103 +1971,6 @@ const handleUpdateProduct = async () => {
     setLoading(false);
   }
 };
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const handleProductFormSubmit = e => {
   e.preventDefault();
   if (editingProduct) {
@@ -7615,103 +1979,6 @@ const handleProductFormSubmit = e => {
     handleNewProductSubmit(e);
   }
 };
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const startEditingProduct = p => {
   setEditingProduct(p);
   setNewProductForm({
@@ -7725,103 +1992,6 @@ const startEditingProduct = p => {
   });
   setShowProductModal(true);
 };
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const cancelEditingProduct = () => {
   setEditingProduct(null);
   setNewProductForm({
@@ -7835,106 +2005,6 @@ const cancelEditingProduct = () => {
   });
   setShowProductModal(false);
 };
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const handleToggleProductActive = async (prodId, currentActive) => {
   setLoading(true);
   try {
@@ -7956,111 +2026,11 @@ const handleToggleProductActive = async (prodId, currentActive) => {
     setLoading(false);
   }
 };
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const handleBranchCreateOtrosProduct = async e => {
   e.preventDefault();
   if (!branchOtrosForm.nombre) return;
   setLoading(true);
   try {
-    
     const {
       data: newProd,
       error: insErr
@@ -8071,8 +2041,6 @@ const handleBranchCreateOtrosProduct = async e => {
     }).select('id').single();
     if (insErr) throw insErr;
     const newProductId = newProd.id;
-
-    
     const {
       data: branches,
       error: bErr
@@ -8092,8 +2060,6 @@ const handleBranchCreateOtrosProduct = async e => {
       nombre: '',
       tipo: 'packaging'
     });
-
-    
     await fetchData();
   } catch (err) {
     showToast(err.message, 'error');
@@ -8101,212 +2067,9 @@ const handleBranchCreateOtrosProduct = async e => {
     setLoading(false);
   }
 };
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const getBadgeClass = state => {
   return `badge badge-${state}`;
 };
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const translateState = state => {
   const trans = {
     solicitado: 'Solicitado',
@@ -8317,111 +2080,6 @@ const translateState = state => {
   };
   return trans[state] || state;
 };
-
-
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const getMaintenanceOptionsForMachine = maquinaId => {
   const maquina = maquinas.find(m => m.id === parseInt(maquinaId));
   if (!maquina) return [{
@@ -8489,109 +2147,6 @@ const getMaintenanceOptionsForMachine = maquinaId => {
       }];
   }
 };
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const getEquipoIcon = type => {
   switch (type) {
     case 'licuadora_horno_batidora_micro':
@@ -8606,109 +2161,6 @@ const getEquipoIcon = type => {
       return '⚙️';
   }
 };
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const getEquipoTypeLabel = type => {
   const labels = {
     licuadora_horno_batidora_micro: 'Licuadora / Horno / Batidora / Microondas',
@@ -8719,109 +2171,6 @@ const getEquipoTypeLabel = type => {
   };
   return labels[type] || type;
 };
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const getMaintenanceTypeLabel = type => {
   const labels = {
     limpieza_circuito: 'Limpieza de circuito',
@@ -8832,122 +2181,15 @@ const getMaintenanceTypeLabel = type => {
   };
   return labels[type] || type;
 };
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const getMaintenanceAlerts = () => {
   const todayStr = getLocalDateString();
   const today = new Date(todayStr);
   const alerts = [];
-
-  
   const latestScheduled = {};
   mantenimientos.forEach(m => {
     if (!m.proxima_fecha) return;
     const key = `${m.maquina_id}-${m.tipo}`;
     const current = latestScheduled[key];
-
-    
     if (!current || new Date(m.fecha) > new Date(current.fecha)) {
       latestScheduled[key] = m;
     }
@@ -8956,11 +2198,8 @@ const getMaintenanceAlerts = () => {
     const proxDate = new Date(m.proxima_fecha);
     const diffTime = proxDate - today;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    
     const maquina = maquinas.find(maq => maq.id === m.maquina_id);
     if (!maquina || maquina.estado === 'de_baja') return; 
-
     if (diffDays < 0) {
       alerts.push({
         id: m.id,
@@ -8983,109 +2222,6 @@ const getMaintenanceAlerts = () => {
   });
   return alerts.sort((a, b) => new Date(a.proxima_fecha) - new Date(b.proxima_fecha));
 };
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const handleSaveMaquina = async e => {
   e.preventDefault();
   if (!maquinaForm.nombre || !maquinaForm.tipo_equipo || !maquinaForm.sucursal_id) {
@@ -9138,109 +2274,6 @@ const handleSaveMaquina = async e => {
     setLoading(false);
   }
 };
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const handleSaveStockAdmin = async e => {
   e.preventDefault();
   setLoading(true);
@@ -9287,109 +2320,6 @@ const handleSaveStockAdmin = async e => {
     setLoading(false);
   }
 };
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const handleEditMaquina = maq => {
   setEditingMaquina(maq);
   setMaquinaForm({
@@ -9405,109 +2335,6 @@ const handleEditMaquina = maq => {
   });
   setShowMaquinaModal(true);
 };
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const handleDeleteMaquina = async id => {
   if (!window.confirm('¿Estás seguro de que deseas eliminar esta máquina? Se borrará también todo su historial de mantenimiento.')) return;
   setLoading(true);
@@ -9524,109 +2351,6 @@ const handleDeleteMaquina = async id => {
     setLoading(false);
   }
 };
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const handleSaveMaintenance = async e => {
   e.preventDefault();
   if (!maintenanceForm.maquina_id || !maintenanceForm.fecha || !maintenanceForm.descripcion) {
@@ -9679,109 +2403,6 @@ const handleSaveMaintenance = async e => {
     setLoading(false);
   }
 };
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const handleEditMaintenance = mant => {
   setEditingMaintenance(mant);
   setMaintenanceForm({
@@ -9797,109 +2418,6 @@ const handleEditMaintenance = mant => {
   });
   setShowMaintenanceModal(true);
 };
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const handleDeleteMaintenance = async id => {
   if (!window.confirm('¿Estás seguro de que deseas eliminar este registro de mantenimiento?')) return;
   setLoading(true);
@@ -9916,9 +2434,6 @@ const handleDeleteMaintenance = async id => {
     setLoading(false);
   }
 };
-
-
-
   const contextValue = {
     categories,
     getLocalDateString,
@@ -10091,6 +2606,9 @@ const handleDeleteMaintenance = async id => {
     editStockItemDetails,
     setEditStockItemDetails,
     proveedores,
+    discrepancias,
+    productionOrders,
+    setProductionOrders,
     setProveedores,
     showSupplierForm,
     setShowSupplierForm,
@@ -10130,6 +2648,7 @@ const handleDeleteMaintenance = async id => {
     flavorGroups,
     getFlavorName,
     formatTipo,
+    isProductVisibleToRole,
     getProductOptionLabel,
     getFlavorGroup,
     getProductNetWeight,
@@ -10183,7 +2702,6 @@ const handleDeleteMaintenance = async id => {
     handleEditMaintenance,
     handleDeleteMaintenance
   };
-
   return (
     <DataContext.Provider value={contextValue}>
       {children}
