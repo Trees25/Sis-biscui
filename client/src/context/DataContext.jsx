@@ -596,7 +596,11 @@ const handleCategoriaChange = cat => {
           es_evento
         `);
     if (user.rol !== 'admin') {
-      stockQuery = stockQuery.eq('sucursal_id', user.sucursal_id || 1);
+      if (user.rol === 'transportista') {
+        stockQuery = stockQuery.in('sucursal_id', [1, user.sucursal_id || 5]);
+      } else {
+        stockQuery = stockQuery.eq('sucursal_id', user.sucursal_id || 1);
+      }
     }
     const {
       data: stockData,
@@ -1440,7 +1444,8 @@ const handleCreateOrder = async () => {
 const handleAdminCreateOrder = async () => {
   const items = Object.entries(adminOrderItems).map(([prodId, qty]) => ({
     producto_id: parseInt(prodId),
-    cantidad_solicitada: parseInt(qty)
+    cantidad_solicitada: parseInt(qty),
+    cantidad: parseInt(qty)
   })).filter(item => item.cantidad_solicitada > 0);
   if (!adminOrderDestination) {
     showToast('Por favor, selecciona una sucursal o depósito de destino.', 'error');
@@ -2305,8 +2310,7 @@ const handleSaveStockAdmin = async e => {
         producto_id,
         sucursal_id,
         es_evento,
-        cantidad: numCant,
-        actualizado_por: user.id
+        cantidad: numCant
       });
       if (insErr) throw insErr;
     }
