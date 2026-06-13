@@ -720,6 +720,7 @@ const handleCategoriaChange = cat => {
           producto_nombre: prod.nombre,
           categoria: prod.categoria,
           tipo: prod.tipo,
+          unidad_medida: prod.unidad_medida,
           es_evento: false,
           stock_por_sucursal: stockPorSucursalComun
         });
@@ -729,6 +730,7 @@ const handleCategoriaChange = cat => {
           producto_nombre: prod.nombre,
           categoria: prod.categoria,
           tipo: prod.tipo,
+          unidad_medida: prod.unidad_medida,
           es_evento: true,
           stock_por_sucursal: stockPorSucursalEvento
         });
@@ -1431,6 +1433,12 @@ const handleCreateOrder = async () => {
     } = await supabase.from('items_pendientes').delete().eq('sucursal_id', user.sucursal_id).eq('es_evento', orderIsEvent).in('producto_id', orderedProdIds);
     if (delPendErr) throw delPendErr;
     showToast('Pedido solicitado a Fábrica.');
+    
+    // Abrir WhatsApp Web/App para notificar
+    const branchName = user.sucursal_id === 1 ? 'Fábrica' : (sucursales.find(s => s.id === user.sucursal_id)?.nombre || 'mi sucursal');
+    const whatsappMessage = encodeURIComponent(`¡Hola! Soy de ${branchName}, acabo de solicitar un nuevo pedido (ID #${pedido_id}) en el sistema.`);
+    window.open(`https://wa.me/?text=${whatsappMessage}`, '_blank');
+
     setOrderIsEvent(false);
     setOrderItems({});
     setActiveTab('pedidos_lista');
@@ -1492,6 +1500,10 @@ const handleAdminCreateOrder = async () => {
       });
       if (rpcErr) throw rpcErr;
       showToast(`Pedido #${pedido_id} creado y preparado con éxito.`);
+      
+      const origName = sucursales.find(s => s.id === adminOrderDestination)?.nombre || 'una sucursal';
+      const whatsappMessage = encodeURIComponent(`¡Hola! Se ha creado un nuevo pedido (ID #${pedido_id}) para ${origName} desde la administración.`);
+      window.open(`https://wa.me/?text=${whatsappMessage}`, '_blank');
     }
     setAdminOrderItems({});
     setAdminOrderDestination('');

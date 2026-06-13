@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useData } from '../../context/DataContext';
-import { formatTipo } from '../../utils/formatters';
+import { formatTipo, formatQuantity } from '../../utils/formatters';
 const BranchStockView = () => {
   const {
     categories,
@@ -145,7 +145,7 @@ const BranchStockView = () => {
               color: cantidad > 0 ? 'var(--text-dark)' : 'var(--danger)',
               marginBottom: '0.5rem'
             }}>
-                    {cantidad}
+                    {formatQuantity(cantidad, p)}
                   </div>
                 </div>
               })}
