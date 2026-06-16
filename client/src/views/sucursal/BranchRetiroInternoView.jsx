@@ -72,7 +72,7 @@ const BranchRetiroInternoView = () => {
         }}>Categoría:</span>
           <select className="form-control" value={branchRetiroCategoryFilter} onChange={e => setBranchRetiroCategoryFilter(e.target.value)}>
             <option value="Todos">Todas las Categorías</option>
-            {categories.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
       </div>

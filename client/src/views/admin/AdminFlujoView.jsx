@@ -58,7 +58,7 @@ const AdminFlujoView = () => {
                   </td>
                   <td><strong>{order.destino_nombre}</strong></td>
                   <td><span className={getBadgeClass(order.estado)}>{translateState(order.estado)}</span></td>
-                  <td>{order.fecha_solicitud ? new Date(order.fecha_solicitud).toLocaleDateString() : '-'}</td>
+                  <td>{order.created_at ? new Date(order.created_at).toLocaleDateString() : '-'}</td>
                   <td>{order.fecha_preparacion ? new Date(order.fecha_preparacion).toLocaleDateString() : 'Pendiente'}</td>
                   <td>{order.fecha_despacho ? new Date(order.fecha_despacho).toLocaleDateString() : 'Pendiente'}</td>
                   <td>{order.fecha_entrega ? new Date(order.fecha_entrega).toLocaleDateString() : 'Pendiente'}</td>

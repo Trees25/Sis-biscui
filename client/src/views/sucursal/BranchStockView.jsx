@@ -59,7 +59,7 @@ const BranchStockView = () => {
         }}>Categoría:</span>
           <select className="form-control" value={branchStockCategoryFilter} onChange={e => setBranchStockCategoryFilter(e.target.value)}>
             <option value="Todos">Todas las Categorías</option>
-            {categories.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
         {branchStockCategoryFilter === 'helados' && <div style={{
@@ -103,7 +103,7 @@ const BranchStockView = () => {
           paddingBottom: '0.5rem',
           color: 'var(--primary)'
         }}>
-              {cat.nombre}
+              {cat.name}
             </h4>
             <div className="items-grid">
               {catProds.map(p => {

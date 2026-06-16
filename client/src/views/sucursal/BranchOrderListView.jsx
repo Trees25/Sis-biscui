@@ -54,7 +54,7 @@ const BranchOrderListView = () => {
                                 </span>}
                             </td>
                             <td><span className={getBadgeClass(order.estado)}>{translateState(order.estado)}</span></td>
-                            <td>{new Date(order.fecha_solicitud).toLocaleString()}</td>
+                            <td>{new Date(order.created_at).toLocaleString()}</td>
                             <td>
                               <button className="btn btn-primary btn-sm" onClick={() => viewOrderDetail(order.id)}>
                                 {order.estado === 'en_transito' || user.sucursal_id === 4 && order.estado === 'preparado' ? 'Controlar y Recibir' : 'Ver Detalle'}

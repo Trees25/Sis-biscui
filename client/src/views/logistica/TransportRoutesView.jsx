@@ -47,10 +47,10 @@ const TransportRoutesView = () => {
                       {orders.filter(order => order.sucursal_destino_id !== user.sucursal_id).filter(order => {
             if (!driverRouteSearch) return true;
             const q = driverRouteSearch.toLowerCase();
-            return order.id.toString().includes(q) || order.destino_nombre && order.destino_nombre.toLowerCase().includes(q) || order.estado && translateState(order.estado).toLowerCase().includes(q);
+            return order.id.toString().includes(q) || order.sucursal_nombre && order.sucursal_nombre.toLowerCase().includes(q) || order.estado && translateState(order.estado).toLowerCase().includes(q);
           }).map(order => <tr key={order.id}>
                             <td>#{order.id}</td>
-                            <td><strong>{order.destino_nombre}</strong></td>
+                            <td><strong>{order.sucursal_nombre}</strong></td>
                             <td><span className={getBadgeClass(order.estado)}>{translateState(order.estado)}</span></td>
                             <td>{order.fecha_preparacion ? new Date(order.fecha_preparacion).toLocaleString() : '-'}</td>
                             <td>
@@ -62,7 +62,7 @@ const TransportRoutesView = () => {
                       {orders.filter(order => order.sucursal_destino_id !== user.sucursal_id).filter(order => {
             if (!driverRouteSearch) return true;
             const q = driverRouteSearch.toLowerCase();
-            return order.id.toString().includes(q) || order.destino_nombre && order.destino_nombre.toLowerCase().includes(q) || order.estado && translateState(order.estado).toLowerCase().includes(q);
+            return order.id.toString().includes(q) || order.sucursal_nombre && order.sucursal_nombre.toLowerCase().includes(q) || order.estado && translateState(order.estado).toLowerCase().includes(q);
           }).length === 0 && <tr>
                             <td colSpan="5" style={{
               textAlign: 'center',

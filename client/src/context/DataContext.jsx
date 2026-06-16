@@ -629,17 +629,18 @@ const handleCategoriaChange = cat => {
       error: pedidosErr
     } = await supabase.from('pedidos').select(`
           *,
-          sucursales ( nombre ),
+          sucursales!pedidos_sucursal_destino_id_fkey ( nombre ),
           u_trans: transportista_id ( nombre ),
           u_recib: recibido_por_id ( nombre ),
           pedido_detalles (
             id,
             producto_id,
             cantidad_solicitada,
-            cantidad_enviada,
+            cantidad_preparada,
+            cantidad_recibida,
             productos ( nombre, tipo, categoria, unidad_medida )
           )
-        `).order('fecha_pedido', {
+        `).order('created_at', {
       ascending: false
     });
     if (version !== fetchVersionRef.current) return;
