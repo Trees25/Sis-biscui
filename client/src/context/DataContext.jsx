@@ -578,7 +578,7 @@ const handleCategoriaChange = cat => {
       error: lotesErr
     } = await supabase.from('lotes_produccion').select(`
           *,
-          productos ( nombre, tipo, categoria )
+          productos ( nombre, tipo, categoria, unidad_medida )
         `).order('id', {
       ascending: false
     }).limit(20);
@@ -591,7 +591,7 @@ const handleCategoriaChange = cat => {
           sucursal_id,
           sucursales ( nombre ),
           producto_id,
-          productos ( nombre, tipo, categoria, activo, proveedor_id, proveedores(nombre) ),
+          productos ( nombre, tipo, categoria, activo, unidad_medida, proveedor_id, proveedores(nombre) ),
           cantidad,
           es_evento
         `);
@@ -616,6 +616,7 @@ const handleCategoriaChange = cat => {
         producto_nombre: s.productos?.nombre,
         tipo: s.productos?.tipo,
         categoria: s.productos?.categoria,
+        unidad_medida: s.productos?.unidad_medida,
         proveedor_id: s.productos?.proveedor_id,
         proveedor_nombre: s.productos?.proveedores?.nombre,
         cantidad: s.cantidad,
@@ -683,7 +684,7 @@ const handleCategoriaChange = cat => {
             sucursal_id,
             sucursales ( nombre ),
             producto_id,
-            productos ( nombre, tipo, categoria, activo ),
+            productos ( nombre, tipo, categoria, activo, unidad_medida ),
             cantidad,
             es_evento
           `);
@@ -695,6 +696,7 @@ const handleCategoriaChange = cat => {
         producto_nombre: s.productos?.nombre,
         tipo: s.productos?.tipo,
         categoria: s.productos?.categoria,
+        unidad_medida: s.productos?.unidad_medida,
         cantidad: s.cantidad,
         es_evento: s.es_evento
       }));
@@ -777,7 +779,7 @@ const handleCategoriaChange = cat => {
             producto_id,
             cantidad_solicitada,
             cantidad_preparada,
-            productos ( nombre, tipo, categoria ),
+            productos ( nombre, tipo, categoria, unidad_medida ),
             pedidos!inner ( estado )
           `).eq('pedidos.estado', 'solicitado');
       if (detErr) throw detErr;
@@ -790,6 +792,7 @@ const handleCategoriaChange = cat => {
             producto_nombre: d.productos?.nombre,
             tipo: d.productos?.tipo,
             categoria: d.productos?.categoria,
+            unidad_medida: d.productos?.unidad_medida,
             cantidad_pendiente: 0
           };
         }
@@ -823,7 +826,7 @@ const handleCategoriaChange = cat => {
       } = await supabase.from('items_pendientes').select(`
             producto_id,
             cantidad,
-            productos ( nombre, tipo, categoria )
+            productos ( nombre, tipo, categoria, unidad_medida )
           `).eq('sucursal_id', user.sucursal_id).eq('es_evento', orderIsEvent);
       if (pendsErr) throw pendsErr;
       const pendsMapped = (pendsRaw || []).map(p => ({
@@ -1045,6 +1048,30 @@ const handleProductionSubmit = async e => {
       p_es_evento: isEvent
     });
     if (rpcErr) throw rpcErr;
+
+    if (isEvent) {
+      let remainingQty = qty;
+      const pendingOrders = productionOrders.filter(o => o.estado === 'pendiente' || o.estado === 'en_proceso');
+      for (const order of pendingOrders) {
+        if (remainingQty <= 0) break;
+        const detail = order.orden_produccion_detalles?.find(d => d.producto_id === pId && d.cantidad_producida < d.cantidad_solicitada);
+        if (detail) {
+          const needed = detail.cantidad_solicitada - detail.cantidad_producida;
+          const toAdd = Math.min(needed, remainingQty);
+          
+          await supabase.from('orden_produccion_detalles')
+            .update({ cantidad_producida: detail.cantidad_producida + toAdd })
+            .eq('id', detail.id);
+            
+          remainingQty -= toAdd;
+          
+          if (order.estado === 'pendiente') {
+            await supabase.from('ordenes_produccion').update({ estado: 'en_proceso' }).eq('id', order.id);
+          }
+        }
+      }
+    }
+
     showToast(`Producción registrada con Lote ${codigo_lote}. Stock de fábrica actualizado.`);
     setProdForm({
       producto_id: '',
@@ -1060,6 +1087,74 @@ const handleProductionSubmit = async e => {
     setLoading(false);
   }
 };
+
+const handleAssignEventStock = async (detailId, productId, qtyToAdd) => {
+  try {
+    setLoading(true);
+    const detailRes = await supabase.from('orden_produccion_detalles').select('cantidad_producida, cantidad_solicitada, orden_id').eq('id', detailId).single();
+    if (detailRes.error) throw detailRes.error;
+    
+    const newQty = detailRes.data.cantidad_producida + qtyToAdd;
+    if (newQty > detailRes.data.cantidad_solicitada) {
+      throw new Error('La cantidad asignada supera la solicitada.');
+    }
+
+    const { error } = await supabase.from('orden_produccion_detalles')
+      .update({ cantidad_producida: newQty })
+      .eq('id', detailId);
+    if (error) throw error;
+    
+    await supabase.from('ordenes_produccion').update({ estado: 'en_proceso' }).eq('id', detailRes.data.orden_id);
+
+    showToast('Stock asignado correctamente a la orden.');
+    fetchData();
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    setLoading(false);
+  }
+};
+
+const handleCompleteEventOrder = async (order) => {
+  try {
+    setLoading(true);
+    // Deduct stock from sucursal 1 (es_evento = true)
+    for (const d of order.orden_produccion_detalles) {
+      if (d.cantidad_producida > 0) {
+        // We use an RPC to deduct safely or we query and update.
+        // Since we are doing it simply, let's query the current stock and subtract.
+        const stockRes = await supabase.from('stock_sucursales')
+          .select('cantidad')
+          .eq('sucursal_id', 1)
+          .eq('es_evento', true)
+          .eq('producto_id', d.producto_id)
+          .single();
+          
+        if (!stockRes.error && stockRes.data) {
+          const newStock = Math.max(0, stockRes.data.cantidad - d.cantidad_producida);
+          await supabase.from('stock_sucursales')
+            .update({ cantidad: newStock })
+            .eq('sucursal_id', 1)
+            .eq('es_evento', true)
+            .eq('producto_id', d.producto_id);
+        }
+      }
+    }
+
+    const { error } = await supabase.from('ordenes_produccion')
+      .update({ estado: 'completada' })
+      .eq('id', order.id);
+    if (error) throw error;
+
+    showToast('Orden completada y stock descontado exitosamente.', 'success');
+    fetchData();
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    setLoading(false);
+  }
+};
+
 const handleAdminHistSubmit = async e => {
   e.preventDefault();
   if (!adminHistForm.producto_id || !adminHistForm.cantidad || !adminHistForm.fecha) return;
@@ -2678,6 +2773,8 @@ const handleDeleteMaintenance = async id => {
     fetchAuditoriaData,
     handleDownloadAuditoriaCSV,
     handleProductionSubmit,
+    handleAssignEventStock,
+    handleCompleteEventOrder,
     handleAdminHistSubmit,
     handleTranspCargaSubmit,
     handleProvSubmit,

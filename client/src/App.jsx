@@ -34,7 +34,7 @@ const AppContent = () => {
     user, activeTab, setActiveTab, loading, toast, handleLogout, 
     usernameInput, setUsernameInput, passwordInput, setPasswordInput, handleLogin,
     showEditStockModal, showMaquinaModal, showMaintenanceModal, 
-    selectedPedido, showLossModal
+    selectedPedido, showLossModal, fetchData, showToast
   } = useData();
 
   if (!user) {
@@ -110,6 +110,27 @@ const AppContent = () => {
         </div>
 
         <div className="user-profile">
+          <button 
+            className="btn btn-sm" 
+            style={{ 
+              background: 'transparent', 
+              border: 'none', 
+              color: 'var(--text-light)', 
+              fontSize: '1.2rem', 
+              cursor: 'pointer',
+              marginRight: '0.5rem',
+              padding: '0.2rem'
+            }} 
+            onClick={async () => {
+              if (fetchData) {
+                await fetchData();
+                if (showToast) showToast('Datos actualizados', 'success');
+              }
+            }}
+            title="Actualizar Datos"
+          >
+            ↻
+          </button>
           <div className="user-info">
             <div className="name">{user.nombre}</div>
             <div className="role">{user.sucursal_id ? `${user.rol} | ${user.sucursal_nombre}` : user.rol}</div>

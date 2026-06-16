@@ -5,8 +5,7 @@ import { formatQuantity, formatQuantityShort, formatTipo, getBadgeClass, transla
 const BranchOrderView = () => {
   const {
     user,
-    orderIsEvent,
-    setOrderIsEvent,
+
     pendingItems,
     formatTipo,
     formatQuantity,
@@ -55,32 +54,7 @@ const BranchOrderView = () => {
           alignItems: 'center',
           flexWrap: 'wrap'
         }}>
-                    {(user.rol === 'admin' || user.rol === 'heladero') && <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            background: 'rgba(255,255,255,0.05)',
-            padding: '0.5rem 0.8rem',
-            borderRadius: '8px',
-            border: '1px solid rgba(255,255,255,0.1)'
-          }}>
-                        <input type="checkbox" id="orderIsEventCheck" checked={orderIsEvent} onChange={e => {
-              setOrderIsEvent(e.target.checked);
-            }} style={{
-              width: '18px',
-              height: '18px',
-              cursor: 'pointer'
-            }} />
-                        <label htmlFor="orderIsEventCheck" style={{
-              margin: 0,
-              cursor: 'pointer',
-              userSelect: 'none',
-              fontSize: '0.85rem',
-              fontWeight: 600
-            }}>
-                          🚨 Pedido para EVENTO (Stock de Eventos)
-                        </label>
-                      </div>}
+
                   </div>
                 </div>
 
@@ -238,9 +212,7 @@ const BranchOrderView = () => {
         const activeCategories = categories.filter(cat => cat.id === orderSubTab);
         const hasVisibleProducts = activeCategories.some(cat => {
           let catSuggestions = suggestions.filter(s => s.categoria === cat.id);
-          if (orderIsEvent && cat.id === 'helados') {
-            catSuggestions = catSuggestions.filter(s => s.tipo !== 'vasqueta_5_6k');
-          }
+
           if (orderSearchQuery) {
             catSuggestions = catSuggestions.filter(s => s.nombre.toLowerCase().includes(orderSearchQuery.toLowerCase()) || formatTipo(s.tipo).toLowerCase().includes(orderSearchQuery.toLowerCase()));
           }
@@ -264,9 +236,7 @@ const BranchOrderView = () => {
         }
         return activeCategories.map(cat => {
           let catSuggestions = suggestions.filter(s => s.categoria === cat.id);
-          if (orderIsEvent && cat.id === 'helados') {
-            catSuggestions = catSuggestions.filter(s => s.tipo !== 'vasqueta_5_6k');
-          }
+
           if (orderSearchQuery) {
             catSuggestions = catSuggestions.filter(s => s.nombre.toLowerCase().includes(orderSearchQuery.toLowerCase()) || formatTipo(s.tipo).toLowerCase().includes(orderSearchQuery.toLowerCase()));
           }

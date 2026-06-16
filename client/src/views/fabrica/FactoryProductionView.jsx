@@ -15,14 +15,35 @@ const FactoryProductionView = () => {
     prodFormSearch,
     setProdFormSearch,
     isProductVisibleToRole,
-    String,
     getTareByTipo,
     prodWeights,
     loading,
     recentLotes,
     formatQuantity,
-    productionOrders
+    productionOrders,
+    handleAssignEventStock,
+    handleCompleteEventOrder,
+    stockData,
+    showToast
   } = useData();
+
+  const [assignModalData, setAssignModalData] = React.useState(null);
+  const [assignQty, setAssignQty] = React.useState('');
+
+  const submitAssign = () => {
+    if (!assignModalData) return;
+    const parsed = parseInt(assignQty);
+    if (isNaN(parsed) || parsed <= 0) {
+      showToast('Cantidad inválida', 'error');
+    } else if (parsed > assignModalData.availStock) {
+      showToast('No hay suficiente stock reservado para eventos', 'error');
+    } else {
+      handleAssignEventStock(assignModalData.id, assignModalData.producto_id, parsed);
+      setAssignModalData(null);
+      setAssignQty('');
+    }
+  };
+
   return <div>
     {productionOrders && productionOrders.filter(o => o.estado !== 'completada').length > 0 && (
       <div className="glass-card" style={{ marginBottom: '2rem', border: '1px solid var(--warning)' }}>
@@ -34,27 +55,72 @@ const FactoryProductionView = () => {
                 <th>Fecha Requerida</th>
                 <th>Notas / Evento</th>
                 <th>Productos Solicitados</th>
-                <th>Estado</th>
+                <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
               {productionOrders.filter(o => o.estado !== 'completada').map(order => {
-                const isRelevant = order.orden_produccion_detalles?.some(d => d.productos && isProductVisibleToRole(d.productos, user.rol));
-                if (!isRelevant) return null;
+                const relevantDetails = order.orden_produccion_detalles?.filter(d => d.productos && isProductVisibleToRole(d.productos, user.rol)) || [];
+                if (relevantDetails.length === 0) return null;
+                
+                // Check if all relevant items are met
+                const allMet = relevantDetails.every(d => d.cantidad_producida >= d.cantidad_solicitada);
+
                 return (
                   <tr key={order.id}>
                     <td>{new Date(order.fecha_requerida).toLocaleDateString()}</td>
-                    <td>{order.notas}</td>
+                    <td>{order.notas} <br/><span className="badge badge-en_transito">{order.estado.toUpperCase()}</span></td>
                     <td>
-                      <ul style={{ paddingLeft: '1rem', margin: 0 }}>
-                        {order.orden_produccion_detalles?.filter(d => d.productos && isProductVisibleToRole(d.productos, user.rol)).map(d => (
-                          <li key={d.id}>
-                            <strong>{d.productos.nombre}</strong>: {d.cantidad_producida} / {d.cantidad_solicitada}
-                          </li>
-                        ))}
+                      <ul style={{ paddingLeft: '1rem', margin: 0, listStyle: 'none' }}>
+                        {relevantDetails.map(d => {
+                          const stockItem = stockData?.find(s => s.sucursal_id === 1 && s.es_evento === true && s.producto_id === d.producto_id);
+                          const availStock = stockItem ? stockItem.cantidad : 0;
+                          return (
+                            <li key={d.id} style={{ marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                              <span style={{ minWidth: '150px' }}><strong>{d.productos.nombre}</strong>: {d.cantidad_producida} / {d.cantidad_solicitada}</span>
+                              {d.cantidad_producida < d.cantidad_solicitada && (
+                                <button 
+                                  className="btn btn-outline btn-sm" 
+                                  style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
+                                  onClick={() => {
+                                    const needed = d.cantidad_solicitada - d.cantidad_producida;
+                                    setAssignModalData({
+                                      id: d.id,
+                                      producto_id: d.producto_id,
+                                      nombre: d.productos.nombre,
+                                      availStock,
+                                      needed
+                                    });
+                                    setAssignQty('');
+                                  }}
+                                >
+                                  + Asignar
+                                </button>
+                              )}
+                              {d.cantidad_producida >= d.cantidad_solicitada && (
+                                <span style={{ color: 'var(--success)', fontSize: '0.85rem' }}>✓ Listo</span>
+                              )}
+                            </li>
+                          );
+                        })}
                       </ul>
                     </td>
-                    <td><span className="badge badge-en_transito">{order.estado.toUpperCase()}</span></td>
+                    <td style={{ verticalAlign: 'middle' }}>
+                      {allMet ? (
+                        <button 
+                          className="btn btn-primary btn-sm" 
+                          onClick={() => {
+                            if(window.confirm('¿Confirmar que el pedido está preparado? Esto descontará el stock de eventos.')) {
+                              handleCompleteEventOrder(order);
+                            }
+                          }}
+                        >
+                          Marcar Preparado
+                        </button>
+                      ) : (
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>En progreso...</span>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
@@ -414,6 +480,41 @@ const FactoryProductionView = () => {
                   </div>
                 </div>
               </div>
-            </div>;
+
+      {assignModalData && (
+        <div className="modal-overlay">
+          <div className="glass-card" style={{ width: '100%', maxWidth: '400px', margin: 'auto' }}>
+            <h4 style={{ marginTop: 0, color: 'var(--primary)', borderBottom: '1px solid rgba(0,0,0,0.1)', paddingBottom: '0.5rem' }}>Asignar Stock de Eventos</h4>
+            <div style={{ margin: '1rem 0', fontSize: '0.9rem' }}>
+              <p><strong>Producto:</strong> {assignModalData.nombre}</p>
+              <p><strong>Stock en cámara (Eventos):</strong> {assignModalData.availStock}</p>
+              <p><strong>Faltan en el pedido:</strong> {assignModalData.needed}</p>
+            </div>
+            <div className="form-group">
+              <label>Cantidad a asignar</label>
+              <input 
+                type="number" 
+                min="1" 
+                max={Math.min(assignModalData.availStock, assignModalData.needed)}
+                className="form-control"
+                value={assignQty}
+                onChange={(e) => setAssignQty(e.target.value)}
+                placeholder="Ej. 2"
+                autoFocus
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+              <button className="btn btn-outline" onClick={() => { setAssignModalData(null); setAssignQty(''); }}>
+                Cancelar
+              </button>
+              <button className="btn btn-primary" onClick={submitAssign} disabled={!assignQty || isNaN(parseInt(assignQty)) || parseInt(assignQty) <= 0}>
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>;
 };
 export default FactoryProductionView;

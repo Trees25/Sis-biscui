@@ -4,12 +4,8 @@ import { formatTipo, formatQuantity } from '../../utils/formatters';
 import UnitCalculatorInput from '../../components/common/UnitCalculatorInput';
 const AdminOrdersView = () => {
   const {
-    adminOrderIsEvent,
-    setAdminOrderIsEvent,
     adminOrderItems,
     setAdminOrderItems,
-    adminOrderSolicitFabrication,
-    setAdminOrderSolicitFabrication,
     adminOrderDestination,
     setAdminOrderDestination,
     handleAdminCreateOrder,
@@ -55,60 +51,6 @@ const AdminOrdersView = () => {
         alignItems: 'center',
         flexWrap: 'wrap'
       }}>
-          <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem',
-          background: 'rgba(0, 0, 0, 0.02)',
-          padding: '0.5rem 0.8rem',
-          borderRadius: '8px',
-          border: '1px solid rgba(0, 0, 0, 0.06)'
-        }}>
-            <input type="checkbox" id="adminOrderIsEventCheck" checked={adminOrderIsEvent} onChange={e => {
-            setAdminOrderIsEvent(e.target.checked);
-            setAdminOrderItems({});
-            if (!e.target.checked) setAdminOrderSolicitFabrication(false);
-          }} style={{
-            width: '18px',
-            height: '18px',
-            cursor: 'pointer'
-          }} />
-            <label htmlFor="adminOrderIsEventCheck" style={{
-            margin: 0,
-            cursor: 'pointer',
-            userSelect: 'none',
-            fontSize: '0.85rem',
-            fontWeight: 600
-          }}>
-              🚨 Pedido para EVENTO (Stock de Eventos)
-            </label>
-          </div>
-
-          {adminOrderIsEvent && <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem',
-          background: 'rgba(0, 0, 0, 0.02)',
-          padding: '0.5rem 0.8rem',
-          borderRadius: '8px',
-          border: '1px solid rgba(0, 0, 0, 0.06)'
-        }}>
-              <input type="checkbox" id="adminOrderSolicitFabricationCheck" checked={adminOrderSolicitFabrication} onChange={e => setAdminOrderSolicitFabrication(e.target.checked)} style={{
-            width: '18px',
-            height: '18px',
-            cursor: 'pointer'
-          }} />
-              <label htmlFor="adminOrderSolicitFabricationCheck" style={{
-            margin: 0,
-            cursor: 'pointer',
-            userSelect: 'none',
-            fontSize: '0.85rem',
-            fontWeight: 600,
-            color: 'var(--primary)'
-          }}>
-                🛠️ Solicitar Fabricación al Heladero
-              </label>
-            </div>}
         </div>
       </div>
 
@@ -173,7 +115,7 @@ const AdminOrdersView = () => {
           borderRadius: '8px',
           fontWeight: 600
         }}>
-            {adminOrderIsEvent && adminOrderSolicitFabrication ? '🛠️ Solicitar Fabricación' : '🚀 Crear y Preparar Pedido'}
+            🚀 Crear y Preparar Pedido
           </button>
         </div>
       </div>
@@ -312,9 +254,6 @@ const AdminOrdersView = () => {
 
       {(() => {
       let filteredProds = productos.filter(p => p.categoria === adminOrderSubTab);
-      if (adminOrderIsEvent && adminOrderSubTab === 'helados') {
-        filteredProds = filteredProds.filter(p => p.tipo !== 'vasqueta_5_6k');
-      }
       if (adminOrderSubTab === 'helados') {
         if (iceCreamFormatFilter === 'Vasqueta') {
           filteredProds = filteredProds.filter(p => p.tipo === 'vasqueta_5_6k');
@@ -359,10 +298,10 @@ const AdminOrdersView = () => {
               <tbody>
                 {filteredProds.map(prod => {
               const qty = adminOrderItems[prod.id] || 0;
-              const factoryStock = stockData.find(s => s.producto_id === prod.id && s.sucursal_id === 1 && s.es_evento === adminOrderIsEvent)?.cantidad || 0;
+              const factoryStock = stockData.find(s => s.producto_id === prod.id && s.sucursal_id === 1 && s.es_evento === false)?.cantidad || 0;
               let destStock = '-';
               if (adminOrderDestination) {
-                destStock = stockData.find(s => s.producto_id === prod.id && s.sucursal_id === parseInt(adminOrderDestination) && s.es_evento === adminOrderIsEvent)?.cantidad || 0;
+                destStock = stockData.find(s => s.producto_id === prod.id && s.sucursal_id === parseInt(adminOrderDestination) && s.es_evento === false)?.cantidad || 0;
               }
               const isExceeding = qty > factoryStock;
               return <tr key={prod.id}>
@@ -432,7 +371,7 @@ const AdminOrdersView = () => {
         flexWrap: 'wrap',
         gap: '0.5rem'
       }}>
-            <span>📋 Resumen del Pedido {adminOrderIsEvent ? '(EVENTO)' : ''}</span>
+            <span>📋 Resumen del Pedido</span>
             <span style={{
           fontSize: '0.8rem',
           color: 'var(--text-light)'
