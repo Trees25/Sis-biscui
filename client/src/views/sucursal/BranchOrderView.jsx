@@ -383,7 +383,7 @@ const BranchOrderView = () => {
                   </div>}
                 </div>
 
-                <div className="glass-card" style={{
+                <div className="glass-card mobile-summary-panel" style={{
       flex: '1 1 30%',
       minWidth: '300px',
       position: 'sticky',
@@ -483,6 +483,9 @@ const BranchOrderView = () => {
                       </>;
       })()}
                 </div>
+                
+                {/* Spacer to allow scrolling past the fixed panel on mobile */}
+                <div className="mobile-summary-spacer"></div>
               </div>;
 };
 export default BranchOrderView;
