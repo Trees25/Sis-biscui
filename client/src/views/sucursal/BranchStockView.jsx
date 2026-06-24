@@ -8,8 +8,16 @@ const BranchStockView = () => {
     stockData,
     user,
     branchStockSearch,
-    setBranchStockSearch
+    setBranchStockSearch,
+    sucursales,
+    handleSaveInventory
   } = useData();
+
+  const myBranch = sucursales.find(s => s.id === user.sucursal_id);
+  const canTakeInventory = myBranch?.inventario_habilitado;
+
+  const [inventoryMode, setInventoryMode] = useState(false);
+  const [inventoryForm, setInventoryForm] = useState({});
 
   const [branchStockCategoryFilter, setBranchStockCategoryFilter] = useState('Todos');
   const [branchStockFormatFilter, setBranchStockFormatFilter] = useState('Todos');
@@ -27,6 +35,29 @@ const BranchStockView = () => {
         margin: 0,
         border: 'none'
       }}>Stock Actual en mi Sucursal</h3>
+        
+        {canTakeInventory && !inventoryMode && (
+          <button className="btn btn-primary btn-sm" onClick={() => {
+            const form = {};
+            productos.forEach(p => {
+              const sData = stockData.find(s => s.producto_id === p.id && s.sucursal_id === user.sucursal_id && s.es_evento === false);
+              form[p.id] = sData ? sData.cantidad : 0;
+            });
+            setInventoryForm(form);
+            setInventoryMode(true);
+          }}>
+            📋 Hacer Inventario
+          </button>
+        )}
+        {inventoryMode && (
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button className="btn btn-outline btn-sm" onClick={() => setInventoryMode(false)}>Cancelar</button>
+            <button className="btn btn-primary btn-sm" onClick={() => {
+               const items = Object.entries(inventoryForm).map(([pId, qty]) => ({ producto_id: Number(pId), cantidad: qty }));
+               handleSaveInventory(items).then(() => setInventoryMode(false));
+            }}>Guardar Inventario</button>
+          </div>
+        )}
       </div>
       <div style={{
       display: 'flex',
@@ -108,7 +139,9 @@ const BranchStockView = () => {
             <div className="items-grid">
               {catProds.map(p => {
                 const sData = stockData.find(s => s.producto_id === p.id && s.sucursal_id === user.sucursal_id && s.es_evento === false);
-                const cantidad = sData ? sData.cantidad : 0;
+                const cantidadActual = sData ? sData.cantidad : 0;
+                const cantidadInput = inventoryForm[p.id] !== undefined ? inventoryForm[p.id] : cantidadActual;
+
                 return <div key={p.id} className="glass-card" style={{
             padding: '1.2rem',
             textAlign: 'center',
@@ -120,11 +153,11 @@ const BranchStockView = () => {
               top: '10px',
               right: '10px'
             }}>
-                    <span className={`badge ${cantidad > 0 ? 'badge-activo' : 'badge-inactivo'}`} style={{
+                    <span className={`badge ${cantidadActual > 0 ? 'badge-activo' : 'badge-inactivo'}`} style={{
                 fontSize: '0.65rem',
                 padding: '0.2rem 0.5rem'
               }}>
-                      {cantidad > 0 ? 'En Stock' : 'Sin Stock'}
+                      {cantidadActual > 0 ? 'En Stock' : 'Sin Stock'}
                     </span>
                   </div>
                   <h4 style={{
@@ -139,14 +172,28 @@ const BranchStockView = () => {
             }}>
                     {formatTipo(p.tipo)}
                   </div>
-                  <div style={{
-              fontSize: '2rem',
-              fontWeight: 700,
-              color: cantidad > 0 ? 'var(--text-dark)' : 'var(--danger)',
-              marginBottom: '0.5rem'
-            }}>
-                    {formatQuantity(cantidad, p)}
-                  </div>
+                  
+                  {inventoryMode ? (
+                    <div style={{ marginTop: '0.5rem' }}>
+                      <input 
+                        type="number" 
+                        step={p.unidad_medida === 'peso' ? "0.01" : "1"}
+                        className="form-control text-center" 
+                        value={cantidadInput} 
+                        onChange={e => setInventoryForm({ ...inventoryForm, [p.id]: e.target.value === '' ? '' : Number(e.target.value) })}
+                        style={{ fontSize: '1.2rem', fontWeight: 'bold' }}
+                      />
+                    </div>
+                  ) : (
+                    <div style={{
+                      fontSize: '2rem',
+                      fontWeight: 700,
+                      color: cantidadActual > 0 ? 'var(--text-dark)' : 'var(--danger)',
+                      marginBottom: '0.5rem'
+                    }}>
+                      {formatQuantity(cantidadActual, p)}
+                    </div>
+                  )}
                 </div>
               })}
             </div>

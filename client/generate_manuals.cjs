@@ -169,6 +169,11 @@ Monitorear los niveles de inventario en tiempo real de cada sabor y producto en 
 ### 5. Edición Rápida (Solo Administradores)
 * Al hacer clic en cualquier celda de la matriz (intersección Producto-Sucursal), se despliega un modal rápido para modificar la cantidad directamente, ideal para ajustes por mermas o recuentos de auditoría.
 
+### 6. Control de Inventarios Descentralizados (Sucursales)
+* **Permisos Dinámicos:** El administrador puede habilitar o bloquear el ingreso de inventario para una sucursal específica usando el botón **"🔓 Habilitar Inv."** / **"🔒 Bloquear Inv."** ubicado debajo del nombre de la sucursal en la matriz.
+* **Bloqueo Automático:** Una vez que la sucursal envía ("Guarda") su recuento de inventario físico, el sistema bloquea automáticamente el permiso, garantizando la seguridad de los datos y evitando modificaciones posteriores no autorizadas.
+* **Actualización en Tiempo Real:** Al enviar el inventario, la sucursal actualiza el stock directamente en la base de datos, reflejándose al instante en la matriz del administrador.
+
 ---
 
 🖼️ **[INSERTAR IMAGEN DE LA MATRIZ DE STOCK AQUÍ]**

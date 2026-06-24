@@ -2615,6 +2615,66 @@ const handleDeleteMaintenance = async id => {
     setLoading(false);
   }
 };
+const handleClearTestData = async () => {
+  setLoading(true);
+  try {
+    const tables = [
+      'pedido_detalles', 'discrepancias', 'pedidos',
+      'orden_produccion_detalles', 'ordenes_produccion',
+      'lote_pesos', 'lotes_produccion', 'items_pendientes',
+      'consumo_diario', 'mantenimientos', 'stock_sucursales'
+    ];
+    for (const table of tables) {
+      const { error } = await supabase.from(table).delete().gt('id', 0);
+      if (error) throw error;
+    }
+    showToast("Datos de prueba limpiados correctamente", "success");
+  } catch (err) {
+    showToast("Error limpiando datos: " + err.message, "error");
+  } finally {
+    setLoading(false);
+  }
+};
+
+const toggleInventoryLock = async (sucursal_id, habilitar) => {
+  setLoading(true);
+  try {
+    const { error } = await supabase.from('sucursales').update({ inventario_habilitado: habilitar }).eq('id', sucursal_id);
+    if (error) throw error;
+    showToast(`Inventario ${habilitar ? 'habilitado' : 'bloqueado'} para la sucursal.`, "success");
+    fetchData();
+  } catch (err) {
+    showToast("Error al cambiar estado de inventario: " + err.message, "error");
+  } finally {
+    setLoading(false);
+  }
+};
+
+const handleSaveInventory = async (inventoryItems) => {
+  setLoading(true);
+  try {
+    const payload = inventoryItems.map(item => ({
+      sucursal_id: user.sucursal_id,
+      producto_id: item.producto_id,
+      cantidad: item.cantidad,
+      es_evento: false
+    }));
+    
+    const { error: upsertErr } = await supabase.from('stock_sucursales').upsert(payload, { onConflict: 'sucursal_id,producto_id,es_evento' });
+    if (upsertErr) throw upsertErr;
+
+    const { error: lockErr } = await supabase.from('sucursales').update({ inventario_habilitado: false }).eq('id', user.sucursal_id);
+    if (lockErr) throw lockErr;
+
+    showToast("Inventario guardado correctamente. Permiso bloqueado.", "success");
+    fetchData();
+  } catch (err) {
+    showToast("Error al guardar inventario: " + err.message, "error");
+  } finally {
+    setLoading(false);
+  }
+};
+
   const contextValue = {
     categories,
     getLocalDateString,
@@ -2886,7 +2946,10 @@ const handleDeleteMaintenance = async id => {
     handleDeleteMaquina,
     handleSaveMaintenance,
     handleEditMaintenance,
-    handleDeleteMaintenance
+    handleDeleteMaintenance,
+    handleClearTestData,
+    toggleInventoryLock,
+    handleSaveInventory
   };
   return (
     <DataContext.Provider value={contextValue}>

@@ -20,7 +20,8 @@ const AdminStockView = () => {
     user,
     setEditStockForm,
     setEditStockItemDetails,
-    setShowEditStockModal
+    setShowEditStockModal,
+    toggleInventoryLock
   } = useData();
   return <div>
       <div style={{
@@ -224,7 +225,21 @@ const AdminStockView = () => {
                     <tr>
                       <th>Producto / Sabor</th>
                       <th>Tipo / Formato</th>
-                      {sucursales.map(s => <th key={s.id}>{s.nombre}</th>)}
+                      {sucursales.map(s => (
+                        <th key={s.id}>
+                          <div>{s.nombre}</div>
+                          {s.id !== 1 && (
+                            <button
+                              className={`btn btn-sm ${s.inventario_habilitado ? 'btn-danger' : 'btn-primary'}`}
+                              style={{ fontSize: '0.65rem', padding: '0.2rem 0.4rem', marginTop: '0.4rem', borderRadius: '4px' }}
+                              onClick={() => toggleInventoryLock(s.id, !s.inventario_habilitado)}
+                              title={s.inventario_habilitado ? "Bloquear inventario para esta sucursal" : "Habilitar inventario para esta sucursal"}
+                            >
+                              {s.inventario_habilitado ? '🔒 Bloquear Inv.' : '🔓 Habilitar Inv.'}
+                            </button>
+                          )}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>

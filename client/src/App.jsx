@@ -33,7 +33,8 @@ const AppContent = () => {
     user, activeTab, setActiveTab, loading, toast, handleLogout, 
     usernameInput, setUsernameInput, passwordInput, setPasswordInput, handleLogin,
     showEditStockModal, showMaquinaModal, showMaintenanceModal, 
-    selectedPedido, showLossModal, fetchData, showToast
+    selectedPedido, showLossModal, fetchData, showToast,
+    handleClearTestData
   } = useData();
 
   if (!user) {
@@ -139,6 +140,30 @@ const AppContent = () => {
           >
             📖
           </a>
+          {/* <button 
+            className="btn btn-sm" 
+            style={{ 
+              background: 'var(--danger)', 
+              border: 'none', 
+              color: 'white', 
+              fontSize: '0.8rem', 
+              cursor: 'pointer',
+              marginRight: '0.5rem',
+              padding: '0.3rem 0.5rem',
+              borderRadius: '4px'
+            }} 
+            onClick={async () => {
+              if (window.confirm('¿Seguro que deseas limpiar todos los datos de prueba? Esto vaciará stocks, pedidos, etc.')) {
+                if (handleClearTestData) {
+                  await handleClearTestData();
+                  if (fetchData) await fetchData();
+                }
+              }
+            }}
+            title="Limpiar Datos de Prueba"
+          >
+            Vaciar BD
+          </button> */}
           <button 
             className="btn btn-sm" 
             style={{ 
