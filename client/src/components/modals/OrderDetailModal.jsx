@@ -27,7 +27,8 @@ const OrderDetailModal = () => {
     setReceiveItems,
     receiveReasons,
     setReceiveReasons,
-    handleConfirmReceive
+    handleConfirmReceive,
+    startEditingOrder
   } = useData();
   return <div style={{
     position: 'fixed',
@@ -127,6 +128,48 @@ const OrderDetailModal = () => {
                   </tbody>
                 </table>
               </div>
+
+              {/* Discrepancias / Pérdidas */}
+              {selectedPedido.discrepancias && selectedPedido.discrepancias.length > 0 && (
+                <div style={{ marginBottom: '1.5rem', background: 'rgba(255, 71, 87, 0.05)', border: '1px solid rgba(255, 71, 87, 0.2)', padding: '1rem', borderRadius: '12px' }}>
+                  <h4 style={{ color: 'var(--danger)', marginBottom: '0.8rem', fontSize: '0.95rem' }}>
+                    ⚠️ Pérdidas y Diferencias Registradas
+                  </h4>
+                  <div className="table-container">
+                    <table style={{ margin: 0 }}>
+                      <thead>
+                        <tr>
+                          <th>Fecha</th>
+                          <th>Producto</th>
+                          <th>Cant. Perdida</th>
+                          <th>Motivo</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedPedido.discrepancias.map(disc => (
+                          <tr key={disc.id}>
+                            <td style={{ fontSize: '0.8rem' }}>{new Date(disc.fecha).toLocaleDateString()}</td>
+                            <td><strong>{disc.producto_nombre}</strong></td>
+                            <td style={{ color: 'var(--danger)', fontWeight: 600 }}>
+                              {formatQuantityShort(disc.cantidad_perdida, productos.find(p => p.id === disc.producto_id))}
+                            </td>
+                            <td style={{ fontSize: '0.85rem' }}>{disc.motivo}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* ACTION: EDIT ORDER (Sucursal only) */}
+              {user.rol === 'sucursal' && selectedPedido.estado === 'solicitado' && (
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <button className="btn btn-primary" onClick={() => startEditingOrder(selectedPedido)} style={{ width: '100%', background: 'var(--warning)', borderColor: 'var(--warning)' }}>
+                    ✏️ Modificar Pedido
+                  </button>
+                </div>
+              )}
 
               {/* ACTION: PREPARE ORDER (Transportista / Heladero for event orders) */}
               {(user.rol === 'transportista' || user.rol === 'heladero' && selectedPedido.es_evento) && selectedPedido.estado === 'solicitado' && <div>

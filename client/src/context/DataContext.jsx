@@ -218,6 +218,28 @@ export const DataProvider = ({ children }) => {
     handleLogin, handleLogout
   } = useAuth(showToast, setActiveTab, setLoading);
 const [dashboardStats, setDashboardStats] = useState(null);
+const [editingOrderId, setEditingOrderId] = useState(null);
+
+const startEditingOrder = (order) => {
+  setEditingOrderId(order.id);
+  setOrderIsEvent(order.es_evento || false);
+  
+  const newOrderItems = {};
+  if (order.items) {
+    order.items.forEach(it => {
+      newOrderItems[it.producto_id] = it.cantidad_solicitada;
+    });
+  } else if (order.pedido_detalles) {
+    order.pedido_detalles.forEach(it => {
+      newOrderItems[it.producto_id] = it.cantidad_solicitada;
+    });
+  }
+  setOrderItems(newOrderItems);
+  
+  setSelectedPedido(null);
+  setActiveTab('pedido_nuevo');
+};
+
 const [auditoriaData, setAuditoriaData] = useState([]);
 const [auditoriaFilterSucursal, setAuditoriaFilterSucursal] = useState('');
 const [auditoriaFilterDays, setAuditoriaFilterDays] = useState('7');
@@ -639,6 +661,14 @@ const handleCategoriaChange = cat => {
             cantidad_preparada,
             cantidad_recibida,
             productos ( nombre, tipo, categoria, unidad_medida )
+          ),
+          discrepancias (
+            id,
+            cantidad_perdida,
+            motivo,
+            fecha,
+            productos ( nombre, categoria ),
+            usuarios ( nombre )
           )
         `).order('created_at', {
       ascending: false
@@ -649,7 +679,13 @@ const handleCategoriaChange = cat => {
         ...o,
         sucursal_nombre: o.sucursales?.nombre,
         transportista_nombre: o.u_trans?.nombre,
-        recibido_por_nombre: o.u_recib?.nombre
+        recibido_por_nombre: o.u_recib?.nombre,
+        discrepancias_mapped: (o.discrepancias || []).map(d => ({
+          ...d,
+          producto_nombre: d.productos?.nombre,
+          producto_categoria: d.productos?.categoria,
+          reportado_por_nombre: d.usuarios?.nombre
+        }))
       }));
       setOrders(ordersD);
     }
@@ -937,23 +973,24 @@ const fetchMaquinasYMantenimientos = useCallback(async () => {
     const {
       data: mantData,
       error: mantErr
-    } = await supabase.from('mantenimientos').select(`
-          *,
-          maquinas ( nombre, marca, modelo, tipo_equipo )
-        `).order('fecha', {
+    } = await supabase.from('mantenimientos').select('*').order('fecha', {
       ascending: false
     });
     if (mantErr) throw mantErr;
-    const mappedMant = (mantData || []).map(m => ({
-      ...m,
-      maquina_nombre: m.maquinas?.nombre || 'Máquina Eliminada',
-      maquina_marca: m.maquinas?.marca || '',
-      maquina_modelo: m.maquinas?.modelo || '',
-      maquina_tipo_equipo: m.maquinas?.tipo_equipo || ''
-    }));
+    const mappedMant = (mantData || []).map(m => {
+      const maq = mappedMaq.find(mq => mq.id === m.maquina_id);
+      return {
+        ...m,
+        maquina_nombre: maq?.nombre || 'Máquina Eliminada',
+        maquina_marca: maq?.marca || '',
+        maquina_modelo: maq?.modelo || '',
+        maquina_tipo_equipo: maq?.tipo_equipo || ''
+      };
+    });
     setMantenimientos(mappedMant);
   } catch (err) {
     console.error('Error fetching machines/maintenance:', err);
+    showToast('Error al cargar mantenimientos: ' + err.message, 'error');
   }
 }, [user]);
 useEffect(() => {
@@ -1502,22 +1539,31 @@ const handleCreateOrder = async () => {
   }
   setLoading(true);
   try {
-    const {
-      data: newPedido,
-      error: insErr
-    } = await supabase.from('pedidos').insert({
-      sucursal_destino_id: user.sucursal_id,
-      creado_por_id: user.id,
-      es_evento: user.rol === 'admin' || user.rol === 'heladero' ? orderIsEvent : false,
-      estado: 'solicitado'
-    }).select('id').single();
-    if (insErr) throw insErr;
-    const pedido_id = newPedido.id;
+    let pedido_id;
+    
+    if (editingOrderId) {
+      pedido_id = editingOrderId;
+      const { error: delErr } = await supabase.from('pedido_detalles').delete().eq('pedido_id', pedido_id);
+      if (delErr) throw delErr;
+    } else {
+      const {
+        data: newPedido,
+        error: insErr
+      } = await supabase.from('pedidos').insert({
+        sucursal_destino_id: user.sucursal_id,
+        creado_por_id: user.id,
+        es_evento: user.rol === 'admin' || user.rol === 'heladero' ? orderIsEvent : false,
+        estado: 'solicitado'
+      }).select('id').single();
+      if (insErr) throw insErr;
+      pedido_id = newPedido.id;
+    }
+    
     const details = items.map(item => ({
       pedido_id,
       producto_id: item.producto_id,
       cantidad_solicitada: item.cantidad_solicitada,
-      cantidad_preparada: item.cantidad_solicitada
+      cantidad_preparada: 0
     }));
     const {
       error: detErr
@@ -1528,14 +1574,18 @@ const handleCreateOrder = async () => {
       error: delPendErr
     } = await supabase.from('items_pendientes').delete().eq('sucursal_id', user.sucursal_id).eq('es_evento', orderIsEvent).in('producto_id', orderedProdIds);
     if (delPendErr) throw delPendErr;
-    showToast('Pedido solicitado a Fábrica.');
     
-    // Abrir WhatsApp Web/App para notificar
-    const branchName = user.sucursal_id === 1 ? 'Fábrica' : (sucursales.find(s => s.id === user.sucursal_id)?.nombre || 'mi sucursal');
-    const whatsappMessage = encodeURIComponent(`¡Hola! Soy de ${branchName}, acabo de solicitar un nuevo pedido (ID #${pedido_id}) en el sistema.`);
-    window.open(`https://wa.me/?text=${whatsappMessage}`, '_blank');
+    if (editingOrderId) {
+      showToast('Pedido modificado exitosamente.');
+    } else {
+      showToast('Pedido solicitado a Fábrica.');
+      const branchName = user.sucursal_id === 1 ? 'Fábrica' : (sucursales.find(s => s.id === user.sucursal_id)?.nombre || 'mi sucursal');
+      const whatsappMessage = encodeURIComponent(`¡Hola! Soy de ${branchName}, acabo de solicitar un nuevo pedido (ID #${pedido_id}) en el sistema.`);
+      window.open(`https://wa.me/?text=${whatsappMessage}`, '_blank');
+    }
 
     setOrderIsEvent(false);
+    setEditingOrderId(null);
     setOrderItems({});
     setActiveTab('pedidos_lista');
     fetchData();
@@ -1577,7 +1627,7 @@ const handleAdminCreateOrder = async () => {
         pedido_id,
         producto_id: item.producto_id,
         cantidad_solicitada: item.cantidad_solicitada,
-        cantidad_preparada: item.cantidad_solicitada
+        cantidad_preparada: 0
       }));
       const {
         error: detErr
@@ -1723,11 +1773,26 @@ const viewOrderDetail = async pedidoId => {
       categoria: it.productos?.categoria,
       stock_fabrica: activeStockMap[it.producto_id] || 0
     }));
+    const {
+      data: discrepanciasData
+    } = await supabase.from('discrepancias').select(`
+      *,
+      productos ( nombre, tipo, categoria ),
+      usuarios ( nombre )
+    `).eq('pedido_id', pedidoId);
+    
+    const discrepanciasMapped = (discrepanciasData || []).map(d => ({
+      ...d,
+      producto_nombre: d.productos?.nombre,
+      reportado_por_nombre: d.usuarios?.nombre
+    }));
+
     const orderData = {
       ...order,
       origen_nombre: order.s_orig?.nombre,
       destino_nombre: order.s_dest?.nombre,
-      items: itemsMapped
+      items: itemsMapped,
+      discrepancias: discrepanciasMapped
     };
     setSelectedPedido(orderData);
     const loads = {};
@@ -1821,7 +1886,11 @@ const handlePrepareOrder = async () => {
       error: rpcErr
     } = await supabase.rpc('preparar_pedido', {
       p_pedido_id: selectedPedido.id,
-      p_preparado_por_id: user.id
+      p_preparado_por_id: user.id,
+      p_items: selectedPedido.items.map(it => ({
+        producto_id: it.producto_id,
+        cantidad_preparada: it.cantidad_solicitada
+      }))
     });
     if (rpcErr) {
       await supabase.from('pedidos').update({
@@ -2575,6 +2644,9 @@ const handleDeleteMaintenance = async id => {
     setOrders,
     dashboardStats,
     setDashboardStats,
+    editingOrderId,
+    setEditingOrderId,
+    startEditingOrder,
     auditoriaData,
     setAuditoriaData,
     auditoriaFilterSucursal,

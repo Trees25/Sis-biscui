@@ -18,11 +18,11 @@ const BranchOrderView = () => {
     categories,
     suggestions,
     orderItems,
-    handleBranchCreateOtrosProduct,
-    branchOtrosForm,
     setBranchOtrosForm,
     loading,
-    handleCreateOrder
+    handleCreateOrder,
+    editingOrderId,
+    setEditingOrderId
   } = useData();
   return <div style={{
     display: 'flex',
@@ -46,7 +46,7 @@ const BranchOrderView = () => {
                     <h3 className="section-title" style={{
             margin: 0,
             border: 'none'
-          }}>Armar Pedido</h3>
+          }}>{editingOrderId ? `✏️ Editando Pedido #${editingOrderId}` : 'Armar Pedido'}</h3>
                   </div>
                   <div style={{
           display: 'flex',
@@ -472,13 +472,26 @@ const BranchOrderView = () => {
             })}
                         </div>
                         <div style={{
-            marginTop: '1rem'
+            marginTop: '1rem',
+            display: 'flex',
+            gap: '0.5rem',
+            flexDirection: 'column'
           }}>
                           <button className="btn btn-primary" onClick={handleCreateOrder} disabled={loading} style={{
               width: '100%'
             }}>
-                            Enviar Pedido a Fábrica
+                            {editingOrderId ? 'Guardar Cambios' : 'Enviar Pedido a Fábrica'}
                           </button>
+                          {editingOrderId && (
+                            <button className="btn btn-outline" onClick={() => {
+                              setEditingOrderId(null);
+                              setOrderItems({});
+                            }} disabled={loading} style={{
+                              width: '100%'
+                            }}>
+                              Cancelar Edición
+                            </button>
+                          )}
                         </div>
                       </>;
       })()}

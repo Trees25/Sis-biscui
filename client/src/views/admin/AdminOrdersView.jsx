@@ -23,7 +23,8 @@ const AdminOrdersView = () => {
     stockData,
     sucursales
   } = useData();
-  return <div className="glass-card">
+  return <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+      <div className="glass-card" style={{ flex: '1 1 60%', minWidth: '300px' }}>
       <div style={{
       display: 'flex',
       justifyContent: 'space-between',
@@ -109,13 +110,6 @@ const AdminOrdersView = () => {
           borderRadius: '8px'
         }}>
             Limpiar Todo
-          </button>
-          <button className="btn btn-primary" onClick={handleAdminCreateOrder} disabled={loading} style={{
-          padding: '0.6rem 1.5rem',
-          borderRadius: '8px',
-          fontWeight: 600
-        }}>
-            🚀 Crear y Preparar Pedido
           </button>
         </div>
       </div>
@@ -354,50 +348,113 @@ const AdminOrdersView = () => {
             </table>
           </div>;
     })()}
-
-      {Object.values(adminOrderItems).some(q => q > 0) && <div style={{
-      marginTop: '2rem',
-      background: 'rgba(255, 255, 255, 0.03)',
-      border: '1px solid rgba(0, 0, 0, 0.08)',
-      borderRadius: '12px',
-      padding: '1.2rem',
-      boxShadow: '0 4px 15px rgba(0,0,0,0.05)'
+    </div>
+    
+    <div className="glass-card mobile-summary-panel" style={{
+      flex: '1 1 30%',
+      minWidth: '300px',
+      position: 'sticky',
+      top: '1rem'
     }}>
-          <h4 style={{
-        margin: '0 0 0.8rem 0',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '0.5rem'
-      }}>
-            <span>📋 Resumen del Pedido</span>
-            <span style={{
-          fontSize: '0.8rem',
-          color: 'var(--text-light)'
-        }}>
-              {Object.values(adminOrderItems).filter(q => q > 0).length} productos seleccionados
-            </span>
-          </h4>
+      <h3 className="section-title" style={{
+        margin: 0,
+        border: 'none',
+        marginBottom: '1rem'
+      }}>📋 Resumen del Pedido</h3>
+      {(() => {
+        const selectedItemsList = Object.entries(adminOrderItems)
+          .filter(([_, qty]) => parseFloat(qty) > 0)
+          .map(([id, qty]) => ({
+            id: parseInt(id),
+            qty: parseFloat(qty)
+          }));
+          
+        if (selectedItemsList.length === 0) {
+          return <p style={{
+            fontSize: '0.85rem',
+            color: 'var(--text-light)',
+            textAlign: 'center',
+            padding: '2rem 0'
+          }}>No has seleccionado ningún producto aún.</p>;
+        }
+        
+        return <>
           <div style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: '0.6rem',
-        marginBottom: '1.2rem'
-      }}>
-            {productos.filter(p => adminOrderItems[p.id] > 0).map(p => <div key={p.id} style={{
-          background: 'rgba(0, 0, 0, 0.02)',
-          border: '1px solid rgba(0, 0, 0, 0.06)',
-          padding: '0.4rem 0.8rem',
-          borderRadius: '8px',
-          fontSize: '0.85rem'
-        }}>
-                <strong>{p.nombre}</strong> ({formatTipo(p.tipo)}): <strong style={{
-            color: 'var(--primary)'
-          }}>{formatQuantity(adminOrderItems[p.id], p)}</strong>
-              </div>)}
+            maxHeight: '400px',
+            overflowY: 'auto',
+            marginBottom: '1.5rem',
+            paddingRight: '0.5rem'
+          }}>
+            {selectedItemsList.map(item => {
+              const p = productos.find(prod => prod.id === item.id);
+              if (!p) return null;
+              return <div key={item.id} style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.6rem',
+                padding: '0.8rem 0',
+                borderBottom: '1px solid rgba(0,0,0,0.05)'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start'
+                }}>
+                  <div style={{
+                    fontSize: '0.85rem',
+                    flex: 1,
+                    paddingRight: '0.5rem'
+                  }}>
+                    <strong>{p.nombre}</strong>
+                    <div style={{
+                      fontSize: '0.7rem',
+                      color: 'var(--text-light)',
+                      textTransform: 'capitalize'
+                    }}>{formatTipo(p.tipo)}</div>
+                  </div>
+                  <button className="btn btn-outline btn-sm" style={{
+                    padding: '0.1rem 0.4rem',
+                    fontSize: '0.7rem',
+                    borderColor: 'transparent',
+                    color: 'var(--danger)',
+                    cursor: 'pointer'
+                  }} onClick={e => {
+                    e.stopPropagation();
+                    setAdminOrderItems(prev => {
+                      const n = { ...prev };
+                      delete n[item.id];
+                      return n;
+                    });
+                  }} title="Quitar">
+                    ✕
+                  </button>
+                </div>
+                <div>
+                  <UnitCalculatorInput value={item.qty} onChange={val => {
+                    setAdminOrderItems(prev => ({
+                      ...prev,
+                      [item.id]: val
+                    }));
+                  }} product={p} placeholder="0" min={0} />
+                </div>
+              </div>;
+            })}
           </div>
-        </div>}
-    </div>;
+          <div style={{ marginTop: '1rem' }}>
+            <button className="btn btn-primary" onClick={handleAdminCreateOrder} disabled={loading} style={{
+              width: '100%',
+              padding: '0.8rem',
+              fontWeight: 600
+            }}>
+              🚀 Crear y Preparar Pedido
+            </button>
+          </div>
+        </>;
+      })()}
+    </div>
+    
+    {/* Spacer to allow scrolling past the fixed panel on mobile */}
+    <div className="mobile-summary-spacer"></div>
+  </div>;
 };
 export default AdminOrdersView;

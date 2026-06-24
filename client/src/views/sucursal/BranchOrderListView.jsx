@@ -37,6 +37,7 @@ const BranchOrderListView = () => {
                     </thead>
                     <tbody>
                       {orders.filter(order => {
+            if (order.sucursal_destino_id !== user.sucursal_id) return false;
             if (!sucursalOrderSearch) return true;
             const q = sucursalOrderSearch.toLowerCase();
             return order.id.toString().includes(q) || order.estado && translateState(order.estado).toLowerCase().includes(q);
@@ -62,6 +63,7 @@ const BranchOrderListView = () => {
                             </td>
                           </tr>)}
                       {orders.filter(order => {
+            if (order.sucursal_destino_id !== user.sucursal_id) return false;
             if (!sucursalOrderSearch) return true;
             const q = sucursalOrderSearch.toLowerCase();
             return order.id.toString().includes(q) || order.estado && translateState(order.estado).toLowerCase().includes(q);

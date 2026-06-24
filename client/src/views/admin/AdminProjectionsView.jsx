@@ -9,7 +9,8 @@ const AdminProjectionsView = () => {
     recentLotes,
     getTareByTipo,
     formatTipo,
-    formatQuantity
+    formatQuantity,
+    getProductNetWeight
   } = useData();
   return <div>
                 <div className="glass-card" style={{
@@ -68,22 +69,41 @@ const AdminProjectionsView = () => {
               if (prodReqSearch) {
                 items = items.filter(prod => prod.producto_nombre.toLowerCase().includes(prodReqSearch.toLowerCase()) || prod.tipo && prod.tipo.toLowerCase().includes(prodReqSearch.toLowerCase()));
               }
-              return items.map(prod => <tr key={prod.producto_id}>
+              return items.map(prod => {
+                const isHelado = prod.categoria === 'helados';
+                const qtyPend = prod.cantidad_pendiente;
+                const qtyStock = prod.stock_fabrica || 0;
+                const qtyDiff = Math.max(0, qtyPend - qtyStock);
+                return <tr key={prod.producto_id}>
                               <td><strong>{prod.producto_nombre}</strong></td>
                               <td style={{
                   textTransform: 'capitalize'
-                }}>{prod.tipo}</td>
+                }}>{formatTipo(prod.tipo)}</td>
                               <td style={{
                   fontWeight: 600
-                }}>{prod.cantidad_pendiente}</td>
-                              <td>{prod.stock_fabrica || 0}</td>
+                }}>
+                                {qtyPend} {prod.tipo ? 'u' : ''}
+                                {isHelado && <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-light)', fontWeight: 'normal' }}>
+                                  ({(qtyPend * getProductNetWeight(prod.producto_id, prod.tipo)).toFixed(1)} kg)
+                                </span>}
+                              </td>
+                              <td>
+                                {qtyStock}
+                                {isHelado && qtyStock > 0 && <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-light)', fontWeight: 'normal' }}>
+                                  ({(qtyStock * getProductNetWeight(prod.producto_id, prod.tipo)).toFixed(1)} kg)
+                                </span>}
+                              </td>
                               <td style={{
                   color: 'var(--danger)',
                   fontWeight: 700
                 }}>
-                                {Math.max(0, prod.cantidad_pendiente - (prod.stock_fabrica || 0))}
+                                {qtyDiff}
+                                {isHelado && qtyDiff > 0 && <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--danger)', opacity: 0.8, fontWeight: 'normal' }}>
+                                  ({(qtyDiff * getProductNetWeight(prod.producto_id, prod.tipo)).toFixed(1)} kg)
+                                </span>}
                               </td>
-                            </tr>);
+                            </tr>;
+              });
             })()}
                         {(!dashboardStats?.productionNeeded || dashboardStats.productionNeeded.length === 0) && <tr>
                             <td colSpan="5" style={{
@@ -125,7 +145,7 @@ const AdminProjectionsView = () => {
                         {recentLotes.map(l => {
               const isHelado = l.productos?.categoria === 'helados';
               const tareVal = l.productos ? getTareByTipo(l.productos.tipo) : 0;
-              const netKilos = l.pesos ? l.pesos.reduce((acc, curr) => acc + Math.max(0, parseFloat(curr) - tareVal), 0) : 0;
+              const netKilos = l.pesos && l.pesos.length > 0 ? l.pesos.reduce((acc, curr) => acc + Math.max(0, parseFloat(curr) - tareVal), 0) : 0;
               return <tr key={l.id}>
                               <td><code style={{
                     background: 'rgba(0,0,0,0.05)',
@@ -138,7 +158,14 @@ const AdminProjectionsView = () => {
                   textTransform: 'capitalize',
                   fontSize: '0.85rem'
                 }}>{formatTipo(l.productos?.tipo)}</td>
-                              <td><strong>{formatQuantity(l.cantidad, l.productos)}</strong></td>
+                              <td>
+                                <strong>{formatQuantity(l.cantidad, l.productos)}</strong>
+                                {isHelado && (!l.pesos || l.pesos.length === 0) && (
+                                  <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-light)', fontWeight: 'normal' }}>
+                                    ~{(l.cantidad * getProductNetWeight(l.productos.id, l.productos.tipo)).toFixed(1)} kg (Est.)
+                                  </span>
+                                )}
+                              </td>
                               <td>
                                 {isHelado && l.pesos && l.pesos.length > 0 ? <span style={{
                     fontSize: '0.85rem'
@@ -152,7 +179,11 @@ const AdminProjectionsView = () => {
                               <td>
                                 {isHelado && l.pesos && l.pesos.length > 0 ? <strong style={{
                     color: 'var(--success)'
-                  }}>{netKilos.toFixed(2)} kg</strong> : <span style={{
+                  }}>{netKilos.toFixed(2)} kg</strong> : isHelado ? <span style={{
+                    color: 'var(--warning)',
+                    fontSize: '0.85rem',
+                    fontWeight: 600
+                  }}>~{(l.cantidad * getProductNetWeight(l.productos.id, l.productos.tipo)).toFixed(2)} kg (Est.)</span> : <span style={{
                     color: 'var(--text-light)',
                     fontSize: '0.85rem'
                   }}>-</span>}

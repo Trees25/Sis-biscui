@@ -5,7 +5,6 @@ import MachineModal from './components/modals/MachineModal';
 import EditStockModal from './components/modals/EditStockModal';
 import MaintenanceModal from './components/modals/MaintenanceModal';
 import AdminConsumptionAuditView from './views/admin/AdminConsumptionAuditView';
-import AdminDiscrepanciesView from './views/admin/AdminDiscrepanciesView';
 import AdminProjectionsView from './views/admin/AdminProjectionsView';
 import AdminHistoricalView from './views/admin/AdminHistoricalView';
 import AdminMaintenanceView from './views/admin/AdminMaintenanceView';
@@ -102,6 +101,17 @@ const AppContent = () => {
     );
   }
 
+  const getManualUrl = () => {
+    switch (user?.rol) {
+      case 'admin': return 'https://screeching-magician-d39.notion.site/Manual-Administrador-388a3624868a800a939dfe2d908ee36a';
+      case 'heladero': return 'https://screeching-magician-d39.notion.site/Manual-heladero-379a3624868a81dc85efd39fae421c60';
+      case 'pastelero': return 'https://screeching-magician-d39.notion.site/Manual-Pastelero-381a3624868a8119a848e5da43dba11f';
+      case 'pastelero_helado': return 'https://screeching-magician-d39.notion.site/Manual-Pastelero-Helado-381a3624868a81a194dbf332de06e63c';
+      case 'sucursal': return 'https://app.notion.com/p/Manual-Empleados-Sucursales-381a3624868a81508ae7d4de1cb3bba1';
+      default: return 'https://screeching-magician-d39.notion.site/Sistema-Biscui-Manuales-379a3624868a80658d2cd1d20d963cb5';
+    }
+  };
+
   return (
     <div className="app-container">
       <header className="header">
@@ -110,6 +120,25 @@ const AppContent = () => {
         </div>
 
         <div className="user-profile">
+          <a 
+            href={getManualUrl()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-sm" 
+            style={{ 
+              background: 'transparent', 
+              border: 'none', 
+              color: 'var(--text-light)', 
+              fontSize: '1.2rem', 
+              cursor: 'pointer',
+              marginRight: '0.2rem',
+              padding: '0.2rem',
+              textDecoration: 'none'
+            }}
+            title="Ver Manual"
+          >
+            📖
+          </a>
           <button 
             className="btn btn-sm" 
             style={{ 
@@ -145,7 +174,6 @@ const AppContent = () => {
             <div className="tabs">
               <button className={`tab-btn ${activeTab === 'matrix' ? 'active' : ''}`} onClick={() => setActiveTab('matrix')}>Stock de Sucursales</button>
               <button className={`tab-btn ${activeTab === 'logistics' ? 'active' : ''}`} onClick={() => setActiveTab('logistics')}>Logística y Pedidos</button>
-              <button className={`tab-btn ${activeTab === 'discrepancias' ? 'active' : ''}`} onClick={() => setActiveTab('discrepancias')}>Historial de Pérdidas</button>
               <button className={`tab-btn ${activeTab === 'produccion_req' ? 'active' : ''}`} onClick={() => setActiveTab('produccion_req')}>Proyecciones de Fábrica</button>
               <button className={`tab-btn ${activeTab === 'catalogo' ? 'active' : ''}`} onClick={() => setActiveTab('catalogo')}>Productos</button>
               <button className={`tab-btn ${activeTab === 'proveedores' ? 'active' : ''}`} onClick={() => setActiveTab('proveedores')}>Proveedores</button>
@@ -154,7 +182,6 @@ const AppContent = () => {
 
             {activeTab === 'matrix' && <AdminStockView />}
             {activeTab === 'logistics' && <AdminLogisticsHub />}
-            {activeTab === 'discrepancias' && <AdminDiscrepanciesView />}
             {activeTab === 'produccion_req' && <AdminProjectionsView />}
             {activeTab === 'catalogo' && <AdminProductsView />}
             {activeTab === 'maquinas' && <AdminMaintenanceView />}

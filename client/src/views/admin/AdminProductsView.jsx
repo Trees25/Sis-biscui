@@ -3,7 +3,7 @@ import React from 'react';
 import { formatTipo } from '../../utils/formatters';
 
 const AdminProductsView = () => {
-  const { productos: allProducts, categories, proveedores, catalogSearch, setCatalogSearch, catalogCategory, setCatalogCategory, catalogSupplier, setCatalogSupplier, catalogStatus, setCatalogStatus, catalogFormat, setCatalogFormat, cancelEditingProduct, setShowProductModal, showProductModal, handleToggleProductActive, startEditingProduct, loading, editingProduct, handleProductFormSubmit, newProductForm, setNewProductForm, handleCategoriaChange, getTiposPorCategoria, showSupplierForm, setShowSupplierForm, newSupplierName, setNewSupplierName, handleCreateSupplier } = useData();
+  const { allProducts, categories, proveedores, catalogSearch, setCatalogSearch, catalogCategory, setCatalogCategory, catalogSupplier, setCatalogSupplier, catalogStatus, setCatalogStatus, catalogFormat, setCatalogFormat, cancelEditingProduct, setShowProductModal, showProductModal, handleToggleProductActive, startEditingProduct, loading, editingProduct, handleProductFormSubmit, newProductForm, setNewProductForm, handleCategoriaChange, getTiposPorCategoria, showSupplierForm, setShowSupplierForm, newSupplierName, setNewSupplierName, handleCreateSupplier } = useData();
 
   return (
     <>

@@ -530,7 +530,7 @@ const AdminMaintenanceView = () => {
                                   </td>
                                   <td style={{
                   fontSize: '0.85rem'
-                }}>{getMainMaintenanceTypeLabel(m.tipo)}</td>
+                }}>{getMaintenanceTypeLabel(m.tipo)}</td>
                                   <td>
                                     <div style={{
                     fontSize: '0.9rem'

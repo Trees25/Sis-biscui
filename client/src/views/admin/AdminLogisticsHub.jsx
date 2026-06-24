@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import AdminFlujoView from './AdminFlujoView';
 import AdminOrdersView from './AdminOrdersView';
 import AdminConsumptionAuditView from './AdminConsumptionAuditView';
-import AdminDiscrepanciesView from './AdminDiscrepanciesView';
 import AdminProductionOrdersView from './AdminProductionOrdersView';
 
 const AdminLogisticsHub = () => {

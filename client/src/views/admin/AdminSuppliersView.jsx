@@ -95,70 +95,76 @@ const AdminSuppliersView = () => {
                 </div>
 
                 {/* PROVEEDOR MODAL */}
-                {showProvModal && <div className="modal-overlay" onClick={() => setShowProvModal(false)}>
-                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{
-        maxWidth: '500px'
-      }}>
-                      <h3 className="section-title" style={{
-          marginTop: 0
-        }}>
-                        {editingProv ? 'Editar Proveedor' : 'Nuevo Proveedor'}
-                      </h3>
+                {showProvModal && (
+                  <div style={{
+                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                    background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center',
+                    alignItems: 'center', zIndex: 1100, padding: '1rem',
+                    backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)'
+                  }} onClick={() => setShowProvModal(false)}>
+                    <div className="glass-card" onClick={e => e.stopPropagation()} style={{
+                      maxWidth: '500px', width: '100%', background: 'rgba(255, 255, 255, 0.95)', color: '#000'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid rgba(0,0,0,0.1)', paddingBottom: '0.8rem' }}>
+                        <h3 className="section-title" style={{ margin: 0, color: 'var(--text-dark)' }}>
+                          {editingProv ? 'Editar Proveedor' : 'Nuevo Proveedor'}
+                        </h3>
+                        <button
+                          className="btn btn-outline btn-sm"
+                          style={{ borderColor: 'rgba(0,0,0,0.2)', color: 'var(--text-dark)' }}
+                          onClick={() => setShowProvModal(false)}
+                        >
+                          ✕
+                        </button>
+                      </div>
                       <form onSubmit={handleProvSubmit} className="form-grid">
                         <div className="form-group">
-                          <label>Nombre *</label>
-                          <input type="text" className="form-control" value={provForm.nombre} onChange={e => setProvForm({
-              ...provForm,
-              nombre: e.target.value
-            })} required />
+                          <label style={{ color: 'var(--text-dark)' }}>Nombre *</label>
+                          <input type="text" className="form-control" style={{ border: '1px solid rgba(0,0,0,0.15)' }} value={provForm.nombre} onChange={e => setProvForm({
+                            ...provForm,
+                            nombre: e.target.value
+                          })} required />
                         </div>
                         <div className="form-group">
-                          <label>CUIT (Opcional)</label>
-                          <input type="text" className="form-control" value={provForm.cuit} onChange={e => setProvForm({
-              ...provForm,
-              cuit: e.target.value
-            })} />
+                          <label style={{ color: 'var(--text-dark)' }}>CUIT (Opcional)</label>
+                          <input type="text" className="form-control" style={{ border: '1px solid rgba(0,0,0,0.15)' }} value={provForm.cuit} onChange={e => setProvForm({
+                            ...provForm,
+                            cuit: e.target.value
+                          })} />
                         </div>
                         <div className="form-group">
-                          <label>Teléfono (Opcional)</label>
-                          <input type="text" className="form-control" value={provForm.telefono} onChange={e => setProvForm({
-              ...provForm,
-              telefono: e.target.value
-            })} />
+                          <label style={{ color: 'var(--text-dark)' }}>Teléfono (Opcional)</label>
+                          <input type="text" className="form-control" style={{ border: '1px solid rgba(0,0,0,0.15)' }} value={provForm.telefono} onChange={e => setProvForm({
+                            ...provForm,
+                            telefono: e.target.value
+                          })} />
                         </div>
                         <div className="form-group">
-                          <label>Email (Opcional)</label>
-                          <input type="email" className="form-control" value={provForm.email} onChange={e => setProvForm({
-              ...provForm,
-              email: e.target.value
-            })} />
+                          <label style={{ color: 'var(--text-dark)' }}>Email (Opcional)</label>
+                          <input type="email" className="form-control" style={{ border: '1px solid rgba(0,0,0,0.15)' }} value={provForm.email} onChange={e => setProvForm({
+                            ...provForm,
+                            email: e.target.value
+                          })} />
                         </div>
                         <div className="form-group">
-                          <label>Dirección (Opcional)</label>
-                          <textarea className="form-control" value={provForm.direccion} onChange={e => setProvForm({
-              ...provForm,
-              direccion: e.target.value
-            })} rows="2"></textarea>
+                          <label style={{ color: 'var(--text-dark)' }}>Dirección (Opcional)</label>
+                          <textarea className="form-control" style={{ border: '1px solid rgba(0,0,0,0.15)' }} value={provForm.direccion} onChange={e => setProvForm({
+                            ...provForm,
+                            direccion: e.target.value
+                          })} rows="2"></textarea>
                         </div>
-                        <div style={{
-            display: 'flex',
-            gap: '1rem',
-            marginTop: '1rem'
-          }}>
-                          <button type="submit" className="btn btn-primary" style={{
-              flex: 1
-            }} disabled={loading}>
+                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.5rem' }}>
+                          <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={loading}>
                             {loading ? 'Guardando...' : 'Guardar'}
                           </button>
-                          <button type="button" className="btn btn-secondary" style={{
-              flex: 1
-            }} onClick={() => setShowProvModal(false)}>
+                          <button type="button" className="btn btn-outline" style={{ flex: 1, borderColor: 'rgba(0,0,0,0.2)', color: 'var(--text-dark)' }} onClick={() => setShowProvModal(false)}>
                             Cancelar
                           </button>
                         </div>
                       </form>
                     </div>
-                  </div>}
+                  </div>
+                )}
               </div>;
 };
 export default AdminSuppliersView;
