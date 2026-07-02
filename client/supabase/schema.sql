@@ -41,6 +41,7 @@ CREATE TABLE productos (
     nombre TEXT NOT NULL,
     categoria TEXT NOT NULL,
     tipo TEXT,
+    clasificacion_sabor TEXT,
     activo INT DEFAULT 1,
     proveedor_id INT REFERENCES proveedores(id) ON DELETE SET NULL,
     unidad_medida TEXT,

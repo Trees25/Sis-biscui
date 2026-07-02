@@ -3,7 +3,8 @@ import React from 'react';
 import { formatTipo } from '../../utils/formatters';
 
 const AdminProductsView = () => {
-  const { allProducts, categories, proveedores, catalogSearch, setCatalogSearch, catalogCategory, setCatalogCategory, catalogSupplier, setCatalogSupplier, catalogStatus, setCatalogStatus, catalogFormat, setCatalogFormat, cancelEditingProduct, setShowProductModal, showProductModal, handleToggleProductActive, startEditingProduct, loading, editingProduct, handleProductFormSubmit, newProductForm, setNewProductForm, handleCategoriaChange, getTiposPorCategoria, showSupplierForm, setShowSupplierForm, newSupplierName, setNewSupplierName, handleCreateSupplier } = useData();
+  const { allProducts, categories, proveedores, catalogSearch, setCatalogSearch, catalogCategory, setCatalogCategory, catalogSupplier, setCatalogSupplier, catalogStatus, setCatalogStatus, catalogFormat, setCatalogFormat, cancelEditingProduct, setShowProductModal, showProductModal, handleToggleProductActive, startEditingProduct, loading, editingProduct, handleProductFormSubmit, newProductForm, setNewProductForm, handleCategoriaChange, getTiposPorCategoria, showSupplierForm, setShowSupplierForm, newSupplierName, setNewSupplierName, handleCreateSupplier, getFlavorGroup } = useData();
+  const [catalogFlavor, setCatalogFlavor] = React.useState('Todos');
 
   return (
     <>
@@ -101,29 +102,6 @@ const AdminProductsView = () => {
                       </select>
                     </div>
 
-                    {/* Format/Type Filter (for Helados / Todos) */}
-                    {(catalogCategory === 'helados' || catalogCategory === 'Todos') && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: '1 1 200px' }}>
-                        <span style={{ fontSize: '0.85rem', color: 'var(--text-light)', whiteSpace: 'nowrap' }}>Formato:</span>
-                        <div style={{ display: 'flex', gap: '0.2rem' }}>
-                          {[
-                            { id: 'Todos', label: 'Todos' },
-                            { id: 'Vasqueta', label: 'Vasquetas' },
-                            { id: 'Balde', label: 'Baldes' }
-                          ].map(fmt => (
-                            <button
-                              key={fmt.id}
-                              type="button"
-                              className={`btn btn-sm ${catalogFormat === fmt.id ? 'btn-primary' : 'btn-outline'}`}
-                              style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem', borderRadius: '6px', minHeight: 'unset', fontWeight: 600 }}
-                              onClick={() => setCatalogFormat(fmt.id)}
-                            >
-                              {fmt.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
 
                   {/* Categories Sub-Tabs */}
@@ -146,6 +124,7 @@ const AdminProductsView = () => {
                           setCatalogCategory(tab.id);
                           if (tab.id !== 'helados' && tab.id !== 'Todos') {
                             setCatalogFormat('Todos');
+                            setCatalogFlavor('Todos');
                           }
                         }}
                       >
@@ -153,6 +132,58 @@ const AdminProductsView = () => {
                       </button>
                     ))}
                   </div>
+                  
+                  {/* Secondary Filters for Helados */}
+                  {(catalogCategory === 'helados' || catalogCategory === 'Todos') && (
+                    <div style={{ display: 'flex', gap: '1rem', borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '0.8rem', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-light)', whiteSpace: 'nowrap' }}>Formato:</span>
+                        <div style={{ display: 'flex', gap: '0.2rem' }}>
+                          {[
+                            { id: 'Todos', label: 'Todos' },
+                            { id: 'Vasqueta', label: 'Vasquetas' },
+                            { id: 'Balde', label: 'Baldes' }
+                          ].map(fmt => (
+                            <button
+                              key={fmt.id}
+                              type="button"
+                              className={`btn btn-sm ${catalogFormat === fmt.id ? 'btn-primary' : 'btn-outline'}`}
+                              style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem', borderRadius: '6px', minHeight: 'unset', fontWeight: 600 }}
+                              onClick={() => setCatalogFormat(fmt.id)}
+                            >
+                              {fmt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-light)', whiteSpace: 'nowrap' }}>Sabor:</span>
+                        <select
+                          className="form-control"
+                          style={{
+                            borderRadius: '10px',
+                            background: 'var(--input-bg)',
+                            border: '1px solid rgba(0, 0, 0, 0.1)',
+                            color: 'var(--text-dark)',
+                            fontSize: '0.9rem',
+                            padding: '0.5rem',
+                            height: 'auto',
+                            minHeight: 'unset'
+                          }}
+                          value={catalogFlavor}
+                          onChange={e => setCatalogFlavor(e.target.value)}
+                        >
+                          <option value="Todos">Todos</option>
+                          <option value="Cremas">Cremas</option>
+                          <option value="Dulces de leche">Dulces de leche</option>
+                          <option value="Chocolate">Chocolate</option>
+                          <option value="Sin gluten">Sin gluten</option>
+                          <option value="Frutales al agua">Frutales al agua</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Full-width Product List */}
@@ -187,6 +218,12 @@ const AdminProductsView = () => {
                               }
                               if (catalogFormat === 'Balde' && p.tipo !== 'balde_4k' && p.tipo !== 'balde_8k') {
                                 return false;
+                              }
+                              if (catalogFlavor !== 'Todos') {
+                                const flavor = p.clasificacion_sabor || getFlavorGroup(p.nombre);
+                                if (flavor !== catalogFlavor) {
+                                  return false;
+                                }
                               }
                             }
                             // Supplier filter
@@ -339,6 +376,24 @@ const AdminProductsView = () => {
                             ))}
                           </select>
                         </div>
+                        {newProductForm.categoria === 'helados' && (newProductForm.tipo?.includes('vasqueta') || newProductForm.tipo?.includes('balde')) ? (
+                          <div className="form-group">
+                            <label style={{ color: 'var(--text-dark)' }}>Categoría de Sabor</label>
+                            <select
+                              className="form-control"
+                              value={newProductForm.clasificacion_sabor || ''}
+                              onChange={e => setNewProductForm({ ...newProductForm, clasificacion_sabor: e.target.value })}
+                              style={{ border: '1px solid rgba(0,0,0,0.15)' }}
+                            >
+                              <option value="">-- Seleccionar --</option>
+                              <option value="Cremas">Cremas</option>
+                              <option value="Dulces de leche">Dulces de leche</option>
+                              <option value="Chocolate">Chocolate</option>
+                              <option value="Sin gluten">Sin gluten</option>
+                              <option value="Frutales al agua">Frutales al agua</option>
+                            </select>
+                          </div>
+                        ) : null}
                         
                         <div className="form-group">
                           <label style={{ color: 'var(--text-dark)' }}>Proveedor (Opcional)</label>

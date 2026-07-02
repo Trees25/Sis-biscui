@@ -114,7 +114,7 @@ const AdminStockView = () => {
           catProds = catProds.filter(p => p.tipo && p.tipo.includes('balde'));
         }
         if (stockGroupFilter !== 'Todos') {
-          catProds = catProds.filter(p => getFlavorGroup(p.producto_nombre) === stockGroupFilter);
+          catProds = catProds.filter(p => (p.clasificacion_sabor || getFlavorGroup(p.producto_nombre)) === stockGroupFilter);
         }
         if (iceCreamFormatFilter === 'Vasqueta') {
           catProds = catProds.filter(p => p.tipo === 'vasqueta_5_6k');

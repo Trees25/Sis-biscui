@@ -276,6 +276,7 @@ const [newProductForm, setNewProductForm] = useState({
   nombre: '',
   categoria: 'helados',
   tipo: 'vasqueta_5_6k',
+  clasificacion_sabor: '',
   proveedor_id: '',
   unidad_medida: 'unidad',
   cant_por_caja: 24,
@@ -501,7 +502,7 @@ const getGroupedStock = (forEvent = false) => {
   const grouped = {};
   iceCreams.forEach(p => {
     const flavor = getFlavorName(p.nombre);
-    const group = getFlavorGroup(p.nombre);
+    const group = p.clasificacion_sabor || getFlavorGroup(p.nombre);
     if (!grouped[flavor]) {
       grouped[flavor] = {
         flavor,
@@ -600,13 +601,18 @@ const handleCategoriaChange = cat => {
       error: lotesErr
     } = await supabase.from('lotes_produccion').select(`
           *,
-          productos ( nombre, tipo, categoria, unidad_medida )
+          productos ( nombre, tipo, categoria, unidad_medida ),
+          lote_pesos ( peso_bruto, peso_neto )
         `).order('id', {
       ascending: false
     }).limit(20);
     if (version !== fetchVersionRef.current) return;
     if (!lotesErr) {
-      setRecentLotes(lotesRaw || []);
+      const mappedLotes = (lotesRaw || []).map(lote => ({
+        ...lote,
+        pesos: lote.lote_pesos ? lote.lote_pesos.map(p => p.peso_bruto) : []
+      }));
+      setRecentLotes(mappedLotes);
     }
     let rawStock = [];
     let stockQuery = supabase.from('stock_sucursales').select(`
@@ -757,6 +763,7 @@ const handleCategoriaChange = cat => {
         groupedMatriz.push({
           producto_id: prod.id,
           producto_nombre: prod.nombre,
+          clasificacion_sabor: prod.clasificacion_sabor,
           categoria: prod.categoria,
           tipo: prod.tipo,
           unidad_medida: prod.unidad_medida,
@@ -767,6 +774,7 @@ const handleCategoriaChange = cat => {
         groupedMatriz.push({
           producto_id: prod.id,
           producto_nombre: prod.nombre,
+          clasificacion_sabor: prod.clasificacion_sabor,
           categoria: prod.categoria,
           tipo: prod.tipo,
           unidad_medida: prod.unidad_medida,
@@ -1061,7 +1069,13 @@ const handleProductionSubmit = async e => {
   try {
     const pId = parseInt(prodForm.producto_id);
     const qty = parseInt(prodForm.cantidad);
-    const pDate = prodForm.fecha ? new Date(prodForm.fecha) : new Date();
+    let pDate = new Date();
+    if (prodForm.fecha) {
+      const [year, month, day] = prodForm.fecha.split('-');
+      if (year && month && day) {
+        pDate.setFullYear(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
+      }
+    }
     const dateStr = pDate.toISOString().slice(0, 10).replace(/-/g, '');
     const rand = Math.floor(1000 + Math.random() * 9000);
     const codigo_lote = `L-${dateStr}-${rand}`;
@@ -2079,6 +2093,7 @@ const handleNewProductSubmit = async e => {
       nombre: newProductForm.nombre,
       categoria: newProductForm.categoria,
       tipo: newProductForm.tipo,
+      clasificacion_sabor: newProductForm.clasificacion_sabor || null,
       proveedor_id: newProductForm.proveedor_id ? parseInt(newProductForm.proveedor_id) : null,
       unidad_medida: newProductForm.unidad_medida,
       cant_por_caja: newProductForm.cant_por_caja ? parseInt(newProductForm.cant_por_caja) : 24,
@@ -2105,6 +2120,7 @@ const handleNewProductSubmit = async e => {
       nombre: '',
       categoria: 'helados',
       tipo: 'vasqueta_5_6k',
+      clasificacion_sabor: '',
       proveedor_id: '',
       unidad_medida: 'unidad',
       cant_por_caja: 24,
@@ -2128,6 +2144,7 @@ const handleUpdateProduct = async () => {
       nombre: newProductForm.nombre,
       categoria: newProductForm.categoria,
       tipo: newProductForm.tipo,
+      clasificacion_sabor: newProductForm.clasificacion_sabor || null,
       proveedor_id: newProductForm.proveedor_id ? parseInt(newProductForm.proveedor_id) : null,
       unidad_medida: newProductForm.unidad_medida,
       cant_por_caja: newProductForm.cant_por_caja ? parseInt(newProductForm.cant_por_caja) : 24,
@@ -2139,6 +2156,7 @@ const handleUpdateProduct = async () => {
       nombre: '',
       categoria: 'helados',
       tipo: 'vasqueta_5_6k',
+      clasificacion_sabor: '',
       proveedor_id: '',
       unidad_medida: 'unidad',
       cant_por_caja: 24,
@@ -2167,6 +2185,7 @@ const startEditingProduct = p => {
     nombre: p.nombre,
     categoria: p.categoria,
     tipo: p.tipo,
+    clasificacion_sabor: p.clasificacion_sabor || '',
     proveedor_id: p.proveedor_id ? String(p.proveedor_id) : '',
     unidad_medida: p.unidad_medida || 'unidad',
     cant_por_caja: p.cant_por_caja !== undefined && p.cant_por_caja !== null ? p.cant_por_caja : 24,
@@ -2180,6 +2199,7 @@ const cancelEditingProduct = () => {
     nombre: '',
     categoria: 'helados',
     tipo: 'vasqueta_5_6k',
+    clasificacion_sabor: '',
     proveedor_id: '',
     unidad_medida: 'unidad',
     cant_por_caja: 24,
