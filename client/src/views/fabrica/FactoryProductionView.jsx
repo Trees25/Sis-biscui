@@ -133,7 +133,7 @@ const FactoryProductionView = () => {
   <div className="dashboard-grid">
                 <div className="glass-card">
                   <h3 className="section-title">
-                    {user.rol === 'heladero' ? 'Registro de Fabricación' : user.rol === 'pastelero_helado' ? 'Registro de Pastelería Helada' : 'Registro de Pastelería'}
+                    {user.rol === 'heladero' ? 'Registro de Fabricación' : 'Registro de Pastelería y Producción'}
                   </h3>
                   <form onSubmit={handleProductionSubmit}>
                     <div className="form-group" style={{

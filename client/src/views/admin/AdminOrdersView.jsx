@@ -224,8 +224,8 @@ const AdminOrdersView = () => {
           id: 'pasteleria',
           label: '🍰 Pastelería Clásica'
         }, {
-          id: 'viennoiserie',
-          label: '🥐 Viennoiserie'
+          id: 'sembrados',
+          label: '🌾 Sembrados'
         }, {
           id: 'termicos',
           label: '📦 Térmicos'

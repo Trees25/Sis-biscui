@@ -20,8 +20,8 @@ const categories = [{
   id: 'pasteleria',
   name: 'Pastelería Clásica'
 }, {
-  id: 'viennoiserie',
-  name: 'Viennoiserie'
+  id: 'sembrados',
+  name: 'Sembrados'
 }, {
   id: 'termicos',
   name: 'Térmicos'
@@ -299,11 +299,10 @@ const [showSupplierForm, setShowSupplierForm] = useState(false);
 const [newSupplierName, setNewSupplierName] = useState('');
 const isCategoryVisibleToRole = (category, role) => {
   if (role === 'heladero') return category === 'helados';
-  if (role === 'pastelero_helado') return category === 'pasteleria_helada';
-  if (role === 'pastelero') return category === 'pasteleria' || category === 'viennoiserie';
+  if (role === 'pastelero') return category === 'pasteleria' || category === 'sembrados' || category === 'pasteleria_helada';
   return false;
 };
-const getTiposPorCategoria = categoria => {
+const getTiposPorCategoria = (categoria, allProds = []) => {
   switch (categoria) {
     case 'helados':
       return [{
@@ -344,41 +343,29 @@ const getTiposPorCategoria = categoria => {
       }];
     case 'pasteleria':
       return [{
-        value: 'lemon_pie',
-        label: 'Lemon Pie'
+        value: 'Chocolates, macaron y postres',
+        label: 'Chocolates, macaron y postres'
       }, {
-        value: 'cheesecake',
-        label: 'Cheesecake'
+        value: 'Festivos',
+        label: 'Festivos'
       }, {
-        value: 'mini_cheesecake',
-        label: 'Mini Cheesecake'
+        value: 'Viennoiserie y escones',
+        label: 'Viennoiserie y escones'
       }, {
-        value: 'pirinea',
-        label: 'Pirinea'
+        value: 'Sanguches',
+        label: 'Sanguches'
       }, {
-        value: 'mini_pirinea',
-        label: 'Mini Pirinea'
+        value: 'Tortas',
+        label: 'Tortas'
       }, {
-        value: 'torta',
-        label: 'Torta'
-      }, {
-        value: 'alfajor',
-        label: 'Alfajor'
+        value: 'Alfajores',
+        label: 'Alfajores'
       }];
-    case 'viennoiserie':
-      return [{
-        value: 'roll',
-        label: 'Roll'
-      }, {
-        value: 'croissant',
-        label: 'Croissant'
-      }, {
-        value: 'brownie',
-        label: 'Brownie'
-      }, {
-        value: 'viennoiserie_otra',
-        label: 'Otro Viennoiserie'
-      }];
+    case 'sembrados': {
+      const existing = allProds.filter(p => p.categoria === 'sembrados' && p.tipo).map(p => p.tipo);
+      const unique = [...new Set(['Roll de Canela', 'Croissant', 'Brownie', 'Danesas', ...existing])];
+      return unique.map(t => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1).replace(/_/g, ' ') }));
+    }
     case 'termicos':
       return [{
         value: 'vaso_1_bocha',
@@ -431,11 +418,8 @@ const isProductVisibleToRole = (p, role) => {
   if (role === 'heladero') {
     return p.categoria === 'helados';
   }
-  if (role === 'pastelero_helado') {
-    return p.categoria === 'pasteleria_helada';
-  }
   if (role === 'pastelero') {
-    return p.categoria === 'pasteleria' || p.categoria === 'panaderia';
+    return p.categoria === 'pasteleria' || p.categoria === 'panaderia' || p.categoria === 'pasteleria_helada' || p.categoria === 'sembrados';
   }
   return true;
 };
@@ -531,11 +515,11 @@ const getGroupedStock = (forEvent = false) => {
   return Object.values(grouped);
 };
 const handleCategoriaChange = cat => {
-  const tipos = getTiposPorCategoria(cat);
+  const tipos = getTiposPorCategoria(cat, allProducts);
   setNewProductForm({
     ...newProductForm,
     categoria: cat,
-    tipo: tipos.length > 0 ? tipos[0].value : ''
+    tipo: ''
   });
 };
   const fetchVersionRef = React.useRef(0);
@@ -764,6 +748,7 @@ const handleCategoriaChange = cat => {
           producto_id: prod.id,
           producto_nombre: prod.nombre,
           clasificacion_sabor: prod.clasificacion_sabor,
+
           categoria: prod.categoria,
           tipo: prod.tipo,
           unidad_medida: prod.unidad_medida,
@@ -775,6 +760,7 @@ const handleCategoriaChange = cat => {
           producto_id: prod.id,
           producto_nombre: prod.nombre,
           clasificacion_sabor: prod.clasificacion_sabor,
+
           categoria: prod.categoria,
           tipo: prod.tipo,
           unidad_medida: prod.unidad_medida,
@@ -2181,10 +2167,18 @@ const handleProductFormSubmit = e => {
 };
 const startEditingProduct = p => {
   setEditingProduct(p);
+  let resolvedTipo = p.tipo;
+  const tiposCat = getTiposPorCategoria(p.categoria, allProducts);
+  if (p.categoria !== 'sembrados') {
+    if (!tiposCat.find(t => t.value === p.tipo)) {
+      resolvedTipo = '';
+    }
+  }
+
   setNewProductForm({
     nombre: p.nombre,
     categoria: p.categoria,
-    tipo: p.tipo,
+    tipo: resolvedTipo,
     clasificacion_sabor: p.clasificacion_sabor || '',
     proveedor_id: p.proveedor_id ? String(p.proveedor_id) : '',
     unidad_medida: p.unidad_medida || 'unidad',

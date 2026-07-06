@@ -3,6 +3,7 @@ import React from 'react';
 import { formatTipo, formatQuantityShort } from '../../utils/formatters';
 import { getFlavorGroup } from '../../utils/flavors';
 const AdminStockView = () => {
+  const [stockPastryFilter, setStockPastryFilter] = React.useState('Todos');
   const {
     showEventStock,
     setShowEventStock,
@@ -87,8 +88,8 @@ const AdminStockView = () => {
         id: 'pasteleria',
         label: '🍰 Pastelería Clásica'
       }, {
-        id: 'viennoiserie',
-        label: '🥐 Viennoiserie'
+        id: 'sembrados',
+        label: '🌾 Sembrados'
       }, {
         id: 'termicos',
         label: '📦 Térmicos'
@@ -100,7 +101,12 @@ const AdminStockView = () => {
         fontSize: '0.85rem',
         borderRadius: '8px',
         fontWeight: adminStockTab === tab.id ? 600 : 400
-      }} onClick={() => setAdminStockTab(tab.id)}>
+      }} onClick={() => {
+        setAdminStockTab(tab.id);
+        if (tab.id !== 'pasteleria') {
+          setStockPastryFilter('Todos');
+        }
+      }}>
             {tab.label}
           </button>)}
       </div>
@@ -122,10 +128,52 @@ const AdminStockView = () => {
           catProds = catProds.filter(p => p.tipo === 'balde_4k' || p.tipo === 'balde_8k');
         }
       }
+      if (selectedCat.id === 'pasteleria') {
+        if (stockPastryFilter !== 'Todos') {
+          catProds = catProds.filter(p => p.tipo === stockPastryFilter);
+        }
+      }
       if (adminStockSearch) {
         catProds = catProds.filter(p => p.producto_nombre.toLowerCase().includes(adminStockSearch.toLowerCase()) || p.tipo && formatTipo(p.tipo).toLowerCase().includes(adminStockSearch.toLowerCase()));
       }
       return <div className="glass-card">
+            {selectedCat.id === 'pasteleria' && <div style={{
+          display: 'flex',
+          gap: '1rem',
+          borderBottom: '1px solid rgba(0,0,0,0.05)',
+          paddingBottom: '0.8rem',
+          marginBottom: '1rem',
+          flexWrap: 'wrap'
+        }}>
+              <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}>
+                <span style={{
+              fontSize: '0.85rem',
+              color: 'var(--text-light)'
+            }}>Categoría:</span>
+                <select className="form-control form-control-sm" value={stockPastryFilter} onChange={e => setStockPastryFilter(e.target.value)} style={{
+              padding: '0.25rem 0.6rem',
+              borderRadius: '6px',
+              border: '1px solid rgba(0,0,0,0.15)',
+              background: 'transparent',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              minWidth: '150px'
+            }}>
+                  <option value="Todos">Todos</option>
+                  <option value="Chocolates, macaron y postres">Chocolates, macaron y postres</option>
+                  <option value="Festivos">Festivos</option>
+                  <option value="Viennoiserie y escones">Viennoiserie y escones</option>
+                  <option value="Sanguches">Sanguches</option>
+                  <option value="Tortas">Tortas</option>
+                  <option value="Alfajores">Alfajores</option>
+                </select>
+              </div>
+            </div>}
+            
             <div style={{
           display: 'flex',
           justifyContent: 'space-between',

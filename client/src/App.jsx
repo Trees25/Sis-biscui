@@ -107,7 +107,7 @@ const AppContent = () => {
       case 'admin': return 'https://screeching-magician-d39.notion.site/Manual-Administrador-388a3624868a800a939dfe2d908ee36a';
       case 'heladero': return 'https://screeching-magician-d39.notion.site/Manual-heladero-379a3624868a81dc85efd39fae421c60';
       case 'pastelero': return 'https://screeching-magician-d39.notion.site/Manual-Pastelero-381a3624868a8119a848e5da43dba11f';
-      case 'pastelero_helado': return 'https://screeching-magician-d39.notion.site/Manual-Pastelero-Helado-381a3624868a81a194dbf332de06e63c';
+
       case 'sucursal': return 'https://app.notion.com/p/Manual-Empleados-Sucursales-381a3624868a81508ae7d4de1cb3bba1';
       default: return 'https://screeching-magician-d39.notion.site/Sistema-Biscui-Manuales-379a3624868a80658d2cd1d20d963cb5';
     }
@@ -214,11 +214,11 @@ const AppContent = () => {
           </div>
         )}
 
-        {(user.rol === 'heladero' || user.rol === 'pastelero' || user.rol === 'pastelero_helado') && (
+        {(user.rol === 'heladero' || user.rol === 'pastelero') && (
           <div>
             <div className="tabs">
               <button className={`tab-btn ${activeTab === 'produccion' ? 'active' : ''}`} onClick={() => setActiveTab('produccion')}>
-                {user.rol === 'heladero' ? 'Cargar Producción' : user.rol === 'pastelero_helado' ? 'Cargar Pastelería Helada' : 'Cargar Pastelería'}
+                {user.rol === 'heladero' ? 'Cargar Producción' : 'Cargar Pastelería'}
               </button>
               <button className={`tab-btn ${activeTab === 'stock' ? 'active' : ''}`} onClick={() => setActiveTab('stock')}>Mi Stock Fábrica</button>
               {user.rol === 'heladero' && (

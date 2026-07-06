@@ -135,8 +135,7 @@ const AdminProductionOrdersView = () => {
               <label>Destino de Producción</label>
               <select className="form-control" value={selectedDestino} onChange={handleDestinoChange}>
                 <option value="heladero">Fábrica de Helados (Heladero)</option>
-                <option value="pastelero">Pastelería Clásica (Pastelero)</option>
-                <option value="pastelero_helado">Pastelería Helada (Pastelero Helado)</option>
+                <option value="pastelero">Pastelería y Pastelería Helada (Pastelero)</option>
               </select>
             </div>
             <div className="form-group" style={{ gridColumn: '1 / -1' }}>

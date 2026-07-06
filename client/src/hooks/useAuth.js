@@ -64,7 +64,7 @@ export const useAuth = (showToast, setActiveTab, setLoading) => {
       showToast(`¡Bienvenido, ${sessionUser.nombre}!`);
 
       if (sessionUser.rol === 'admin') setActiveTab('matrix');
-      else if (sessionUser.rol === 'heladero' || sessionUser.rol === 'pastelero' || sessionUser.rol === 'pastelero_helado') setActiveTab('produccion');
+      else if (sessionUser.rol === 'heladero' || sessionUser.rol === 'pastelero') setActiveTab('produccion');
       else if (sessionUser.rol === 'transportista') setActiveTab('pedidos');
       else setActiveTab('pedido_nuevo');
     } catch (err) {

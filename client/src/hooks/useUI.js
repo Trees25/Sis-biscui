@@ -10,7 +10,7 @@ export const useUI = () => {
     if (saved) {
       const parsedUser = JSON.parse(saved);
       if (parsedUser.rol === 'admin') return 'matrix';
-      if (parsedUser.rol === 'heladero' || parsedUser.rol === 'pastelero' || parsedUser.rol === 'pastelero_helado') return 'produccion';
+      if (parsedUser.rol === 'heladero' || parsedUser.rol === 'pastelero') return 'produccion';
       if (parsedUser.rol === 'transportista') return 'pedidos';
       return 'pedido_nuevo';
     }

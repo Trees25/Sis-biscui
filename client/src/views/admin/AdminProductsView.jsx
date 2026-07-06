@@ -5,6 +5,7 @@ import { formatTipo } from '../../utils/formatters';
 const AdminProductsView = () => {
   const { allProducts, categories, proveedores, catalogSearch, setCatalogSearch, catalogCategory, setCatalogCategory, catalogSupplier, setCatalogSupplier, catalogStatus, setCatalogStatus, catalogFormat, setCatalogFormat, cancelEditingProduct, setShowProductModal, showProductModal, handleToggleProductActive, startEditingProduct, loading, editingProduct, handleProductFormSubmit, newProductForm, setNewProductForm, handleCategoriaChange, getTiposPorCategoria, showSupplierForm, setShowSupplierForm, newSupplierName, setNewSupplierName, handleCreateSupplier, getFlavorGroup } = useData();
   const [catalogFlavor, setCatalogFlavor] = React.useState('Todos');
+  const [catalogPastry, setCatalogPastry] = React.useState('Todos');
 
   return (
     <>
@@ -111,7 +112,7 @@ const AdminProductsView = () => {
                       { id: 'helados', label: '🍧 Helados' },
                       { id: 'pasteleria_helada', label: '🍦 Pastelería Helada' },
                       { id: 'pasteleria', label: '🍰 Pastelería Clásica' },
-                      { id: 'viennoiserie', label: '🥐 Viennoiserie' },
+                      { id: 'sembrados', label: '🌾 Sembrados' },
                       { id: 'termicos', label: '📦 Térmicos' },
                       { id: 'otros', label: '✨ Otros' }
                     ].map(tab => (
@@ -125,6 +126,9 @@ const AdminProductsView = () => {
                           if (tab.id !== 'helados' && tab.id !== 'Todos') {
                             setCatalogFormat('Todos');
                             setCatalogFlavor('Todos');
+                          }
+                          if (tab.id !== 'pasteleria' && tab.id !== 'Todos') {
+                            setCatalogPastry('Todos');
                           }
                         }}
                       >
@@ -184,6 +188,37 @@ const AdminProductsView = () => {
                       </div>
                     </div>
                   )}
+                  
+                  {/* Secondary Filters for Pasteleria Clasica */}
+                  {(catalogCategory === 'pasteleria' || catalogCategory === 'Todos') && (
+                    <div style={{ display: 'flex', gap: '1rem', borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '0.8rem', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-light)', whiteSpace: 'nowrap' }}>Categoría de Pastelería:</span>
+                        <select
+                          className="form-control form-control-sm"
+                          value={catalogPastry}
+                          onChange={e => setCatalogPastry(e.target.value)}
+                          style={{
+                            padding: '0.25rem 0.6rem',
+                            borderRadius: '6px',
+                            border: '1px solid rgba(0,0,0,0.15)',
+                            background: 'transparent',
+                            fontSize: '0.8rem',
+                            fontWeight: 600,
+                            minWidth: '150px'
+                          }}
+                        >
+                          <option value="Todos">Todos</option>
+                          <option value="Chocolates, macaron y postres">Chocolates, macaron y postres</option>
+                          <option value="Festivos">Festivos</option>
+                          <option value="Viennoiserie y escones">Viennoiserie y escones</option>
+                          <option value="Sanguches">Sanguches</option>
+                          <option value="Tortas">Tortas</option>
+                          <option value="Alfajores">Alfajores</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Full-width Product List */}
@@ -222,6 +257,14 @@ const AdminProductsView = () => {
                               if (catalogFlavor !== 'Todos') {
                                 const flavor = p.clasificacion_sabor || getFlavorGroup(p.nombre);
                                 if (flavor !== catalogFlavor) {
+                                  return false;
+                                }
+                              }
+                            }
+                            // Pasteleria filter
+                            if (catalogCategory === 'pasteleria' || catalogCategory === 'Todos') {
+                              if (catalogPastry !== 'Todos' && p.categoria === 'pasteleria') {
+                                if (p.tipo !== catalogPastry) {
                                   return false;
                                 }
                               }
@@ -365,16 +408,36 @@ const AdminProductsView = () => {
                         </div>
                         <div className="form-group">
                           <label style={{ color: 'var(--text-dark)' }}>Tipo / Formato</label>
-                          <select
-                            className="form-control"
-                            value={newProductForm.tipo}
-                            onChange={e => setNewProductForm({ ...newProductForm, tipo: e.target.value })}
-                            style={{ border: '1px solid rgba(0,0,0,0.15)' }}
-                          >
-                            {getTiposPorCategoria(newProductForm.categoria).map(t => (
-                              <option key={t.value} value={t.value}>{t.label}</option>
-                            ))}
-                          </select>
+                          {newProductForm.categoria === 'sembrados' ? (
+                            <>
+                              <input
+                                type="text"
+                                list="sembrados-tipos"
+                                className="form-control"
+                                value={newProductForm.tipo}
+                                onChange={e => setNewProductForm({ ...newProductForm, tipo: e.target.value })}
+                                style={{ border: '1px solid rgba(0,0,0,0.15)' }}
+                                placeholder="Selecciona o escribe uno nuevo..."
+                              />
+                              <datalist id="sembrados-tipos">
+                                {getTiposPorCategoria(newProductForm.categoria, allProducts).map(t => (
+                                  <option key={t.value} value={t.value}>{t.label}</option>
+                                ))}
+                              </datalist>
+                            </>
+                          ) : (
+                            <select
+                              className="form-control"
+                              value={newProductForm.tipo || ''}
+                              onChange={e => setNewProductForm({ ...newProductForm, tipo: e.target.value })}
+                              style={{ border: '1px solid rgba(0,0,0,0.15)' }}
+                            >
+                              <option value="" disabled>-- Seleccionar --</option>
+                              {getTiposPorCategoria(newProductForm.categoria, allProducts).map(t => (
+                                <option key={t.value} value={t.value}>{t.label}</option>
+                              ))}
+                            </select>
+                          )}
                         </div>
                         {newProductForm.categoria === 'helados' && (newProductForm.tipo?.includes('vasqueta') || newProductForm.tipo?.includes('balde')) ? (
                           <div className="form-group">
@@ -394,6 +457,7 @@ const AdminProductsView = () => {
                             </select>
                           </div>
                         ) : null}
+
                         
                         <div className="form-group">
                           <label style={{ color: 'var(--text-dark)' }}>Proveedor (Opcional)</label>
