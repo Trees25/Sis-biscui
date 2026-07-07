@@ -6,6 +6,7 @@ const AdminProductsView = () => {
   const { allProducts, categories, proveedores, catalogSearch, setCatalogSearch, catalogCategory, setCatalogCategory, catalogSupplier, setCatalogSupplier, catalogStatus, setCatalogStatus, catalogFormat, setCatalogFormat, cancelEditingProduct, setShowProductModal, showProductModal, handleToggleProductActive, startEditingProduct, loading, editingProduct, handleProductFormSubmit, newProductForm, setNewProductForm, handleCategoriaChange, getTiposPorCategoria, showSupplierForm, setShowSupplierForm, newSupplierName, setNewSupplierName, handleCreateSupplier, getFlavorGroup } = useData();
   const [catalogFlavor, setCatalogFlavor] = React.useState('Todos');
   const [catalogPastry, setCatalogPastry] = React.useState('Todos');
+  const [showNewTipoInput, setShowNewTipoInput] = React.useState(false);
 
   return (
     <>
@@ -409,22 +410,39 @@ const AdminProductsView = () => {
                         <div className="form-group">
                           <label style={{ color: 'var(--text-dark)' }}>Tipo / Formato</label>
                           {newProductForm.categoria === 'sembrados' ? (
-                            <>
-                              <input
-                                type="text"
-                                list="sembrados-tipos"
-                                className="form-control"
-                                value={newProductForm.tipo}
-                                onChange={e => setNewProductForm({ ...newProductForm, tipo: e.target.value })}
-                                style={{ border: '1px solid rgba(0,0,0,0.15)' }}
-                                placeholder="Selecciona o escribe uno nuevo..."
-                              />
-                              <datalist id="sembrados-tipos">
-                                {getTiposPorCategoria(newProductForm.categoria, allProducts).map(t => (
-                                  <option key={t.value} value={t.value}>{t.label}</option>
-                                ))}
-                              </datalist>
-                            </>
+                            showNewTipoInput ? (
+                              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <input
+                                  type="text"
+                                  className="form-control"
+                                  value={newProductForm.tipo}
+                                  onChange={e => setNewProductForm({ ...newProductForm, tipo: e.target.value })}
+                                  style={{ border: '1px solid rgba(0,0,0,0.15)' }}
+                                  placeholder="Escribe el nuevo tipo..."
+                                  autoFocus
+                                />
+                                <button type="button" className="btn btn-secondary" onClick={() => setShowNewTipoInput(false)} style={{ padding: '0 0.5rem' }}>
+                                  ✕
+                                </button>
+                              </div>
+                            ) : (
+                              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <select
+                                  className="form-control"
+                                  value={newProductForm.tipo || ''}
+                                  onChange={e => setNewProductForm({ ...newProductForm, tipo: e.target.value })}
+                                  style={{ border: '1px solid rgba(0,0,0,0.15)' }}
+                                >
+                                  <option value="" disabled>-- Seleccionar --</option>
+                                  {getTiposPorCategoria(newProductForm.categoria, allProducts).map(t => (
+                                    <option key={t.value} value={t.value}>{t.label}</option>
+                                  ))}
+                                </select>
+                                <button type="button" className="btn btn-primary" onClick={() => { setShowNewTipoInput(true); setNewProductForm({ ...newProductForm, tipo: '' }); }} style={{ padding: '0 0.8rem', whiteSpace: 'nowrap' }}>
+                                  + Nuevo
+                                </button>
+                              </div>
+                            )
                           ) : (
                             <select
                               className="form-control"

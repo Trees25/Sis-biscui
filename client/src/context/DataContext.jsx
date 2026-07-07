@@ -362,8 +362,12 @@ const getTiposPorCategoria = (categoria, allProds = []) => {
         label: 'Alfajores'
       }];
     case 'sembrados': {
-      const existing = allProds.filter(p => p.categoria === 'sembrados' && p.tipo).map(p => p.tipo);
-      const unique = [...new Set(['Roll de Canela', 'Croissant', 'Brownie', 'Danesas', ...existing])];
+      const unwanted = ['brownie', 'croissant', 'roll', 'roll de canela', 'danesas', 'viennoiserie otra', 'prueba de sembrado', 'medialuna', 'medialunas'];
+      const existing = allProds
+        .filter(p => p.categoria === 'sembrados' && p.tipo)
+        .map(p => p.tipo)
+        .filter(t => !unwanted.includes(t.toLowerCase()));
+      const unique = [...new Set(existing)];
       return unique.map(t => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1).replace(/_/g, ' ') }));
     }
     case 'termicos':
