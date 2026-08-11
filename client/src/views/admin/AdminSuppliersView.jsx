@@ -103,7 +103,8 @@ const AdminSuppliersView = () => {
                     backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)'
                   }} onClick={() => setShowProvModal(false)}>
                     <div className="glass-card" onClick={e => e.stopPropagation()} style={{
-                      maxWidth: '500px', width: '100%', background: 'rgba(255, 255, 255, 0.95)', color: '#000'
+                      maxWidth: '500px', width: '100%', background: 'rgba(255, 255, 255, 0.95)', color: '#000',
+                      maxHeight: '90vh', overflowY: 'auto'
                     }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid rgba(0,0,0,0.1)', paddingBottom: '0.8rem' }}>
                         <h3 className="section-title" style={{ margin: 0, color: 'var(--text-dark)' }}>

@@ -115,6 +115,7 @@ const AdminProductsView = () => {
                       { id: 'pasteleria', label: '🍰 Pastelería Clásica' },
                       { id: 'sembrados', label: '🌾 Sembrados' },
                       { id: 'termicos', label: '📦 Térmicos' },
+                      { id: 'sin_tacc', label: '🌱 Sin TACC' },
                       { id: 'otros', label: '✨ Otros' }
                     ].map(tab => (
                       <button
@@ -364,7 +365,7 @@ const AdminProductsView = () => {
                     alignItems: 'center', zIndex: 1100, padding: '1rem',
                     backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)'
                   }}>
-                    <div className="glass-card" style={{ maxWidth: '500px', width: '100%', background: 'rgba(255, 255, 255, 0.95)', color: '#000' }}>
+                    <div className="glass-card" style={{ maxWidth: '500px', width: '100%', background: 'rgba(255, 255, 255, 0.95)', color: '#000', maxHeight: '90vh', overflowY: 'auto' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid rgba(0,0,0,0.1)', paddingBottom: '0.8rem' }}>
                         <h3 className="section-title" style={{ margin: 0, color: 'var(--text-dark)' }}>
                           {editingProduct ? 'Editar Producto' : 'Agregar Nuevo Producto'}
@@ -409,7 +410,7 @@ const AdminProductsView = () => {
                         </div>
                         <div className="form-group">
                           <label style={{ color: 'var(--text-dark)' }}>Tipo / Formato</label>
-                          {newProductForm.categoria === 'sembrados' ? (
+                          {['sembrados', 'sin_tacc'].includes(newProductForm.categoria) ? (
                             showNewTipoInput ? (
                               <div style={{ display: 'flex', gap: '0.5rem' }}>
                                 <input

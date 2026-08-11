@@ -26,6 +26,9 @@ const categories = [{
   id: 'termicos',
   name: 'Térmicos'
 }, {
+  id: 'sin_tacc',
+  name: 'Sin TACC'
+}, {
   id: 'otros',
   name: 'Otros'
 }];
@@ -367,6 +370,13 @@ const getTiposPorCategoria = (categoria, allProds = []) => {
         .filter(p => p.categoria === 'sembrados' && p.tipo)
         .map(p => p.tipo)
         .filter(t => !unwanted.includes(t.toLowerCase()));
+      const unique = [...new Set(existing)];
+      return unique.map(t => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1).replace(/_/g, ' ') }));
+    }
+    case 'sin_tacc': {
+      const existing = allProds
+        .filter(p => p.categoria === 'sin_tacc' && p.tipo)
+        .map(p => p.tipo);
       const unique = [...new Set(existing)];
       return unique.map(t => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1).replace(/_/g, ' ') }));
     }
