@@ -54,3 +54,14 @@ export const formatDate = (dateString) => {
   const d = new Date(dateString);
   return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 };
+
+export const getCategoryEmoji = (id) => {
+  if (id === 'helados') return '🍧';
+  if (id === 'pasteleria_helada') return '🍦';
+  if (id === 'pasteleria') return '🍰';
+  if (id === 'sembrados') return '🌾';
+  if (id === 'termicos') return '📦';
+  if (id === 'sin_tacc') return '🌱';
+  if (id === 'otros') return '✨';
+  return '🏷️';
+};

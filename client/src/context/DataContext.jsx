@@ -559,6 +559,26 @@ const handleCategoriaChange = cat => {
         proveedor_nombre: p.proveedores?.nombre
       }));
     }
+
+    // Filtrar productos que son solo para fábrica si el usuario es de sucursal
+    if (user && user.rol === 'sucursal') {
+      pData = pData.filter(p => {
+        const n = p.nombre.toLowerCase();
+        
+        if (p.categoria === 'sembrados') {
+          return n.includes('pasta fruta') || n.includes('gel de brillo') || n.includes('crema pastelera');
+        }
+        
+        if (p.categoria === 'otros') {
+          if (n.includes('harina') || n.includes('mayonesa natura')) {
+            return false;
+          }
+        }
+        
+        return true;
+      });
+    }
+
     if (version !== fetchVersionRef.current) return;
     setProductos(pData);
     const {
@@ -2037,6 +2057,10 @@ const handleConfirmReceive = async () => {
       p_items: items
     });
     if (rpcErr) throw rpcErr;
+    
+    // Habilitar inventario para la sucursal de destino luego de recibir un pedido
+    await supabase.from('sucursales').update({ inventario_habilitado: true }).eq('id', selectedPedido.sucursal_destino_id);
+
     let hasDiscrepancies = false;
     for (let item of items) {
       const origDetail = selectedPedido.items.find(it => it.producto_id === item.producto_id);
@@ -2691,10 +2715,7 @@ const handleSaveInventory = async (inventoryItems) => {
     const { error: upsertErr } = await supabase.from('stock_sucursales').upsert(payload, { onConflict: 'sucursal_id,producto_id,es_evento' });
     if (upsertErr) throw upsertErr;
 
-    const { error: lockErr } = await supabase.from('sucursales').update({ inventario_habilitado: false }).eq('id', user.sucursal_id);
-    if (lockErr) throw lockErr;
-
-    showToast("Inventario guardado correctamente. Permiso bloqueado.", "success");
+    showToast("Inventario guardado correctamente.", "success");
     fetchData();
   } catch (err) {
     showToast("Error al guardar inventario: " + err.message, "error");
@@ -2704,7 +2725,20 @@ const handleSaveInventory = async (inventoryItems) => {
 };
 
   const contextValue = {
-    categories,
+    categories: React.useMemo(() => {
+      const cats = [...categories];
+      const existingIds = cats.map(c => c.id);
+      (allProducts || []).forEach(p => {
+        if (p.categoria && !existingIds.includes(p.categoria)) {
+          cats.push({
+            id: p.categoria,
+            name: p.categoria.charAt(0).toUpperCase() + p.categoria.slice(1).replace(/_/g, ' ')
+          });
+          existingIds.push(p.categoria);
+        }
+      });
+      return cats;
+    }, [allProducts]),
     getLocalDateString,
     formatQuantity,
     formatQuantityShort,

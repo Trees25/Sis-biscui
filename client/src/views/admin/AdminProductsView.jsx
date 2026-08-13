@@ -1,12 +1,13 @@
 import { useData } from '../../context/DataContext';
 import React from 'react';
-import { formatTipo } from '../../utils/formatters';
+import { formatTipo, getCategoryEmoji } from '../../utils/formatters';
 
 const AdminProductsView = () => {
   const { allProducts, categories, proveedores, catalogSearch, setCatalogSearch, catalogCategory, setCatalogCategory, catalogSupplier, setCatalogSupplier, catalogStatus, setCatalogStatus, catalogFormat, setCatalogFormat, cancelEditingProduct, setShowProductModal, showProductModal, handleToggleProductActive, startEditingProduct, loading, editingProduct, handleProductFormSubmit, newProductForm, setNewProductForm, handleCategoriaChange, getTiposPorCategoria, showSupplierForm, setShowSupplierForm, newSupplierName, setNewSupplierName, handleCreateSupplier, getFlavorGroup } = useData();
   const [catalogFlavor, setCatalogFlavor] = React.useState('Todos');
   const [catalogPastry, setCatalogPastry] = React.useState('Todos');
   const [showNewTipoInput, setShowNewTipoInput] = React.useState(false);
+  const [showNewCategoryInput, setShowNewCategoryInput] = React.useState(false);
 
   return (
     <>
@@ -108,16 +109,7 @@ const AdminProductsView = () => {
 
                   {/* Categories Sub-Tabs */}
                   <div style={{ display: 'flex', gap: '0.4rem', borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '0.8rem', flexWrap: 'wrap' }}>
-                    {[
-                      { id: 'Todos', label: '📋 Todos' },
-                      { id: 'helados', label: '🍧 Helados' },
-                      { id: 'pasteleria_helada', label: '🍦 Pastelería Helada' },
-                      { id: 'pasteleria', label: '🍰 Pastelería Clásica' },
-                      { id: 'sembrados', label: '🌾 Sembrados' },
-                      { id: 'termicos', label: '📦 Térmicos' },
-                      { id: 'sin_tacc', label: '🌱 Sin TACC' },
-                      { id: 'otros', label: '✨ Otros' }
-                    ].map(tab => (
+                    {[{ id: 'Todos', name: 'Todos' }, ...categories].map(tab => (
                       <button
                         key={tab.id}
                         type="button"
@@ -134,7 +126,7 @@ const AdminProductsView = () => {
                           }
                         }}
                       >
-                        {tab.label}
+                        {tab.id === 'Todos' ? '📋 Todos' : `${getCategoryEmoji(tab.id)} ${tab.name}`}
                       </button>
                     ))}
                   </div>
@@ -397,27 +389,49 @@ const AdminProductsView = () => {
                         </div>
                         <div className="form-group">
                           <label style={{ color: 'var(--text-dark)' }}>Categoría</label>
-                          <select
-                            className="form-control"
-                            value={newProductForm.categoria}
-                            onChange={e => handleCategoriaChange(e.target.value)}
-                            style={{ border: '1px solid rgba(0,0,0,0.15)' }}
-                          >
-                            {categories.map(c => (
-                              <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
-                          </select>
+                          {showNewCategoryInput ? (
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                              <input
+                                type="text"
+                                className="form-control"
+                                value={newProductForm.categoria}
+                                onChange={e => setNewProductForm({ ...newProductForm, categoria: e.target.value.toLowerCase().replace(/\s+/g, '_') })}
+                                style={{ border: '1px solid rgba(0,0,0,0.15)' }}
+                                placeholder="Escribe la nueva categoría..."
+                                autoFocus
+                              />
+                              <button type="button" className="btn btn-secondary" onClick={() => { setShowNewCategoryInput(false); handleCategoriaChange('helados'); }} style={{ padding: '0 0.5rem' }}>
+                                ✕
+                              </button>
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                              <select
+                                className="form-control"
+                                value={newProductForm.categoria}
+                                onChange={e => handleCategoriaChange(e.target.value)}
+                                style={{ border: '1px solid rgba(0,0,0,0.15)' }}
+                              >
+                                {categories.map(c => (
+                                  <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
+                              </select>
+                              <button type="button" className="btn btn-primary" onClick={() => { setShowNewCategoryInput(true); setNewProductForm({ ...newProductForm, categoria: '', tipo: '' }); setShowNewTipoInput(true); }} style={{ padding: '0 0.8rem', whiteSpace: 'nowrap' }}>
+                                + Nuevo
+                              </button>
+                            </div>
+                          )}
                         </div>
                         <div className="form-group">
                           <label style={{ color: 'var(--text-dark)' }}>Tipo / Formato</label>
-                          {['sembrados', 'sin_tacc'].includes(newProductForm.categoria) ? (
+                          {!['helados', 'pasteleria_helada', 'pasteleria', 'termicos', 'otros'].includes(newProductForm.categoria) ? (
                             showNewTipoInput ? (
                               <div style={{ display: 'flex', gap: '0.5rem' }}>
                                 <input
                                   type="text"
                                   className="form-control"
                                   value={newProductForm.tipo}
-                                  onChange={e => setNewProductForm({ ...newProductForm, tipo: e.target.value })}
+                                  onChange={e => setNewProductForm({ ...newProductForm, tipo: e.target.value.toLowerCase().replace(/\s+/g, '_') })}
                                   style={{ border: '1px solid rgba(0,0,0,0.15)' }}
                                   placeholder="Escribe el nuevo tipo..."
                                   autoFocus

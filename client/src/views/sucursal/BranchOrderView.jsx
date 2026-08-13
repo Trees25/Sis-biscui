@@ -1,7 +1,7 @@
 import { useData } from '../../context/DataContext';
 import React from 'react';
 import UnitCalculatorInput from '../../components/common/UnitCalculatorInput';
-import { formatQuantity, formatQuantityShort, formatTipo, getBadgeClass, translateState, formatDate } from '../../utils/formatters';
+import { formatQuantity, formatQuantityShort, formatTipo, getBadgeClass, translateState, formatDate, getCategoryEmoji } from '../../utils/formatters';
 const BranchOrderView = () => {
   const {
     user,
@@ -176,25 +176,7 @@ const BranchOrderView = () => {
           paddingBottom: '0.6rem',
           flexWrap: 'wrap'
         }}>
-                    {[{
-            id: 'helados',
-            label: '🍧 Helados'
-          }, {
-            id: 'pasteleria_helada',
-            label: '🍦 Pastelería Helada'
-          }, {
-            id: 'pasteleria',
-            label: '🍰 Pastelería Clásica'
-          }, {
-            id: 'sembrados',
-            label: '🌾 Sembrados'
-          }, {
-            id: 'termicos',
-            label: '📦 Térmicos'
-          }, {
-            id: 'otros',
-            label: '✨ Otros'
-          }].map(tab => <button key={tab.id} className={`tab-btn ${orderSubTab === tab.id ? 'active' : ''}`} style={{
+                    {categories.map(tab => <button key={tab.id} className={`tab-btn ${orderSubTab === tab.id ? 'active' : ''}`} style={{
             padding: '0.5rem 1rem',
             fontSize: '0.85rem',
             borderRadius: '8px',
@@ -203,7 +185,7 @@ const BranchOrderView = () => {
             setOrderSubTab(tab.id);
             setOrderSearchQuery('');
           }}>
-                        {tab.label}
+                        {`${getCategoryEmoji(tab.id)} ${tab.name}`}
                       </button>)}
                   </div>
                 </div>

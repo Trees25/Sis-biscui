@@ -1,9 +1,10 @@
 import { useData } from '../../context/DataContext';
 import React from 'react';
-import { formatTipo, formatQuantity } from '../../utils/formatters';
+import { formatTipo, formatQuantity, getCategoryEmoji } from '../../utils/formatters';
 import UnitCalculatorInput from '../../components/common/UnitCalculatorInput';
 const AdminOrdersView = () => {
   const {
+    categories,
     adminOrderItems,
     setAdminOrderItems,
     adminOrderDestination,
@@ -214,25 +215,7 @@ const AdminOrdersView = () => {
         paddingBottom: '0.6rem',
         flexWrap: 'wrap'
       }}>
-          {[{
-          id: 'helados',
-          label: '🍧 Helados'
-        }, {
-          id: 'pasteleria_helada',
-          label: '🍦 Pastelería Helada'
-        }, {
-          id: 'pasteleria',
-          label: '🍰 Pastelería Clásica'
-        }, {
-          id: 'sembrados',
-          label: '🌾 Sembrados'
-        }, {
-          id: 'termicos',
-          label: '📦 Térmicos'
-        }, {
-          id: 'otros',
-          label: '✨ Otros'
-        }].map(tab => <button key={tab.id} className={`tab-btn ${adminOrderSubTab === tab.id ? 'active' : ''}`} style={{
+          {categories.map(tab => <button key={tab.id} className={`tab-btn ${adminOrderSubTab === tab.id ? 'active' : ''}`} style={{
           padding: '0.5rem 1rem',
           fontSize: '0.85rem',
           borderRadius: '8px',
@@ -241,7 +224,7 @@ const AdminOrdersView = () => {
           setAdminOrderSubTab(tab.id);
           setAdminOrderSearch('');
         }}>
-              {tab.label}
+              {`${getCategoryEmoji(tab.id)} ${tab.name}`}
             </button>)}
         </div>
       </div>
