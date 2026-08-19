@@ -1,5 +1,6 @@
 import { useData } from '../../context/DataContext';
-import React from 'react';
+import React, { useState } from 'react';
+import { supabase } from '../../supabaseClient';
 import { formatQuantity, formatQuantityShort, formatTipo, getBadgeClass, translateState, formatDate } from '../../utils/formatters';
 const AdminProjectionsView = () => {
   const {
@@ -12,6 +13,9 @@ const AdminProjectionsView = () => {
     formatQuantity,
     getProductNetWeight
   } = useData();
+
+  const [exportMonth, setExportMonth] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
   return <div>
               <div style={{ display: 'flex', gap: '1rem' }}>
                 <div className="glass-card" style={{ marginBottom: '1.5rem', flex: 1 }}>
@@ -36,92 +40,119 @@ const AdminProjectionsView = () => {
                         <span style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>Buscar:</span>
                         <input type="text" className="form-control search-control-responsive" placeholder="🔍 Buscar producto..." value={prodReqSearch} onChange={e => setProdReqSearch(e.target.value)} />
                       </div>
-                      <button className="btn btn-primary" onClick={() => {
-                        const currentDate = new Date().toLocaleString('es-AR', { dateStyle: 'long', timeStyle: 'short' });
-                        
-                        let htmlContent = `
-                          <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-                          <head>
-                            <meta charset="utf-8" />
-                            <style>
-                              body { font-family: 'Segoe UI', Arial, sans-serif; }
-                              .title { font-size: 20px; font-weight: bold; color: #1e3a8a; text-align: center; padding: 10px; background-color: #dbeafe; border-radius: 5px; }
-                              .subtitle { font-size: 12px; color: #64748b; text-align: center; margin-bottom: 20px; }
-                              .section-header { font-size: 16px; font-weight: bold; color: #ffffff; background-color: #3b82f6; padding: 10px; margin-top: 20px; }
-                              .table { border-collapse: collapse; width: 100%; border: 1px solid #e2e8f0; }
-                              .th { background-color: #f1f5f9; color: #334155; font-weight: bold; padding: 10px; border: 1px solid #cbd5e1; text-align: left; }
-                              .td { padding: 8px; border: 1px solid #e2e8f0; color: #475569; }
-                              .td-strong { padding: 8px; border: 1px solid #e2e8f0; color: #0f172a; font-weight: bold; }
-                              .td-number { padding: 8px; border: 1px solid #e2e8f0; text-align: right; }
-                              .th-green { background-color: #10b981; color: white; font-weight: bold; padding: 10px; border: 1px solid #059669; }
-                            </style>
-                          </head>
-                          <body>
-                            <div class="title">REPORTE DE PROYECCIONES EN FÁBRICA</div>
-                            <div class="subtitle">Fecha de generación: ${currentDate}</div>
-                            
-                            <br/>
-                            <table>
-                              <tr>
-                                <td colspan="7" class="section-header" style="background-color: #059669;">Historial de Fabricación Reciente</td>
-                              </tr>
-                            </table>
-                            <table class="table">
-                              <thead>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <input type="month" className="form-control" value={exportMonth} onChange={e => setExportMonth(e.target.value)} title="Mes a exportar (vacío = últimos registros)" />
+                        <button className="btn btn-primary" disabled={isExporting} onClick={async () => {
+                          setIsExporting(true);
+                          try {
+                            let lotesToExport = recentLotes;
+                            if (exportMonth) {
+                              const [year, month] = exportMonth.split('-');
+                              const startDate = new Date(year, month - 1, 1).toISOString();
+                              const endDate = new Date(year, month, 1).toISOString();
+                              
+                              const { data: monthLotes, error } = await supabase.from('lotes_produccion').select(`
+                                *,
+                                productos ( nombre, tipo, categoria, unidad_medida ),
+                                lote_pesos ( peso_bruto, peso_neto )
+                              `).gte('fecha_produccion', startDate).lt('fecha_produccion', endDate).order('fecha_produccion', { ascending: false });
+                              
+                              if (!error && monthLotes) {
+                                lotesToExport = monthLotes.map(lote => ({
+                                  ...lote,
+                                  pesos: lote.lote_pesos ? lote.lote_pesos.map(p => p.peso_bruto) : []
+                                }));
+                              }
+                            }
+
+                            const currentDate = new Date().toLocaleString('es-AR', { dateStyle: 'long', timeStyle: 'short' });
+                            let htmlContent = `
+                              <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+                              <head>
+                                <meta charset="utf-8" />
+                                <style>
+                                  body { font-family: 'Segoe UI', Arial, sans-serif; }
+                                  .title { font-size: 20px; font-weight: bold; color: #1e3a8a; text-align: center; padding: 10px; background-color: #dbeafe; border-radius: 5px; }
+                                  .subtitle { font-size: 12px; color: #64748b; text-align: center; margin-bottom: 20px; }
+                                  .section-header { font-size: 16px; font-weight: bold; color: #ffffff; background-color: #3b82f6; padding: 10px; margin-top: 20px; }
+                                  .table { border-collapse: collapse; width: 100%; border: 1px solid #e2e8f0; }
+                                  .th { background-color: #f1f5f9; color: #334155; font-weight: bold; padding: 10px; border: 1px solid #cbd5e1; text-align: left; }
+                                  .td { padding: 8px; border: 1px solid #e2e8f0; color: #475569; }
+                                  .td-strong { padding: 8px; border: 1px solid #e2e8f0; color: #0f172a; font-weight: bold; }
+                                  .td-number { padding: 8px; border: 1px solid #e2e8f0; text-align: right; }
+                                  .th-green { background-color: #10b981; color: white; font-weight: bold; padding: 10px; border: 1px solid #059669; }
+                                </style>
+                              </head>
+                              <body>
+                                <div class="title">REPORTE DE PROYECCIONES EN FÁBRICA</div>
+                                <div class="subtitle">Fecha de generación: ${currentDate} ${exportMonth ? `(Mes: ${exportMonth})` : ''}</div>
+                                
+                                <br/>
+                                <table>
+                                  <tr>
+                                    <td colspan="7" class="section-header" style="background-color: #059669;">Historial de Fabricación ${exportMonth ? `del mes ${exportMonth}` : 'Reciente'}</td>
+                                  </tr>
+                                </table>
+                                <table class="table">
+                                  <thead>
+                                    <tr>
+                                      <th class="th-green">Lote</th>
+                                      <th class="th-green">Producto/Sabor</th>
+                                      <th class="th-green">Formato/Tipo</th>
+                                      <th class="th-green" style="text-align: right;">Unidades</th>
+                                      <th class="th-green" style="text-align: right;">Pesos Brutos</th>
+                                      <th class="th-green" style="text-align: right;">Peso Neto Total</th>
+                                      <th class="th-green">Fecha</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                            `;
+
+                            lotesToExport.forEach(l => {
+                              const isHelado = l.productos?.categoria === 'helados';
+                              const tareVal = l.productos ? getTareByTipo(l.productos.tipo) : 0;
+                              const netKilos = l.pesos && l.pesos.length > 0 ? l.pesos.reduce((acc, curr) => acc + Math.max(0, parseFloat(curr) - tareVal), 0) : 0;
+                              
+                              const unidades = formatQuantity(l.cantidad, l.productos);
+                              const pesosBrutos = isHelado && l.pesos && l.pesos.length > 0 ? l.pesos.map(w => `${parseFloat(w).toFixed(2)}kg`).join(', ') : '-';
+                              const pesoNeto = isHelado && l.pesos && l.pesos.length > 0 ? `${netKilos.toFixed(2)} kg` : (isHelado ? `~${(l.cantidad * getProductNetWeight(l.productos.id, l.productos.tipo)).toFixed(2)} kg (Est.)` : '-');
+                              const fecha = new Date(l.fecha_produccion).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
+
+                              htmlContent += `
                                 <tr>
-                                  <th class="th-green">Lote</th>
-                                  <th class="th-green">Producto/Sabor</th>
-                                  <th class="th-green">Formato/Tipo</th>
-                                  <th class="th-green" style="text-align: right;">Unidades</th>
-                                  <th class="th-green" style="text-align: right;">Pesos Brutos</th>
-                                  <th class="th-green" style="text-align: right;">Peso Neto Total</th>
-                                  <th class="th-green">Fecha</th>
+                                  <td class="td" style="font-family: monospace; font-size: 11px;">${l.codigo_lote}</td>
+                                  <td class="td-strong">${l.productos?.nombre}</td>
+                                  <td class="td">${l.productos?.tipo}</td>
+                                  <td class="td-number">${unidades}</td>
+                                  <td class="td-number" style="font-size: 11px;">${pesosBrutos}</td>
+                                  <td class="td-number" style="font-weight: bold; color: #047857;">${pesoNeto}</td>
+                                  <td class="td">${fecha}</td>
                                 </tr>
-                              </thead>
-                              <tbody>
-                        `;
+                              `;
+                            });
 
-                        recentLotes.forEach(l => {
-                          const isHelado = l.productos?.categoria === 'helados';
-                          const tareVal = l.productos ? getTareByTipo(l.productos.tipo) : 0;
-                          const netKilos = l.pesos && l.pesos.length > 0 ? l.pesos.reduce((acc, curr) => acc + Math.max(0, parseFloat(curr) - tareVal), 0) : 0;
-                          
-                          const unidades = formatQuantity(l.cantidad, l.productos);
-                          const pesosBrutos = isHelado && l.pesos && l.pesos.length > 0 ? l.pesos.map(w => `${parseFloat(w).toFixed(2)}kg`).join(', ') : '-';
-                          const pesoNeto = isHelado && l.pesos && l.pesos.length > 0 ? `${netKilos.toFixed(2)} kg` : (isHelado ? `~${(l.cantidad * getProductNetWeight(l.productos.id, l.productos.tipo)).toFixed(2)} kg (Est.)` : '-');
-                          const fecha = new Date(l.fecha_produccion).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
+                            htmlContent += `
+                                  </tbody>
+                                </table>
+                              </body>
+                              </html>
+                            `;
 
-                          htmlContent += `
-                            <tr>
-                              <td class="td" style="font-family: monospace; font-size: 11px;">${l.codigo_lote}</td>
-                              <td class="td-strong">${l.productos?.nombre}</td>
-                              <td class="td">${l.productos?.tipo}</td>
-                              <td class="td-number">${unidades}</td>
-                              <td class="td-number" style="font-size: 11px;">${pesosBrutos}</td>
-                              <td class="td-number" style="font-weight: bold; color: #047857;">${pesoNeto}</td>
-                              <td class="td">${fecha}</td>
-                            </tr>
-                          `;
-                        });
-
-                        htmlContent += `
-                              </tbody>
-                            </table>
-                          </body>
-                          </html>
-                        `;
-
-                        const blob = new Blob([htmlContent], { type: 'application/vnd.ms-excel;charset=utf-8' });
-                        const url = URL.createObjectURL(blob);
-                        const link = document.createElement("a");
-                        link.setAttribute("href", url);
-                        link.setAttribute("download", "proyecciones_fabrica.xls");
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                      }}>
-                        📊 Exportar a Excel
-                      </button>
+                            const blob = new Blob([htmlContent], { type: 'application/vnd.ms-excel;charset=utf-8' });
+                            const url = URL.createObjectURL(blob);
+                            const link = document.createElement("a");
+                            link.setAttribute("href", url);
+                            link.setAttribute("download", `proyecciones_fabrica${exportMonth ? `_${exportMonth}` : ''}.xls`);
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                          } finally {
+                            setIsExporting(false);
+                          }
+                        }}>
+                          {isExporting ? '⏳ Exportando...' : '📊 Exportar a Excel'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                   <div className="table-container">

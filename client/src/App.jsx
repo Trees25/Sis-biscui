@@ -109,6 +109,7 @@ const AppContent = () => {
       case 'pastelero': return 'https://screeching-magician-d39.notion.site/Manual-Pastelero-381a3624868a8119a848e5da43dba11f';
 
       case 'sucursal': return 'https://app.notion.com/p/Manual-Empleados-Sucursales-381a3624868a81508ae7d4de1cb3bba1';
+      case 'casacentral': return 'https://screeching-magician-d39.notion.site/Stock-de-Sucursales-388a3624868a8110a09fcadd388dc001';
       default: return 'https://screeching-magician-d39.notion.site/Sistema-Biscui-Manuales-379a3624868a80658d2cd1d20d963cb5';
     }
   };
