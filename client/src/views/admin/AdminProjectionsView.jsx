@@ -17,7 +17,7 @@ const AdminProjectionsView = () => {
   const [exportMonth, setExportMonth] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   return <div>
-              <div style={{ display: 'flex', gap: '1rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div className="glass-card" style={{ marginBottom: '1.5rem', flex: 1 }}>
                   <div style={{
                     display: 'flex',
