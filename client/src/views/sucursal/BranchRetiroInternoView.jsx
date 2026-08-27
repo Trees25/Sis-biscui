@@ -5,17 +5,18 @@ import UnitCalculatorInput from '../../components/common/UnitCalculatorInput';
 const BranchRetiroInternoView = () => {
   const {
     productos,
+    allProducts,
     stockData,
     categories,
     retiroItems,
     setRetiroItems,
     handleRetiroInternoSubmit,
-    loading,
-    branchRetiroSearch,
-    setBranchRetiroSearch,
-    branchRetiroCategoryFilter,
-    setBranchRetiroCategoryFilter
+    loading
   } = useData();
+
+  const [branchRetiroSearch, setBranchRetiroSearch] = React.useState('');
+  const [branchRetiroCategoryFilter, setBranchRetiroCategoryFilter] = React.useState('Todos');
+
   return <div className="glass-card fade-in">
       <div style={{
       display: 'flex',
@@ -87,7 +88,7 @@ const BranchRetiroInternoView = () => {
             </tr>
           </thead>
           <tbody>
-            {productos.filter(p => branchRetiroCategoryFilter === 'Todos' || p.categoria === branchRetiroCategoryFilter).filter(p => {
+            {(allProducts || []).filter(p => branchRetiroCategoryFilter === 'Todos' || p.categoria === branchRetiroCategoryFilter).filter(p => {
             if (!branchRetiroSearch) return true;
             return p.nombre.toLowerCase().includes(branchRetiroSearch.toLowerCase()) || p.tipo && formatTipo(p.tipo).toLowerCase().includes(branchRetiroSearch.toLowerCase());
           }).map(p => {

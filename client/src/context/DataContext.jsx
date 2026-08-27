@@ -560,6 +560,8 @@ const handleCategoriaChange = cat => {
       }));
     }
 
+    setAllProducts(pData);
+
     // Filtrar productos que son solo para fábrica si el usuario es de sucursal
     if (user && user.rol === 'sucursal') {
       pData = pData.filter(p => {
@@ -597,18 +599,6 @@ const handleCategoriaChange = cat => {
       setProveedores(provData || []);
     }
     if (user.rol === 'admin') {
-      const {
-        data: allPData,
-        error: allPErr
-      } = await supabase.from('productos').select('*, proveedores(nombre)').order('nombre');
-      if (version !== fetchVersionRef.current) return;
-      if (!allPErr) {
-        const mappedAllP = (allPData || []).map(p => ({
-          ...p,
-          proveedor_nombre: p.proveedores?.nombre
-        }));
-        setAllProducts(mappedAllP);
-      }
       // Removed v_stock_matriz because it lacks 'tipo' column and causes bugs
       const { data: flujoData, error: flujoErr } = await supabase.from('v_flujo_pedidos_stats').select('*');
       if (version !== fetchVersionRef.current) return;
