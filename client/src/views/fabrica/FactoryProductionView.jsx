@@ -24,11 +24,15 @@ const FactoryProductionView = () => {
     handleAssignEventStock,
     handleCompleteEventOrder,
     stockData,
-    showToast
+    showToast,
+    handleDeleteLote,
+    handleEditLote
   } = useData();
 
   const [assignModalData, setAssignModalData] = React.useState(null);
   const [assignQty, setAssignQty] = React.useState('');
+  const [editLoteData, setEditLoteData] = React.useState(null);
+  const [editLoteQty, setEditLoteQty] = React.useState('');
 
   const submitAssign = () => {
     if (!assignModalData) return;
@@ -434,6 +438,7 @@ const FactoryProductionView = () => {
                           <th>Producto / Sabor</th>
                           <th>Cant.</th>
                           <th>Fecha</th>
+                          <th>Acción</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -465,13 +470,34 @@ const FactoryProductionView = () => {
                                 <td style={{
                   fontSize: '0.8rem'
                 }}>{new Date(l.fecha_produccion).toLocaleDateString()}</td>
+                                <td>
+                                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                    <button 
+                                      className="btn btn-outline btn-sm" 
+                                      style={{ borderColor: 'var(--warning)', color: 'var(--warning)', padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
+                                      onClick={() => {
+                                        setEditLoteData(l);
+                                        setEditLoteQty(l.cantidad);
+                                      }}
+                                    >
+                                      ✏️ Editar
+                                    </button>
+                                    <button 
+                                      className="btn btn-outline btn-sm" 
+                                      style={{ borderColor: 'var(--danger)', color: 'var(--danger)', padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
+                                      onClick={() => handleDeleteLote(l)}
+                                    >
+                                      🗑️ Eliminar
+                                    </button>
+                                  </div>
+                                </td>
                               </tr>;
             })}
                         {recentLotes.filter(l => l.productos && isProductVisibleToRole(l.productos, user.rol)).length === 0 && <tr>
-                            <td colSpan="4" style={{
-                textAlign: 'center',
-                color: 'var(--text-light)'
-              }}>
+                            <td colSpan="5" style={{
+                              textAlign: 'center',
+                              color: 'var(--text-light)'
+                            }}>
                               No hay producciones registradas recientemente.
                             </td>
                           </tr>}
@@ -509,6 +535,49 @@ const FactoryProductionView = () => {
               </button>
               <button className="btn btn-primary" onClick={submitAssign} disabled={!assignQty || isNaN(parseInt(assignQty)) || parseInt(assignQty) <= 0}>
                 Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editLoteData && (
+        <div className="modal-overlay">
+          <div className="glass-card" style={{ width: '100%', maxWidth: '400px', margin: 'auto' }}>
+            <h4 style={{ marginTop: 0, color: 'var(--warning)', borderBottom: '1px solid rgba(0,0,0,0.1)', paddingBottom: '0.5rem' }}>Editar Lote de Producción</h4>
+            <div style={{ margin: '1rem 0', fontSize: '0.9rem' }}>
+              <p><strong>Lote:</strong> {editLoteData.codigo_lote}</p>
+              <p><strong>Producto:</strong> {editLoteData.productos?.nombre}</p>
+              <p><strong>Cantidad actual:</strong> {editLoteData.cantidad}</p>
+            </div>
+            <div className="form-group">
+              <label>Nueva cantidad correcta</label>
+              <input 
+                type="number" 
+                min="0" 
+                step="0.001"
+                className="form-control"
+                value={editLoteQty}
+                onChange={(e) => setEditLoteQty(e.target.value)}
+                placeholder="Ej. 1.5"
+                autoFocus
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+              <button className="btn btn-outline" onClick={() => { setEditLoteData(null); setEditLoteQty(''); }}>
+                Cancelar
+              </button>
+              <button className="btn btn-primary" onClick={async () => {
+                const parsed = parseFloat(editLoteQty);
+                if (!isNaN(parsed)) {
+                  await handleEditLote(editLoteData, parsed);
+                  setEditLoteData(null);
+                  setEditLoteQty('');
+                } else {
+                  showToast('Cantidad inválida', 'error');
+                }
+              }} disabled={editLoteQty === '' || isNaN(parseFloat(editLoteQty)) || parseFloat(editLoteQty) < 0}>
+                Guardar Cambios
               </button>
             </div>
           </div>

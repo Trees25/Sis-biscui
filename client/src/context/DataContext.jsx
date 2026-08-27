@@ -645,7 +645,7 @@ const handleCategoriaChange = cat => {
       if (user.rol === 'transportista') {
         stockQuery = stockQuery.in('sucursal_id', [1, user.sucursal_id || 5]);
       } else {
-        stockQuery = stockQuery.eq('sucursal_id', user.sucursal_id || 1);
+        stockQuery = stockQuery.in('sucursal_id', [1, user.sucursal_id || 1]);
       }
     }
     const {
@@ -1088,7 +1088,7 @@ const handleProductionSubmit = async e => {
   setLoading(true);
   try {
     const pId = parseInt(prodForm.producto_id);
-    const qty = parseInt(prodForm.cantidad);
+    const qty = parseFloat(prodForm.cantidad);
     let pDate = new Date();
     if (prodForm.fecha) {
       const [year, month, day] = prodForm.fecha.split('-');
@@ -1562,6 +1562,98 @@ const handleConsumoSubmit = async e => {
     setLoading(false);
   }
 };
+
+const handleDeleteLote = async (lote) => {
+  if (!window.confirm(`¿Estás seguro de que deseas eliminar el lote ${lote.codigo_lote}? Esto restará el stock automáticamente.`)) return;
+  setLoading(true);
+  try {
+    const isEvent = lote.es_evento || false;
+    
+    // Fetch current stock to subtract
+    const { data: currentStock, error: stockFetchErr } = await supabase
+      .from('stock_sucursales')
+      .select('cantidad, id')
+      .eq('producto_id', lote.producto_id)
+      .eq('sucursal_id', 1)
+      .eq('es_evento', isEvent)
+      .single();
+      
+    if (!stockFetchErr && currentStock) {
+      const newQty = Math.max(0, parseFloat(currentStock.cantidad) - parseFloat(lote.cantidad));
+      const { error: stockUpdateErr } = await supabase
+        .from('stock_sucursales')
+        .update({ cantidad: newQty })
+        .eq('id', currentStock.id);
+        
+      if (stockUpdateErr) throw stockUpdateErr;
+    }
+    
+    // Now delete the lote
+    const { error: delErr } = await supabase
+      .from('lotes_produccion')
+      .delete()
+      .eq('id', lote.id);
+      
+    if (delErr) throw delErr;
+    
+    showToast(`Lote ${lote.codigo_lote} eliminado correctamente.`, 'success');
+    fetchData();
+  } catch (err) {
+    showToast('Error al eliminar el lote: ' + err.message, 'error');
+  } finally {
+    setLoading(false);
+  }
+};
+
+const handleEditLote = async (lote, newQty) => {
+  if (isNaN(newQty) || newQty < 0) {
+    showToast('Cantidad inválida. Debe ser un número mayor o igual a 0.', 'error');
+    return;
+  }
+  
+  const diff = newQty - parseFloat(lote.cantidad);
+  if (diff === 0) return;
+  
+  setLoading(true);
+  try {
+    const isEvent = lote.es_evento || false;
+    
+    // Update lote
+    const { error: loteUpdateErr } = await supabase
+      .from('lotes_produccion')
+      .update({ cantidad: newQty })
+      .eq('id', lote.id);
+      
+    if (loteUpdateErr) throw loteUpdateErr;
+
+    // Update stock
+    const { data: currentStock, error: stockFetchErr } = await supabase
+      .from('stock_sucursales')
+      .select('cantidad, id')
+      .eq('producto_id', lote.producto_id)
+      .eq('sucursal_id', 1)
+      .eq('es_evento', isEvent)
+      .single();
+      
+    if (!stockFetchErr && currentStock) {
+      const updatedStockQty = Math.max(0, parseFloat(currentStock.cantidad) + diff);
+      const { error: stockUpdateErr } = await supabase
+        .from('stock_sucursales')
+        .update({ cantidad: updatedStockQty })
+        .eq('id', currentStock.id);
+        
+      if (stockUpdateErr) throw stockUpdateErr;
+    }
+    
+    showToast(`Lote ${lote.codigo_lote} actualizado correctamente.`, 'success');
+    fetchData();
+  } catch (err) {
+    showToast('Error al actualizar el lote: ' + err.message, 'error');
+  } finally {
+    setLoading(false);
+  }
+};
+
 const handleCreateOrder = async () => {
   const items = Object.entries(orderItems).map(([prodId, qty]) => ({
     producto_id: parseInt(prodId),
@@ -2968,6 +3060,8 @@ const handleSaveInventory = async (inventoryItems) => {
     fetchAuditoriaData,
     handleDownloadAuditoriaCSV,
     handleProductionSubmit,
+    handleDeleteLote,
+    handleEditLote,
     handleAssignEventStock,
     handleCompleteEventOrder,
     handleAdminHistSubmit,
