@@ -1,3 +1,4 @@
+import { formatDate } from '../../utils/formatters';
 import { useData } from '../../context/DataContext';
 import React from 'react';
 const AdminConsumptionAuditView = () => {
@@ -76,7 +77,7 @@ const AdminConsumptionAuditView = () => {
             const qty = isWeight ? parseFloat(row.cantidad).toFixed(3) : row.cantidad;
             const unit = isWeight ? "kg" : "unidades";
             return <tr key={row.id}>
-                            <td>{new Date(row.fecha).toLocaleString()}</td>
+                            <td>{formatDate()}</td>
                             <td>{row.sucursal_nombre || '-'}</td>
                             <td><strong>{row.producto_nombre || '-'}</strong></td>
                             <td>{row.usuario_nombre || '-'}</td>

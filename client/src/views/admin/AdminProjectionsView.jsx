@@ -255,7 +255,7 @@ const AdminProjectionsView = () => {
                               <td>
                                 {isHelado && l.pesos && l.pesos.length > 0 ? <strong style={{ color: 'var(--success)' }}>{netKilos.toFixed(2)} kg</strong> : isHelado ? <span style={{ color: 'var(--warning)', fontSize: '0.85rem', fontWeight: 600 }}>~{(l.cantidad * getProductNetWeight(l.productos.id, l.productos.tipo)).toFixed(2)} kg (Est.)</span> : <span style={{ color: 'var(--text-light)', fontSize: '0.85rem' }}>-</span>}
                               </td>
-                              <td style={{ fontSize: '0.85rem' }}>{new Date(l.fecha_produccion).toLocaleString()}</td>
+                              <td style={{ fontSize: '0.85rem' }}>{formatDate()}</td>
                             </tr>;
             })}
                         {recentLotes.length === 0 && <tr>

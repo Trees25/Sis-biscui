@@ -1,3 +1,4 @@
+import { formatDate } from '../utils/formatters';
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../hooks/useAuth';
@@ -6,6 +7,53 @@ import { useCatalog } from '../hooks/useCatalog';
 import { useStock } from '../hooks/useStock';
 import { useOrders } from '../hooks/useOrders';
 import { useMaintenance } from '../hooks/useMaintenance';
+
+export const sortProductsLogic = (a, b) => {
+  if (a.categoria !== b.categoria) {
+    return (a.categoria || '').localeCompare(b.categoria || '');
+  }
+  const nA = a.nombre.toLowerCase();
+  const nB = b.nombre.toLowerCase();
+  const isTermicoOrVaso = (n) => n.includes('termico') || n.includes('térmico') || n.includes('vaso');
+  
+  if (isTermicoOrVaso(nA) || isTermicoOrVaso(nB)) {
+    const getTypeScore = (n) => {
+      if (n.includes('termico') || n.includes('térmico')) return 1;
+      if (n.includes('vaso')) return 2;
+      return 3;
+    };
+    const typeA = getTypeScore(nA);
+    const typeB = getTypeScore(nB);
+    if (typeA !== typeB) return typeA - typeB;
+    
+    const getSize = (n) => {
+      if (n.includes('1/8')) return 0.125;
+      if (n.includes('1/4')) return 0.25;
+      if (n.includes('1/2')) return 0.5;
+      if (n.includes('3/4')) return 0.75;
+      if (n.includes('chico')) return 0.1;
+      if (n.includes('mediano')) return 0.2;
+      if (n.includes('grande')) return 0.3;
+      const ccMatch = n.match(/(\d+)\s*cc/);
+      if (ccMatch) return parseInt(ccMatch[1]) / 1000;
+      const kgMatch = n.match(/(\d+)\s*kg/);
+      if (kgMatch) return parseInt(kgMatch[1]);
+      const lMatch = n.match(/(\d+)\s*l(itro)?s?/);
+      if (lMatch) return parseInt(lMatch[1]);
+      if (/\b1\b/.test(n)) return 1;
+      if (/\b2\b/.test(n)) return 2;
+      if (/\b3\b/.test(n)) return 3;
+      if (/\b4\b/.test(n)) return 4;
+      if (/\b5\b/.test(n)) return 5;
+      return 999;
+    };
+    const sizeA = getSize(nA);
+    const sizeB = getSize(nB);
+    if (sizeA !== sizeB) return sizeA - sizeB;
+  }
+  return a.nombre.localeCompare(b.nombre);
+};
+
 export const DataContext = createContext();
 export const useData = () => {
   return useContext(DataContext);
@@ -581,6 +629,52 @@ const handleCategoriaChange = cat => {
       });
     }
 
+    pData.sort((a, b) => {
+      if (a.categoria !== b.categoria) {
+        return (a.categoria || '').localeCompare(b.categoria || '');
+      }
+      const nA = a.nombre.toLowerCase();
+      const nB = b.nombre.toLowerCase();
+      const isTermicoOrVaso = (n) => n.includes('termico') || n.includes('térmico') || n.includes('vaso');
+      
+      if (isTermicoOrVaso(nA) || isTermicoOrVaso(nB)) {
+        const getTypeScore = (n) => {
+          if (n.includes('termico') || n.includes('térmico')) return 1;
+          if (n.includes('vaso')) return 2;
+          return 3;
+        };
+        const typeA = getTypeScore(nA);
+        const typeB = getTypeScore(nB);
+        if (typeA !== typeB) return typeA - typeB;
+        
+        const getSize = (n) => {
+          if (n.includes('1/8')) return 0.125;
+          if (n.includes('1/4')) return 0.25;
+          if (n.includes('1/2')) return 0.5;
+          if (n.includes('3/4')) return 0.75;
+          if (n.includes('chico')) return 0.1;
+          if (n.includes('mediano')) return 0.2;
+          if (n.includes('grande')) return 0.3;
+          const ccMatch = n.match(/(\d+)\s*cc/);
+          if (ccMatch) return parseInt(ccMatch[1]) / 1000;
+          const kgMatch = n.match(/(\d+)\s*kg/);
+          if (kgMatch) return parseInt(kgMatch[1]);
+          const lMatch = n.match(/(\d+)\s*l(itro)?s?/);
+          if (lMatch) return parseInt(lMatch[1]);
+          if (/\b1\b/.test(n)) return 1;
+          if (/\b2\b/.test(n)) return 2;
+          if (/\b3\b/.test(n)) return 3;
+          if (/\b4\b/.test(n)) return 4;
+          if (/\b5\b/.test(n)) return 5;
+          return 999;
+        };
+        const sizeA = getSize(nA);
+        const sizeB = getSize(nB);
+        if (sizeA !== sizeB) return sizeA - sizeB;
+      }
+      return a.nombre.localeCompare(b.nombre);
+    });
+
     if (version !== fetchVersionRef.current) return;
     setProductos(pData);
     const {
@@ -701,6 +795,12 @@ const handleCategoriaChange = cat => {
           reportado_por_nombre: d.usuarios?.nombre
         }))
       }));
+      const branchCounters = {};
+      for (let i = ordersD.length - 1; i >= 0; i--) {
+        const destId = ordersD[i].sucursal_destino_id;
+        if (!branchCounters[destId]) branchCounters[destId] = 1;
+        ordersD[i].branch_local_id = branchCounters[destId]++;
+      }
       setOrders(ordersD);
     }
     const {
@@ -897,7 +997,7 @@ const handleCategoriaChange = cat => {
         error: apErr
       } = await supabase.from('productos').select('id, nombre, tipo, categoria, unidad_medida, cant_por_caja, cant_por_pack, activo');
       if (apErr) throw apErr;
-      const activeProds = (apData || []).filter(p => p.activo == 1 || p.activo === true || p.activo === 'true' || p.activo === '1');
+      const activeProds = (apData || []).filter(p => p.activo == 1 || p.activo === true || p.activo === 'true' || p.activo === '1').sort(sortProductsLogic);
       const {
         data: localSt,
         error: lsErr
@@ -1060,7 +1160,7 @@ const handleDownloadAuditoriaCSV = () => {
     const unit = isWeight ? "kg" : "unidades";
     const pName = prod ? prod.nombre.replace(/,/g, '') : "Desconocido";
     const sName = suc ? suc.nombre.replace(/,/g, '') : "Desconocido";
-    const fDate = new Date(row.fecha).toLocaleString().replace(/,/g, '');
+    const fDate = formatDate().replace(/,/g, '');
     const uName = row.usuarios?.nombre ? row.usuarios.nombre.replace(/,/g, '') : '';
     csvContent += `${fDate},${sName},${pName},${qty},${unit},${uName}\n`;
   });
@@ -1268,7 +1368,7 @@ const handleAdminHistSubmit = async e => {
 };
 const handleTranspCargaSubmit = async e => {
   e.preventDefault();
-  if (!transpCargaForm.producto_id || !transpCargaForm.cantidad || !transpCargaForm.fecha || !transpCargaForm.proveedor_id) return;
+  if (!transpCargaForm.producto_id || !transpCargaForm.cantidad || !transpCargaForm.fecha) return;
   setLoading(true);
   try {
     const pId = parseInt(transpCargaForm.producto_id);
@@ -1296,6 +1396,7 @@ const handleTranspCargaSubmit = async e => {
     setTranspCargaForm({
       producto_id: '',
       proveedor_id: '',
+      categoria_id: '',
       cantidad: '',
       fecha: getLocalDateString()
     });
@@ -1695,9 +1796,6 @@ const handleCreateOrder = async () => {
       showToast('Pedido modificado exitosamente.');
     } else {
       showToast('Pedido solicitado a Fábrica.');
-      const branchName = user.sucursal_id === 1 ? 'Fábrica' : (sucursales.find(s => s.id === user.sucursal_id)?.nombre || 'mi sucursal');
-      const whatsappMessage = encodeURIComponent(`¡Hola! Soy de ${branchName}, acabo de solicitar un nuevo pedido (ID #${pedido_id}) en el sistema.`);
-      window.open(`https://wa.me/?text=${whatsappMessage}`, '_blank');
     }
 
     setOrderIsEvent(false);
@@ -1762,10 +1860,6 @@ const handleAdminCreateOrder = async () => {
       });
       if (rpcErr) throw rpcErr;
       showToast(`Pedido #${pedido_id} creado y preparado con éxito.`);
-      
-      const origName = sucursales.find(s => s.id === adminOrderDestination)?.nombre || 'una sucursal';
-      const whatsappMessage = encodeURIComponent(`¡Hola! Se ha creado un nuevo pedido (ID #${pedido_id}) para ${origName} desde la administración.`);
-      window.open(`https://wa.me/?text=${whatsappMessage}`, '_blank');
     }
     setAdminOrderItems({});
     setAdminOrderDestination('');

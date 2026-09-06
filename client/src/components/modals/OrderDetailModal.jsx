@@ -80,7 +80,7 @@ const OrderDetailModal = () => {
                 </div>
                 <div>
                   <strong>Solicitado por:</strong> {selectedPedido.creado_por_nombre || 'N/D'}<br />
-                  <strong>Fecha:</strong> {new Date(selectedPedido.created_at).toLocaleString()}
+                  <strong>Fecha:</strong> {formatDate()}
                 </div>
               </div>
 

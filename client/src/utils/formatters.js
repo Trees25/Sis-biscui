@@ -51,7 +51,15 @@ export const translateState = (state) => {
 
 export const formatDate = (dateString) => {
   if (!dateString) return '-';
-  const d = new Date(dateString);
+  let ds = dateString;
+  // If the date string doesn't specify a timezone, assume it's UTC from the database
+  if (!ds.includes('Z') && !ds.match(/[\+\-]\d{2}:\d{2}$/)) {
+    if (!ds.includes('T')) {
+      ds = ds.replace(' ', 'T');
+    }
+    ds += 'Z';
+  }
+  const d = new Date(ds);
   return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 };
 

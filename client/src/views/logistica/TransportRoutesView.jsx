@@ -1,3 +1,4 @@
+import { formatDate } from '../../utils/formatters';
 import { useData } from '../../context/DataContext';
 import React from 'react';
 const TransportRoutesView = () => {
@@ -52,7 +53,7 @@ const TransportRoutesView = () => {
                             <td>#{order.id}</td>
                             <td><strong>{order.sucursal_nombre}</strong></td>
                             <td><span className={getBadgeClass(order.estado)}>{translateState(order.estado)}</span></td>
-                            <td>{order.fecha_preparacion ? new Date(order.fecha_preparacion).toLocaleString() : '-'}</td>
+                            <td>{order.fecha_preparacion ? formatDate() : '-'}</td>
                             <td>
                               <button className="btn btn-primary btn-sm" onClick={() => viewOrderDetail(order.id)}>
                                 {order.estado === 'preparado' ? 'Iniciar Carga' : 'Ver y Gestionar'}

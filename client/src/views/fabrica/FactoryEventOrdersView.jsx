@@ -1,3 +1,4 @@
+import { formatDate } from '../../utils/formatters';
 import React from 'react';
 import { useData } from '../../context/DataContext';
 import { getBadgeClass, translateState } from '../../utils/formatters';
@@ -51,7 +52,7 @@ const FactoryEventOrdersView = () => {
                   <td>#{order.id}</td>
                   <td><strong>{order.destino_nombre}</strong></td>
                   <td><span className={getBadgeClass(order.estado)}>{translateState(order.estado)}</span></td>
-                  <td>{new Date(order.created_at).toLocaleString()}</td>
+                  <td>{formatDate()}</td>
                   <td>
                     <button className="btn btn-secondary btn-sm" onClick={() => viewOrderDetail(order.id)}>
                       Revisar y Preparar
