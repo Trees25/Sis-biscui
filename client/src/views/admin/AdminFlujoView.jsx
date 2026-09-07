@@ -65,11 +65,11 @@ const AdminFlujoView = () => {
                     </td>
                     <td rowSpan={rowSpan}><strong>{order.destino_nombre}</strong></td>
                     <td rowSpan={rowSpan}><span className={getBadgeClass(order.estado)}>{translateState(order.estado)}</span></td>
-                    <td rowSpan={rowSpan}>{order.created_at ? formatDate() : '-'}</td>
+                    <td rowSpan={rowSpan}>{order.created_at ? formatDate(order.created_at) : '-'}</td>
                     
                     {discs.length > 0 ? (
                       <>
-                        <td style={{ fontSize: '0.8rem', color: 'var(--danger)' }}>{formatDate()}</td>
+                        <td style={{ fontSize: '0.8rem', color: 'var(--danger)' }}>{formatDate(discs[0].fecha)}</td>
                         <td>
                           <strong>{discs[0].producto_nombre}</strong>
                           <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-light)', textTransform: 'capitalize' }}>
@@ -90,7 +90,7 @@ const AdminFlujoView = () => {
                   </tr>
                   {discs.length > 1 && discs.slice(1).map((disc) => (
                     <tr key={disc.id} style={{ cursor: 'pointer', background: 'rgba(255, 71, 87, 0.02)' }} onClick={() => viewOrderDetail(order.id)}>
-                      <td style={{ fontSize: '0.8rem', color: 'var(--danger)' }}>{formatDate()}</td>
+                      <td style={{ fontSize: '0.8rem', color: 'var(--danger)' }}>{formatDate(disc.fecha)}</td>
                       <td>
                         <strong>{disc.producto_nombre}</strong>
                         <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-light)', textTransform: 'capitalize' }}>

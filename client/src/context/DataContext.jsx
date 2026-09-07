@@ -616,13 +616,17 @@ const handleCategoriaChange = cat => {
         const n = p.nombre.toLowerCase();
         
         if (p.categoria === 'sembrados') {
-          return n.includes('pasta fruta') || n.includes('gel de brillo') || n.includes('crema pastelera');
+          return n.includes('frutos rojos') || 
+                 n.includes('maracuya') || 
+                 n.includes('maracuyá') || 
+                 n.includes('gel de brillo') || 
+                 n.includes('crema pastelera');
         }
         
         if (p.categoria === 'otros') {
-          if (n.includes('harina') || n.includes('mayonesa natura')) {
-            return false;
-          }
+          const toRemove = ['harina 0000', 'harina 000', 'harina de almendras', 'mayonesa natura', 'pan de miga', 'vino marsala'];
+          if (toRemove.some(item => n.includes(item))) return false;
+          if ((n.includes('azucar') || n.includes('azúcar')) && !n.includes('impalpable')) return false;
         }
         
         return true;
@@ -997,7 +1001,24 @@ const handleCategoriaChange = cat => {
         error: apErr
       } = await supabase.from('productos').select('id, nombre, tipo, categoria, unidad_medida, cant_por_caja, cant_por_pack, activo');
       if (apErr) throw apErr;
-      const activeProds = (apData || []).filter(p => p.activo == 1 || p.activo === true || p.activo === 'true' || p.activo === '1').sort(sortProductsLogic);
+      let activeProds = (apData || []).filter(p => p.activo == 1 || p.activo === true || p.activo === 'true' || p.activo === '1');
+      activeProds = activeProds.filter(p => {
+        const n = p.nombre.toLowerCase();
+        if (p.categoria === 'sembrados') {
+          return n.includes('frutos rojos') || 
+                 n.includes('maracuya') || 
+                 n.includes('maracuyá') || 
+                 n.includes('gel de brillo') || 
+                 n.includes('crema pastelera');
+        }
+        if (p.categoria === 'otros') {
+          const toRemove = ['harina 0000', 'harina 000', 'harina de almendras', 'mayonesa natura', 'pan de miga', 'vino marsala'];
+          if (toRemove.some(item => n.includes(item))) return false;
+          if ((n.includes('azucar') || n.includes('azúcar')) && !n.includes('impalpable')) return false;
+        }
+        return true;
+      });
+      activeProds.sort(sortProductsLogic);
       const {
         data: localSt,
         error: lsErr
@@ -1136,13 +1157,22 @@ const fetchAuditoriaData = useCallback(async () => {
       ascending: false
     });
     if (error) throw error;
-    setAuditoriaData(data || []);
+    
+    const mappedData = (data || []).map(row => {
+      const prod = allProducts.find(p => p.id === row.producto_id);
+      return {
+        ...row,
+        unidad_medida: prod ? prod.unidad_medida : 'unidades'
+      };
+    });
+    
+    setAuditoriaData(mappedData);
   } catch (err) {
     showToast('Error al cargar auditoría: ' + err.message, 'error');
   } finally {
     setLoading(false);
   }
-}, [user, auditoriaFilterSucursal, auditoriaFilterDays]);
+}, [user, auditoriaFilterSucursal, auditoriaFilterDays, allProducts]);
 useEffect(() => {
   if (activeTab === 'auditoria_consumo') {
     fetchAuditoriaData();
@@ -1153,15 +1183,13 @@ const handleDownloadAuditoriaCSV = () => {
   let csvContent = "data:text/csv;charset=utf-8,";
   csvContent += "Fecha,Sucursal,Producto,Cantidad,Unidad,Registrado Por\n";
   auditoriaData.forEach(row => {
-    const prod = productos.find(p => p.id === row.producto_id);
-    const suc = sucursales.find(s => s.id === row.sucursal_id);
-    const isWeight = prod?.unidad_medida === 'peso';
+    const isWeight = row.unidad_medida === 'peso';
     const qty = isWeight ? parseFloat(row.cantidad).toFixed(3) : row.cantidad;
     const unit = isWeight ? "kg" : "unidades";
-    const pName = prod ? prod.nombre.replace(/,/g, '') : "Desconocido";
-    const sName = suc ? suc.nombre.replace(/,/g, '') : "Desconocido";
-    const fDate = formatDate().replace(/,/g, '');
-    const uName = row.usuarios?.nombre ? row.usuarios.nombre.replace(/,/g, '') : '';
+    const pName = (row.producto_nombre || "Desconocido").replace(/,/g, '');
+    const sName = (row.sucursal_nombre || "Desconocido").replace(/,/g, '');
+    const fDate = formatDate(row.fecha).replace(/,/g, '');
+    const uName = (row.usuario_nombre || "").replace(/,/g, '');
     csvContent += `${fDate},${sName},${pName},${qty},${unit},${uName}\n`;
   });
   const encodedUri = encodeURI(csvContent);

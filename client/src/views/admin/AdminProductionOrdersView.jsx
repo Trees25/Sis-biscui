@@ -3,7 +3,7 @@ import { useData } from '../../context/DataContext';
 import { supabase } from '../../supabaseClient';
 
 const AdminProductionOrdersView = () => {
-  const { productos, user, productionOrders, showToast, isProductVisibleToRole } = useData();
+  const { productos, user, productionOrders, showToast, isProductVisibleToRole, fetchData } = useData();
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [fechaRequerida, setFechaRequerida] = useState('');
   const [notas, setNotas] = useState('');
@@ -88,6 +88,7 @@ const AdminProductionOrdersView = () => {
       setItems([]);
       setNotas('');
       setFechaRequerida('');
+      if (fetchData) fetchData();
     } catch (error) {
       console.error(error);
       showToast('Error al crear la orden: ' + error.message, 'error');
@@ -102,6 +103,7 @@ const AdminProductionOrdersView = () => {
       const { error } = await supabase.from('ordenes_produccion').delete().eq('id', id);
       if (error) throw error;
       showToast('Orden eliminada', 'success');
+      if (fetchData) fetchData();
     } catch (err) {
       showToast('Error al eliminar: ' + err.message, 'error');
     }

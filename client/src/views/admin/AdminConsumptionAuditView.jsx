@@ -77,7 +77,7 @@ const AdminConsumptionAuditView = () => {
             const qty = isWeight ? parseFloat(row.cantidad).toFixed(3) : row.cantidad;
             const unit = isWeight ? "kg" : "unidades";
             return <tr key={row.id}>
-                            <td>{formatDate()}</td>
+                            <td>{formatDate(row.fecha)}</td>
                             <td>{row.sucursal_nombre || '-'}</td>
                             <td><strong>{row.producto_nombre || '-'}</strong></td>
                             <td>{row.usuario_nombre || '-'}</td>
