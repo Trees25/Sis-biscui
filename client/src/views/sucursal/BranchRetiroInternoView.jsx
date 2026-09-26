@@ -118,7 +118,7 @@ const BranchRetiroInternoView = () => {
                     ...prev,
                     [p.id]: val
                   }));
-                }} product={p} />
+                }} product={{ ...p, unidad_medida: p.categoria === 'helados' ? 'peso' : p.unidad_medida }} />
                     </td>
                   </tr>;
           })}

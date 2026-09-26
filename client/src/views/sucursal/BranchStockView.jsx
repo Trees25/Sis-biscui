@@ -177,7 +177,7 @@ const BranchStockView = () => {
                     <div style={{ marginTop: '0.5rem' }}>
                       <input 
                         type="number" 
-                        step={p.unidad_medida === 'peso' ? "0.01" : "1"}
+                        step={(p.unidad_medida === 'peso' || p.categoria === 'helados') ? "0.01" : "1"}
                         className="form-control text-center" 
                         value={cantidadInput} 
                         onChange={e => setInventoryForm({ ...inventoryForm, [p.id]: e.target.value === '' ? '' : Number(e.target.value) })}
@@ -191,7 +191,7 @@ const BranchStockView = () => {
                       color: cantidadActual > 0 ? 'var(--text-dark)' : 'var(--danger)',
                       marginBottom: '0.5rem'
                     }}>
-                      {formatQuantity(cantidadActual, p)}
+                      {formatQuantity(cantidadActual, { ...p, unidad_medida: p.categoria === 'helados' ? 'peso' : p.unidad_medida })}
                     </div>
                   )}
                 </div>

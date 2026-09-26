@@ -26,13 +26,16 @@ const FactoryProductionView = () => {
     stockData,
     showToast,
     handleDeleteLote,
-    handleEditLote
+    handleEditLote,
+    categories
   } = useData();
 
   const [assignModalData, setAssignModalData] = React.useState(null);
   const [assignQty, setAssignQty] = React.useState('');
   const [editLoteData, setEditLoteData] = React.useState(null);
   const [editLoteQty, setEditLoteQty] = React.useState('');
+  const [prodFormCategory, setProdFormCategory] = React.useState('');
+  const [prodFormTipo, setProdFormTipo] = React.useState('');
 
   const submitAssign = () => {
     if (!assignModalData) return;
@@ -198,21 +201,78 @@ const FactoryProductionView = () => {
                             Cambiar
                           </button>
                         </div> : <>
-                          <input type="text" className="form-control" placeholder="🔍 Buscar producto por nombre..." value={prodFormSearch} onChange={e => setProdFormSearch(e.target.value)} onKeyDown={e => {
-              if (e.key === 'Enter') e.preventDefault();
-            }} style={{
-              marginBottom: '0.4rem',
-              padding: '0.8rem 1.2rem',
-              fontSize: '1.05rem',
-              borderRadius: '12px',
-              border: '1px solid rgba(0, 0, 0, 0.1)',
-              background: 'var(--input-bg)',
-              color: 'var(--text-dark)',
-              width: '100%'
-            }} />
+                          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.4rem', flexWrap: 'wrap' }}>
+                            {categories && (
+                              <select 
+                                className="form-control" 
+                                value={prodFormCategory} 
+                                onChange={e => {
+                                  setProdFormCategory(e.target.value);
+                                  setProdFormTipo('');
+                                }}
+                                style={{
+                                  padding: '0.8rem',
+                                  fontSize: '0.95rem',
+                                  borderRadius: '12px',
+                                  border: '1px solid rgba(0, 0, 0, 0.1)',
+                                  background: 'var(--input-bg)',
+                                  color: 'var(--text-dark)',
+                                  minWidth: '160px'
+                                }}
+                              >
+                                <option value="">Todas las categorías</option>
+                                {categories.filter(cat => isProductVisibleToRole({ categoria: cat.id }, user.rol)).map(cat => (
+                                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                ))}
+                              </select>
+                            )}
+
+                            {(() => {
+                              const catToCheck = prodFormCategory || (user.rol === 'heladero' ? 'helados' : '');
+                              if (!catToCheck) return null;
+                              
+                              const tiposDisponibles = [...new Set(productos.filter(p => p.categoria === catToCheck && isProductVisibleToRole(p, user.rol) && p.tipo).map(p => p.tipo))];
+                              if (tiposDisponibles.length === 0) return null;
+                              
+                              return (
+                                <select 
+                                  className="form-control" 
+                                  value={prodFormTipo} 
+                                  onChange={e => setProdFormTipo(e.target.value)}
+                                  style={{
+                                    padding: '0.8rem',
+                                    fontSize: '0.95rem',
+                                    borderRadius: '12px',
+                                    border: '1px solid rgba(0, 0, 0, 0.1)',
+                                    background: 'var(--input-bg)',
+                                    color: 'var(--text-dark)',
+                                    minWidth: '160px'
+                                  }}
+                                >
+                                  <option value="">Todos los formatos</option>
+                                  {tiposDisponibles.map(t => (
+                                    <option key={t} value={t}>{formatTipo(t)}</option>
+                                  ))}
+                                </select>
+                              );
+                            })()}
+                            <input type="text" className="form-control" placeholder="🔍 Buscar producto por nombre..." value={prodFormSearch} onChange={e => setProdFormSearch(e.target.value)} onKeyDown={e => {
+                if (e.key === 'Enter') e.preventDefault();
+              }} style={{
+                padding: '0.8rem 1.2rem',
+                fontSize: '1.05rem',
+                borderRadius: '12px',
+                border: '1px solid rgba(0, 0, 0, 0.1)',
+                background: 'var(--input-bg)',
+                color: 'var(--text-dark)',
+                flex: 1
+              }} />
+                          </div>
                           {(() => {
               const matchedProducts = productos.filter(p => {
                 if (!isProductVisibleToRole(p, user.rol)) return false;
+                if (prodFormCategory && p.categoria !== prodFormCategory) return false;
+                if (prodFormTipo && p.tipo !== prodFormTipo) return false;
                 if (!prodFormSearch) return true;
                 const searchLower = prodFormSearch.toLowerCase();
                 return p.nombre.toLowerCase().includes(searchLower) || p.tipo && formatTipo(p.tipo).toLowerCase().includes(searchLower);
@@ -289,32 +349,31 @@ const FactoryProductionView = () => {
                     {/* Event Checkbox */}
                     {(() => {
           const selectedProd = productos.find(p => p.id === parseInt(prodForm.producto_id));
-          if (!selectedProd) return null;
-          const isVasqueta = selectedProd.categoria === 'helados' && selectedProd.tipo === 'vasqueta_5_6k';
+          const isVasqueta = selectedProd && selectedProd.categoria === 'helados' && selectedProd.tipo === 'vasqueta_5_6k';
           if (isVasqueta) return null;
           return <div className="form-group" style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
             margin: '0.8rem 0'
           }}>
-                          <input type="checkbox" id="prodEsEvento" checked={prodForm.es_evento} onChange={e => setProdForm({
-              ...prodForm,
-              es_evento: e.target.checked
-            })} style={{
-              width: '18px',
-              height: '18px',
-              cursor: 'pointer'
-            }} />
-                          <label htmlFor="prodEsEvento" style={{
-              margin: 0,
-              cursor: 'pointer',
-              userSelect: 'none',
-              fontSize: '0.85rem',
-              fontWeight: 600
-            }}>
-                            Destinar a Stock de Eventos (Separado del stock inicial)
-                          </label>
+                          <label style={{ fontSize: "0.9rem", marginBottom: "0.4rem", display: "block", fontWeight: 600 }}>Destino del Stock</label>
+                          <select 
+                            className="form-control"
+                            value={prodForm.es_evento ? "evento" : "fabrica"}
+                            onChange={e => setProdForm({
+                              ...prodForm,
+                              es_evento: e.target.value === "evento"
+                            })}
+                            style={{
+                              padding: "0.8rem",
+                              fontSize: "0.95rem",
+                              borderRadius: "12px",
+                              border: "1px solid rgba(0, 0, 0, 0.1)",
+                              background: "var(--input-bg)",
+                              color: "var(--text-dark)"
+                            }}
+                          >
+                            <option value="fabrica">Stock de Fábrica / Sucursales</option>
+                            <option value="evento">Stock de Eventos</option>
+                          </select>
                         </div>;
         })()}
                     <div className="form-group">

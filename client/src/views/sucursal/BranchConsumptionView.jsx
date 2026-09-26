@@ -66,10 +66,17 @@ const BranchConsumptionView = () => {
 
                   <div className="form-group">
                     <label>Cantidad Consumida</label>
-                    <UnitCalculatorInput value={consumoForm.cantidad} onChange={val => setConsumoForm({
-          ...consumoForm,
-          cantidad: val
-        })} product={productos.find(p => p.id === parseInt(consumoForm.producto_id))} placeholder="Ej. 2" min={1} />
+                    <UnitCalculatorInput 
+                      value={consumoForm.cantidad} 
+                      onChange={val => setConsumoForm({ ...consumoForm, cantidad: val })} 
+                      product={(() => {
+                        const p = productos.find(x => x.id === parseInt(consumoForm.producto_id));
+                        if (!p) return null;
+                        return { ...p, unidad_medida: p.categoria === 'helados' ? 'peso' : p.unidad_medida };
+                      })()} 
+                      placeholder="Ej. 1.5" 
+                      min={0.001} 
+                    />
                   </div>
                   <button type="submit" className="btn btn-danger" disabled={loading}>
                     Registrar Consumo y Restar de Stock

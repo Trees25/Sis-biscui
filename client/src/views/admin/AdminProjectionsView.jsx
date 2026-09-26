@@ -65,6 +65,8 @@ const AdminProjectionsView = () => {
                               }
                             }
 
+                            const stockList = dashboardStats?.stock || [];
+
                             const currentDate = new Date().toLocaleString('es-AR', { dateStyle: 'long', timeStyle: 'short' });
                             let htmlContent = `
                               <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
@@ -90,7 +92,7 @@ const AdminProjectionsView = () => {
                                 <br/>
                                 <table>
                                   <tr>
-                                    <td colspan="7" class="section-header" style="background-color: #059669;">Historial de Fabricación ${exportMonth ? `del mes ${exportMonth}` : 'Reciente'}</td>
+                                    <td colspan="9" class="section-header" style="background-color: #059669;">Historial de Fabricación ${exportMonth ? `del mes ${exportMonth}` : 'Reciente'}</td>
                                   </tr>
                                 </table>
                                 <table class="table">
@@ -101,6 +103,8 @@ const AdminProjectionsView = () => {
                                       <th class="th-green">Formato/Tipo</th>
                                       <th class="th-green" style="text-align: right;">Unidades</th>
                                       <th class="th-green" style="text-align: right;">Pesos Brutos</th>
+                                      <th class="th-green" style="text-align: right;">Stock Fábrica</th>
+                                      <th class="th-green" style="text-align: right;">Stock Eventos</th>
                                       <th class="th-green" style="text-align: right;">Peso Neto Total</th>
                                       <th class="th-green">Fecha</th>
                                     </tr>
@@ -117,6 +121,12 @@ const AdminProjectionsView = () => {
                               const pesosBrutos = isHelado && l.pesos && l.pesos.length > 0 ? l.pesos.map(w => `${parseFloat(w).toFixed(2)}kg`).join(', ') : '-';
                               const pesoNeto = isHelado && l.pesos && l.pesos.length > 0 ? `${netKilos.toFixed(2)} kg` : (isHelado ? `~${(l.cantidad * getProductNetWeight(l.productos.id, l.productos.tipo)).toFixed(2)} kg (Est.)` : '-');
                               const fecha = new Date(l.fecha_produccion).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
+                              
+                              const pId = l.producto_id;
+                              const stockFabricaItem = stockList.find(s => s.producto_id === pId && s.sucursal_id === 1 && !s.es_evento);
+                              const stockEventosItem = stockList.find(s => s.producto_id === pId && s.sucursal_id === 1 && s.es_evento);
+                              const stockFabrica = stockFabricaItem ? stockFabricaItem.cantidad : 0;
+                              const stockEventos = stockEventosItem ? stockEventosItem.cantidad : 0;
 
                               htmlContent += `
                                 <tr>
@@ -125,6 +135,8 @@ const AdminProjectionsView = () => {
                                   <td class="td">${l.productos?.tipo}</td>
                                   <td class="td-number">${unidades}</td>
                                   <td class="td-number" style="font-size: 11px;">${pesosBrutos}</td>
+                                  <td class="td-number">${stockFabrica}</td>
+                                  <td class="td-number">${stockEventos}</td>
                                   <td class="td-number" style="font-weight: bold; color: #047857;">${pesoNeto}</td>
                                   <td class="td">${fecha}</td>
                                 </tr>
