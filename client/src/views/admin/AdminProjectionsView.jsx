@@ -35,14 +35,14 @@ const AdminProjectionsView = () => {
                         Flujo de planificación inteligente: sabores solicitados por sucursales en pedidos activos que superan el stock actual en fábrica.
                       </p>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                        <span style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>Buscar:</span>
-                        <input type="text" className="form-control search-control-responsive" placeholder="🔍 Buscar producto..." value={prodReqSearch} onChange={e => setProdReqSearch(e.target.value)} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', width: '100%', justifyContent: 'flex-start' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flex: '1 1 min-content', minWidth: '200px' }}>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-light)', whiteSpace: 'nowrap' }}>Buscar:</span>
+                        <input type="text" className="form-control search-control-responsive" style={{ width: '100%' }} placeholder="🔍 Buscar producto..." value={prodReqSearch} onChange={e => setProdReqSearch(e.target.value)} />
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                        <input type="month" className="form-control" value={exportMonth} onChange={e => setExportMonth(e.target.value)} title="Mes a exportar (vacío = últimos registros)" />
-                        <button className="btn btn-primary" disabled={isExporting} onClick={async () => {
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flex: '1 1 min-content', minWidth: '200px', flexWrap: 'wrap' }}>
+                        <input type="month" className="form-control" style={{ flex: '1 1 min-content', minWidth: '150px' }} value={exportMonth} onChange={e => setExportMonth(e.target.value)} title="Mes a exportar (vacío = últimos registros)" />
+                        <button className="btn btn-primary" style={{ flex: '1 1 auto', whiteSpace: 'nowrap' }} disabled={isExporting} onClick={async () => {
                           setIsExporting(true);
                           try {
                             let lotesToExport = recentLotes;
