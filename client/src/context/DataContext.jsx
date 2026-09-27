@@ -1219,10 +1219,19 @@ const handleProductionSubmit = async e => {
     const codigo_lote = `L-${dateStr}-${rand}`;
     const selectedProd = productos.find(p => p.id === pId);
     let pesosArray = [];
+    let netKilos = qty; // Default to qty for non-ice cream
+
     if (selectedProd && selectedProd.categoria === 'helados') {
       pesosArray = prodWeights.map(w => parseFloat(w) || 0);
       if (pesosArray.length !== qty || pesosArray.some(w => w <= 0)) {
         throw new Error('Por favor, ingresa un peso válido mayor a 0 para cada unidad.');
+      }
+      
+      const tare = getTareByTipo(selectedProd.tipo);
+      netKilos = pesosArray.reduce((acc, curr) => acc + Math.max(0, curr - tare), 0);
+      
+      if (netKilos <= 0) {
+        throw new Error('El peso neto total debe ser mayor a 0.');
       }
     }
     const isEvent = selectedProd && selectedProd.categoria === 'helados' && selectedProd.tipo === 'vasqueta_5_6k' ? false : prodForm.es_evento || false;
@@ -1231,7 +1240,7 @@ const handleProductionSubmit = async e => {
     } = await supabase.rpc('registrar_produccion', {
       p_codigo_lote: codigo_lote,
       p_producto_id: pId,
-      p_cantidad: qty,
+      p_cantidad: netKilos,
       p_pesos: pesosArray,
       p_fecha_produccion: pDate.toISOString(),
       p_creado_por: user.id,
@@ -1358,10 +1367,19 @@ const handleAdminHistSubmit = async e => {
     const codigo_lote = `L-${dateStr}-${rand}`;
     const selectedProd = productos.find(p => p.id === pId);
     let pesosArray = [];
+    let netKilos = qty; // Default to qty for non-ice cream
+
     if (selectedProd && selectedProd.categoria === 'helados') {
       pesosArray = adminHistWeights.map(w => parseFloat(w) || 0);
       if (pesosArray.length !== qty || pesosArray.some(w => w <= 0)) {
         throw new Error('Por favor, ingresa un peso válido mayor a 0 para cada unidad.');
+      }
+      
+      const tare = getTareByTipo(selectedProd.tipo);
+      netKilos = pesosArray.reduce((acc, curr) => acc + Math.max(0, curr - tare), 0);
+      
+      if (netKilos <= 0) {
+        throw new Error('El peso neto total debe ser mayor a 0.');
       }
     }
     const isEvent = selectedProd && selectedProd.categoria === 'helados' && selectedProd.tipo === 'vasqueta_5_6k' ? false : adminHistForm.es_evento || false;
@@ -1370,7 +1388,7 @@ const handleAdminHistSubmit = async e => {
     } = await supabase.rpc('registrar_produccion', {
       p_codigo_lote: codigo_lote,
       p_producto_id: pId,
-      p_cantidad: qty,
+      p_cantidad: netKilos,
       p_pesos: pesosArray,
       p_fecha_produccion: pDate.toISOString(),
       p_creado_por: user.id,

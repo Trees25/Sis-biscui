@@ -164,10 +164,7 @@ const FactoryStockView = () => {
               }
 
               const stockWithKilos = filteredStock.map(s => {
-                const wVasqueta = s.vasqueta_id ? getProductNetWeight(s.vasqueta_id, 'vasqueta_5_6k') : 5.5;
-                const wBalde5l = s.balde_4k_id ? getProductNetWeight(s.balde_4k_id, 'balde_4k') : 4.0;
-                const wBalde10l = s.balde_8k_id ? getProductNetWeight(s.balde_8k_id, 'balde_8k') : 8.0;
-                const totalKilos = (iceCreamFormatFilter === 'Todos' || iceCreamFormatFilter === 'Vasqueta' ? showEventStock ? 0 : s.vasqueta_qty * wVasqueta : 0) + (iceCreamFormatFilter === 'Todos' || iceCreamFormatFilter === 'Balde' ? s.balde_4k_qty * wBalde5l + s.balde_8k_qty * wBalde10l : 0);
+                const totalKilos = (iceCreamFormatFilter === 'Todos' || iceCreamFormatFilter === 'Vasqueta' ? (showEventStock ? 0 : s.vasqueta_qty) : 0) + (iceCreamFormatFilter === 'Todos' || iceCreamFormatFilter === 'Balde' ? (s.balde_4k_qty + s.balde_8k_qty) : 0);
                 return { ...s, totalKilos };
               });
 
@@ -210,21 +207,21 @@ const FactoryStockView = () => {
                     fontWeight: s.vasqueta_qty > 0 ? 700 : 400,
                     color: showEventStock ? 'var(--text-light)' : getStockColor(s.vasqueta_qty)
                   }}>
-                                      {showEventStock ? '-' : s.vasqueta_qty}
+                                      {showEventStock ? '-' : `${s.vasqueta_qty.toFixed(2)} kg`}
                                     </td>}
                                   {(iceCreamFormatFilter === 'Todos' || iceCreamFormatFilter === 'Balde') && <td style={{
                     textAlign: 'center',
                     fontWeight: s.balde_4k_qty > 0 ? 700 : 400,
                     color: getStockColor(s.balde_4k_qty)
                   }}>
-                                      {s.balde_4k_qty}
+                                      {s.balde_4k_qty > 0 ? `${s.balde_4k_qty.toFixed(2)} kg` : '0 kg'}
                                     </td>}
                                   {(iceCreamFormatFilter === 'Todos' || iceCreamFormatFilter === 'Balde') && <td style={{
                     textAlign: 'center',
                     fontWeight: s.balde_8k_qty > 0 ? 700 : 400,
                     color: getStockColor(s.balde_8k_qty)
                   }}>
-                                      {s.balde_8k_qty}
+                                      {s.balde_8k_qty > 0 ? `${s.balde_8k_qty.toFixed(2)} kg` : '0 kg'}
                                     </td>}
                                   <td>
                                     {totalKilos > 0 ? <strong style={{
