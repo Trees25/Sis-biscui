@@ -393,7 +393,10 @@ const FactoryProductionView = () => {
               }
               return next;
             });
-          }} product={productos.find(p => p.id === parseInt(prodForm.producto_id))} placeholder="Ej. 5" min={1} />
+          }} product={(() => {
+            const p = productos.find(x => x.id === parseInt(prodForm.producto_id));
+            return p?.categoria === 'helados' ? { ...p, categoria: 'unidad', unidad_medida: 'unidad' } : p;
+          })()} placeholder="Ej. 5" min={1} />
                     </div>
 
                     {/* Weight Inputs for Helado */}
@@ -433,7 +436,7 @@ const FactoryProductionView = () => {
           }}>
                           {prodWeights.map((w, idx) => {
               const tare = getTareByTipo(productos.find(p => p.id === parseInt(prodForm.producto_id))?.tipo);
-              const gross = parseFloat(w) || 0;
+              const gross = normalizeWeight(w);
               const net = Math.max(0, gross - tare);
               return <div key={idx} className="form-group" style={{
                 margin: 0
@@ -477,8 +480,8 @@ const FactoryProductionView = () => {
             display: 'flex',
             justifyContent: 'space-between'
           }}>
-                          <span><strong>Total Bruto:</strong> {prodWeights.reduce((acc, curr) => acc + (parseFloat(curr) || 0), 0).toFixed(3)} kg</span>
-                          <span><strong>Total Neto:</strong> {prodWeights.reduce((acc, curr) => acc + Math.max(0, (parseFloat(curr) || 0) - getTareByTipo(productos.find(p => p.id === parseInt(prodForm.producto_id))?.tipo)), 0).toFixed(3)} kg</span>
+                          <span><strong>Total Bruto:</strong> {prodWeights.reduce((acc, curr) => acc + normalizeWeight(curr), 0).toFixed(3)} kg</span>
+                          <span><strong>Total Neto:</strong> {prodWeights.reduce((acc, curr) => acc + Math.max(0, normalizeWeight(curr) - getTareByTipo(productos.find(p => p.id === parseInt(prodForm.producto_id))?.tipo)), 0).toFixed(3)} kg</span>
                         </div>
                       </div>}
 

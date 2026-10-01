@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { formatTipo, formatQuantity, normalizeWeight, getTareByTipo, calculateNetWeight } from '../../utils/formatters';
 
-const BranchStockView = () => {
+const BranchStockView = ({ adminSelectedBranchId }) => {
   const {
     categories,
     productos,
@@ -15,34 +15,48 @@ const BranchStockView = () => {
     showToast
   } = useData();
 
-  const myBranch = (sucursales || []).find(s => s.id === user?.sucursal_id);
-  const canTakeInventory = myBranch?.inventario_habilitado;
+  const targetBranchId = adminSelectedBranchId || user?.sucursal_id;
+  const myBranch = (sucursales || []).find(s => s.id === targetBranchId);
+  const canTakeInventory = adminSelectedBranchId ? true : myBranch?.inventario_habilitado;
 
   const [inventoryMode, setInventoryMode] = useState(false);
   const [inventoryForm, setInventoryForm] = useState({});
+  const [inventoryContainers, setInventoryContainers] = useState({});
 
   const [branchStockCategoryFilter, setBranchStockCategoryFilter] = useState('Todos');
   const [branchStockFormatFilter, setBranchStockFormatFilter] = useState('Todos');
 
   const onSave = () => {
     const items = Object.entries(inventoryForm)
-      .filter(([_, val]) => val !== '' && val !== null && !isNaN(Number(val.toString().replace(',', '.'))) && Number(val.toString().replace(',', '.')) !== 0)
+      .filter(([_, val]) => {
+        if (Array.isArray(val)) return val.some(v => v !== '' && !isNaN(normalizeWeight(v)) && normalizeWeight(v) > 0);
+        return val !== '' && val !== null && !isNaN(Number(val.toString().replace(',', '.'))) && Number(val.toString().replace(',', '.')) !== 0;
+      })
       .map(([pId, addVal]) => {
         const prod = productos.find(x => x.id === Number(pId));
         const isW = prod?.unidad_medida === 'peso' || prod?.categoria === 'helados';
-        const sData = stockData.find(s => s.producto_id === Number(pId) && s.sucursal_id === user.sucursal_id && s.es_evento === false);
+        const sData = stockData.find(s => s.producto_id === Number(pId) && s.sucursal_id === targetBranchId && s.es_evento === false);
         const current = sData ? Number(sData.cantidad) : 0;
         
         let addedNet = 0;
         if (isW) {
-          const calc = calculateNetWeight(addVal, prod?.tipo, true);
-          addedNet = calc.net;
+          if (Array.isArray(addVal)) {
+            const tare = getTareByTipo(prod?.tipo);
+            addVal.forEach(w => {
+              if (w !== '' && normalizeWeight(w) > 0) {
+                addedNet += Math.max(0, normalizeWeight(w) - tare);
+              }
+            });
+          } else {
+            const calc = calculateNetWeight(addVal, prod?.tipo, true, 1);
+            addedNet = calc.net;
+          }
         } else {
           addedNet = Number(addVal);
         }
         
         const finalQty = isW ? Number((current + addedNet).toFixed(3)) : (current + addedNet);
-        return { producto_id: Number(pId), cantidad: finalQty };
+        return { producto_id: Number(pId), cantidad: finalQty, sucursal_id: targetBranchId };
       });
 
     if (items.length === 0) {
@@ -52,6 +66,7 @@ const BranchStockView = () => {
 
     handleSaveInventory(items).then(() => {
       setInventoryForm({});
+      setInventoryContainers({});
       setInventoryMode(false);
     });
   };
@@ -69,7 +84,7 @@ const BranchStockView = () => {
           <h3 className="section-title" style={{
             margin: 0,
             border: 'none'
-          }}>Stock Actual en mi Sucursal</h3>
+          }}>Stock Actual en {adminSelectedBranchId ? myBranch?.nombre : 'mi Sucursal'}</h3>
           {inventoryMode && (
             <p style={{ margin: '0.4rem 0 0 0', fontSize: '0.85rem', color: 'var(--text-light)' }}>
               Ingresa el peso bruto de balanza (ej: <strong>5600</strong> = 5.600 kg). El sistema <strong>descuenta automáticamente la tara del envase</strong> (vasqueta o balde) y lo suma al stock actual.
@@ -176,14 +191,34 @@ const BranchStockView = () => {
             </h4>
             <div className="items-grid">
               {catProds.map(p => {
-                const sData = (stockData || []).find(s => s.producto_id === p.id && s.sucursal_id === user?.sucursal_id && s.es_evento === false);
+                const sData = (stockData || []).find(s => s.producto_id === p.id && s.sucursal_id === targetBranchId && s.es_evento === false);
                 const cantidadActual = sData ? Number(sData.cantidad) : 0;
                 const isWeight = p.unidad_medida === 'peso' || p.categoria === 'helados';
                 const tareVal = getTareByTipo(p.tipo);
                 const enteredVal = inventoryForm[p.id];
+                const enteredContainers = inventoryContainers[p.id] !== undefined ? inventoryContainers[p.id] : 0;
                 
-                const calc = isWeight ? calculateNetWeight(enteredVal, p.tipo, true) : { gross: Number(enteredVal || 0), tare: 0, net: Number(enteredVal || 0) };
-                const hasInput = enteredVal !== undefined && enteredVal !== '' && !isNaN(Number(enteredVal.toString().replace(',', '.'))) && calc.gross > 0;
+                let calc = { gross: 0, tare: 0, net: 0 };
+                let hasInput = false;
+                if (isWeight && tareVal > 0) {
+                  const arr = Array.isArray(enteredVal) ? enteredVal : [];
+                  arr.forEach(w => {
+                    const norm = normalizeWeight(w);
+                    if (norm > 0) {
+                      calc.gross += norm;
+                      calc.net += Math.max(0, norm - tareVal);
+                      hasInput = true;
+                    }
+                  });
+                  calc.tare = enteredContainers * tareVal;
+                } else if (isWeight) {
+                  calc = calculateNetWeight(enteredVal, p.tipo, true, 1);
+                  hasInput = enteredVal !== undefined && enteredVal !== '' && !isNaN(normalizeWeight(enteredVal)) && calc.gross > 0;
+                } else {
+                  calc = { gross: Number(enteredVal || 0), tare: 0, net: Number(enteredVal || 0) };
+                  hasInput = enteredVal !== undefined && enteredVal !== '' && !isNaN(Number(enteredVal.toString().replace(',', '.'))) && calc.gross > 0;
+                }
+                
                 const newTotal = isWeight ? Number((cantidadActual + calc.net).toFixed(3)) : (cantidadActual + calc.net);
 
                 return <div key={p.id} className="glass-card" style={{
@@ -222,27 +257,78 @@ const BranchStockView = () => {
                       <div style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '4px' }}>
                         Stock actual: <strong>{formatQuantity(cantidadActual, { ...p, unidad_medida: isWeight ? 'peso' : p.unidad_medida })}</strong>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <span style={{ fontWeight: 'bold', color: 'var(--primary)', fontSize: '1.1rem' }}>+</span>
-                        <input 
-                          type="number" 
-                          step={isWeight ? "0.001" : "1"}
-                          className="form-control text-center" 
-                          value={enteredVal !== undefined ? enteredVal : ''} 
-                          placeholder={isWeight ? "Peso bruto (ej. 5600)" : "Ej. 5"}
-                          onChange={e => setInventoryForm({ ...inventoryForm, [p.id]: e.target.value })}
-                          onBlur={e => {
-                            if (isWeight && e.target.value !== '') {
-                              const norm = normalizeWeight(e.target.value);
-                              setInventoryForm({ ...inventoryForm, [p.id]: norm });
-                            }
-                          }}
-                          style={{ fontSize: '1.1rem', fontWeight: 'bold', flex: 1 }}
-                        />
-                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-light)' }}>
-                          {isWeight ? 'kg' : 'u'}
-                        </span>
-                      </div>
+                      {isWeight && tareVal > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>Cant. envases:</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              className="form-control text-center"
+                              value={enteredContainers}
+                              onChange={e => {
+                                const count = Math.max(0, parseInt(e.target.value) || 0);
+                                setInventoryContainers({ ...inventoryContainers, [p.id]: count });
+                                const currentArr = Array.isArray(inventoryForm[p.id]) ? [...inventoryForm[p.id]] : [];
+                                while (currentArr.length < count) currentArr.push('');
+                                if (currentArr.length > count) currentArr.splice(count);
+                                setInventoryForm({ ...inventoryForm, [p.id]: currentArr });
+                              }}
+                              style={{ padding: '0.2rem', fontSize: '0.9rem', width: '80px' }}
+                            />
+                          </div>
+                          {(Array.isArray(enteredVal) ? enteredVal : []).map((w, idx) => (
+                            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span style={{ fontWeight: 'bold', color: 'var(--primary)', fontSize: '1rem' }}>{idx+1}.</span>
+                              <input 
+                                type="number" 
+                                step="0.001"
+                                className="form-control text-center" 
+                                value={w} 
+                                placeholder="Peso (ej. 5600)"
+                                onChange={e => {
+                                  const arr = [...(enteredVal || [])];
+                                  arr[idx] = e.target.value;
+                                  setInventoryForm({ ...inventoryForm, [p.id]: arr });
+                                }}
+                                onBlur={e => {
+                                  if (e.target.value !== '') {
+                                    const norm = normalizeWeight(e.target.value);
+                                    const arr = [...(enteredVal || [])];
+                                    arr[idx] = norm;
+                                    setInventoryForm({ ...inventoryForm, [p.id]: arr });
+                                  }
+                                }}
+                                style={{ fontSize: '1rem', flex: 1 }}
+                              />
+                              <span style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>kg</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span style={{ fontWeight: 'bold', color: 'var(--primary)', fontSize: '1.1rem' }}>+</span>
+                          <input 
+                            type="number" 
+                            step={isWeight ? "0.001" : "1"}
+                            className="form-control text-center" 
+                            value={enteredVal !== undefined && !Array.isArray(enteredVal) ? enteredVal : ''} 
+                            placeholder={isWeight ? "Peso (ej. 5600)" : "Ej. 5"}
+                            onChange={e => setInventoryForm({ ...inventoryForm, [p.id]: e.target.value })}
+                            onBlur={e => {
+                              if (isWeight && e.target.value !== '') {
+                                const norm = normalizeWeight(e.target.value);
+                                setInventoryForm({ ...inventoryForm, [p.id]: norm });
+                              }
+                            }}
+                            style={{ fontSize: '1.1rem', fontWeight: 'bold', flex: 1 }}
+                          />
+                          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-light)', marginRight: '4px' }}>
+                            {isWeight ? 'kg' : 'u'}
+                          </span>
+                        </div>
+                      )}
                       {hasInput ? (
                         <div style={{ 
                           marginTop: '6px', 
@@ -256,7 +342,7 @@ const BranchStockView = () => {
                         }}>
                           {tareVal > 0 && (
                             <div style={{ fontSize: '0.72rem', color: 'var(--text-dark)', marginBottom: '2px' }}>
-                              Bruto: {calc.gross.toFixed(3)} kg - Tara ({tareVal.toFixed(3)} kg) = <strong>Neto: +{calc.net.toFixed(3)} kg</strong>
+                              Bruto: {calc.gross.toFixed(3)} kg - Tara ({calc.tare.toFixed(3)} kg) = <strong>Neto: +{calc.net.toFixed(3)} kg</strong>
                             </div>
                           )}
                           ➡️ Nuevo Total: {formatQuantity(newTotal, { ...p, unidad_medida: isWeight ? 'peso' : p.unidad_medida })}

@@ -2,8 +2,10 @@ import { useData } from '../../context/DataContext';
 import React from 'react';
 import { formatTipo, formatQuantityShort, getCategoryEmoji } from '../../utils/formatters';
 import { getFlavorGroup } from '../../utils/flavors';
+import BranchStockView from '../sucursal/BranchStockView';
 const AdminStockView = () => {
   const [stockPastryFilter, setStockPastryFilter] = React.useState('Todos');
+  const [selectedBranchId, setSelectedBranchId] = React.useState('all');
   const {
     showEventStock,
     setShowEventStock,
@@ -24,7 +26,27 @@ const AdminStockView = () => {
     setShowEditStockModal,
     toggleInventoryLock
   } = useData();
+  const displaySucursales = sucursales.filter(s => !s.nombre.toLowerCase().includes('transportista') && !s.nombre.toLowerCase().includes('deposito de insumos'));
+  
   return <div>
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', alignItems: 'center', background: 'rgba(0,0,0,0.02)', padding: '0.8rem', borderRadius: '10px' }}>
+        <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>Sucursal a gestionar:</span>
+        <select 
+          className="form-control" 
+          style={{ maxWidth: '250px' }} 
+          value={selectedBranchId} 
+          onChange={e => setSelectedBranchId(e.target.value)}
+        >
+          <option value="all">Todas las Sucursales (Matriz)</option>
+          {displaySucursales.map(s => (
+            <option key={s.id} value={s.id}>{s.nombre}</option>
+          ))}
+        </select>
+      </div>
+      {selectedBranchId !== 'all' ? (
+        <BranchStockView adminSelectedBranchId={parseInt(selectedBranchId)} />
+      ) : (
+        <>
       <div style={{
       display: 'flex',
       justifyContent: 'space-between',
@@ -255,7 +277,7 @@ const AdminStockView = () => {
                     <tr>
                       <th>Producto / Sabor</th>
                       <th>Tipo / Formato</th>
-                      {sucursales.map(s => (
+                      {displaySucursales.map(s => (
                         <th key={s.id}>
                           <div>{s.nombre}</div>
                           {s.id !== 1 && (
@@ -285,7 +307,7 @@ const AdminStockView = () => {
                       fontSize: '0.8rem',
                       textTransform: 'capitalize'
                     }}>{formatTipo(prod.tipo)}</span></td>
-                          {sucursales.map(s => {
+                          {displaySucursales.map(s => {
                     const qty = prod.stock_por_sucursal?.[s.id.toString()] || 0;
                     return <td key={s.id} className={getCellClass(qty)} onClick={() => {
                       if (user.rol === 'admin') {
@@ -316,6 +338,8 @@ const AdminStockView = () => {
               </div>}
           </div>;
     })()}
+        </>
+      )}
     </div>;
 };
 export default AdminStockView;

@@ -23,13 +23,29 @@ const EditStockModal = () => {
 
   const [mode, setMode] = useState('sumar'); // 'sumar' or 'fijar'
   const [inputValue, setInputValue] = useState('');
-  const [discountTare, setDiscountTare] = useState(tareVal > 0);
+  const [containerCount, setContainerCount] = useState(1);
+  const [inputWeights, setInputWeights] = useState(['']);
 
-  const calc = isWeight
-    ? calculateNetWeight(inputValue, prod?.tipo, discountTare)
-    : { gross: Number(inputValue || 0), tare: 0, net: Number(inputValue || 0) };
+  let calc = { gross: 0, tare: 0, net: 0 };
+  let hasInput = false;
 
-  const hasInput = inputValue !== '' && !isNaN(Number(inputValue.toString().replace(',', '.'))) && calc.gross > 0;
+  if (isWeight && tareVal > 0) {
+    inputWeights.forEach(w => {
+      const norm = normalizeWeight(w);
+      if (norm > 0) {
+        calc.gross += norm;
+        calc.net += Math.max(0, norm - tareVal);
+        hasInput = true;
+      }
+    });
+    calc.tare = tareVal * containerCount;
+  } else if (isWeight) {
+    calc = calculateNetWeight(inputValue, prod?.tipo, true, 1);
+    hasInput = inputValue !== '' && !isNaN(normalizeWeight(inputValue)) && calc.gross > 0;
+  } else {
+    calc = { gross: Number(inputValue || 0), tare: 0, net: Number(inputValue || 0) };
+    hasInput = inputValue !== '' && !isNaN(Number(inputValue.toString().replace(',', '.'))) && calc.gross > 0;
+  }
 
   const resultStock = mode === 'sumar'
     ? (isWeight ? Number((stockActual + calc.net).toFixed(3)) : (stockActual + calc.net))
@@ -37,7 +53,7 @@ const EditStockModal = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (inputValue === '' && mode === 'sumar') {
+    if (!hasInput && mode === 'sumar') {
       setShowEditStockModal(false);
       return;
     }
@@ -144,44 +160,93 @@ const EditStockModal = () => {
               ? `Cantidad a Sumar (${isWeight ? 'peso balanza' : 'unidades'})`
               : `Nuevo Stock Total (${isWeight ? 'kg' : 'unidades'})`}
           </label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            {mode === 'sumar' && <span style={{ fontWeight: 'bold', color: 'var(--primary)', fontSize: '1.2rem' }}>+</span>}
-            <input
-              type="number"
-              step={isWeight ? "0.001" : "1"}
-              className="form-control"
-              value={inputValue}
-              onChange={e => setInputValue(e.target.value)}
-              onBlur={e => {
-                if (isWeight && e.target.value !== '') {
-                  const norm = normalizeWeight(e.target.value);
-                  setInputValue(norm);
-                }
-              }}
-              placeholder={isWeight ? "Ej. 2 o 5600" : "Ej. 5"}
-              required={mode === 'fijar'}
-              style={{
-                border: '1px solid rgba(0,0,0,0.15)',
-                fontSize: '1.1rem',
-                fontWeight: 'bold',
-                flex: 1
-              }}
-              min="0"
-            />
-            <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-light)' }}>
-              {isWeight ? 'kg' : 'u'}
-            </span>
-          </div>
           
-          {tareVal > 0 && isWeight && (
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', fontSize: '0.8rem', cursor: 'pointer', color: 'var(--text-dark)' }}>
+          {isWeight && tareVal > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <span style={{ fontSize: '0.9rem', color: 'var(--text-light)', fontWeight: 600 }}>Cant. envases:</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  className="form-control text-center"
+                  value={containerCount}
+                  onChange={e => {
+                    const count = Math.max(0, parseInt(e.target.value) || 0);
+                    setContainerCount(count);
+                    const nextWeights = [...inputWeights];
+                    while (nextWeights.length < count) nextWeights.push('');
+                    if (nextWeights.length > count) nextWeights.splice(count);
+                    setInputWeights(nextWeights);
+                  }}
+                  style={{ padding: '0.2rem', fontSize: '1rem', width: '80px', fontWeight: 'bold' }}
+                />
+              </div>
+              
+              <div style={{ maxHeight: '180px', overflowY: 'auto', paddingRight: '4px' }}>
+                {inputWeights.map((w, idx) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                    <span style={{ fontWeight: 'bold', color: 'var(--primary)', fontSize: '1rem', width: '20px' }}>{idx+1}.</span>
+                    <input
+                      type="number"
+                      step="0.001"
+                      className="form-control"
+                      value={w}
+                      onChange={e => {
+                        const arr = [...inputWeights];
+                        arr[idx] = e.target.value;
+                        setInputWeights(arr);
+                      }}
+                      onBlur={e => {
+                        if (e.target.value !== '') {
+                          const norm = normalizeWeight(e.target.value);
+                          const arr = [...inputWeights];
+                          arr[idx] = norm;
+                          setInputWeights(arr);
+                        }
+                      }}
+                      placeholder="Peso (ej. 5600)"
+                      style={{
+                        border: '1px solid rgba(0,0,0,0.15)',
+                        fontSize: '1.1rem',
+                        fontWeight: 'bold',
+                        flex: 1
+                      }}
+                    />
+                    <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-light)' }}>kg</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {mode === 'sumar' && <span style={{ fontWeight: 'bold', color: 'var(--primary)', fontSize: '1.2rem' }}>+</span>}
               <input
-                type="checkbox"
-                checked={discountTare}
-                onChange={e => setDiscountTare(e.target.checked)}
+                type="number"
+                step={isWeight ? "0.001" : "1"}
+                className="form-control"
+                value={inputValue}
+                onChange={e => setInputValue(e.target.value)}
+                onBlur={e => {
+                  if (isWeight && e.target.value !== '') {
+                    const norm = normalizeWeight(e.target.value);
+                    setInputValue(norm);
+                  }
+                }}
+                placeholder={isWeight ? "Ej. 2 o 5600" : "Ej. 5"}
+                required={mode === 'fijar'}
+                style={{
+                  border: '1px solid rgba(0,0,0,0.15)',
+                  fontSize: '1.1rem',
+                  fontWeight: 'bold',
+                  flex: 1
+                }}
+                min="0"
               />
-              Descontar tara del envase ({tareVal.toFixed(3)} kg) automáticamente
-            </label>
+              <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-light)' }}>
+                {isWeight ? 'kg' : 'u'}
+              </span>
+            </div>
           )}
         </div>
 
@@ -196,9 +261,9 @@ const EditStockModal = () => {
         }}>
           {mode === 'sumar' ? (
             <div>
-              {tareVal > 0 && discountTare && hasInput && (
+              {tareVal > 0 && hasInput && (
                 <div style={{ color: 'var(--text-dark)', fontSize: '0.75rem', marginBottom: '4px' }}>
-                  Bruto: {calc.gross.toFixed(3)} kg - Tara ({tareVal.toFixed(3)} kg) = <strong>Neto: +{calc.net.toFixed(3)} kg</strong>
+                  Bruto: {calc.gross.toFixed(3)} kg - Tara ({calc.tare.toFixed(3)} kg) = <strong>Neto: +{calc.net.toFixed(3)} kg</strong>
                 </div>
               )}
               <div style={{ color: 'var(--text-light)', fontSize: '0.8rem' }}>
@@ -210,9 +275,9 @@ const EditStockModal = () => {
             </div>
           ) : (
             <div>
-              {tareVal > 0 && discountTare && hasInput && (
+              {tareVal > 0 && hasInput && (
                 <div style={{ color: 'var(--text-dark)', fontSize: '0.75rem', marginBottom: '4px' }}>
-                  Bruto: {calc.gross.toFixed(3)} kg - Tara ({tareVal.toFixed(3)} kg) = <strong>Neto: {calc.net.toFixed(3)} kg</strong>
+                  Bruto: {calc.gross.toFixed(3)} kg - Tara ({calc.tare.toFixed(3)} kg) = <strong>Neto: {calc.net.toFixed(3)} kg</strong>
                 </div>
               )}
               <div style={{ fontWeight: 700, color: '#27ae60' }}>

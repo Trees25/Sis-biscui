@@ -449,7 +449,7 @@ const getTareByTipo = tipo => {
     case 'vasqueta_5_6k':
       return 0.630;
     case 'balde_4k':
-      return 0.155;
+      return 0.190;
     case 'balde_8k':
       return 0.270;
     default:
@@ -1352,7 +1352,7 @@ const handleAdminHistSubmit = async e => {
     let netKilos = qty; // Default to qty for non-ice cream
 
     if (selectedProd && selectedProd.categoria === 'helados') {
-      pesosArray = adminHistWeights.map(w => parseFloat(w) || 0);
+      pesosArray = adminHistWeights.map(w => normalizeWeight(w));
       if (pesosArray.length !== qty || pesosArray.some(w => w <= 0)) {
         throw new Error('Por favor, ingresa un peso válido mayor a 0 para cada unidad.');
       }
@@ -1504,7 +1504,7 @@ const handleDownloadHistTemplate = () => {
   prods.forEach(p => {
     let suggestedWeight = '';
     if (p.categoria === 'helados') {
-      if (p.tipo === 'vasqueta_5_6k') suggestedWeight = '6.120';else if (p.tipo === 'balde_4k') suggestedWeight = '4.155';else if (p.tipo === 'balde_8k') suggestedWeight = '8.270';
+      if (p.tipo === 'vasqueta_5_6k') suggestedWeight = '6.120';else if (p.tipo === 'balde_4k') suggestedWeight = '4.190';else if (p.tipo === 'balde_8k') suggestedWeight = '8.270';
     }
     const row = [p.id, p.nombre.replace(/;/g, ','),
     formatTipo(p.tipo) || '', '0', suggestedWeight, getLocalDateString(), 'NO'];
@@ -2919,7 +2919,7 @@ const handleSaveInventory = async (inventoryItems) => {
   setLoading(true);
   try {
     const payload = inventoryItems.map(item => ({
-      sucursal_id: user.sucursal_id,
+      sucursal_id: item.sucursal_id || user.sucursal_id,
       producto_id: item.producto_id,
       cantidad: typeof item.cantidad === 'number' ? Number(item.cantidad.toFixed(3)) : (parseFloat(item.cantidad) || 0),
       es_evento: false

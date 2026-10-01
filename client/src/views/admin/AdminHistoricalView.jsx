@@ -263,7 +263,10 @@ const AdminHistoricalView = () => {
               }
               return next;
             });
-          }} product={productos.find(p => p.id === parseInt(adminHistForm.producto_id))} placeholder="Ej. 5" min={1} />
+          }} product={(() => {
+            const p = productos.find(x => x.id === parseInt(adminHistForm.producto_id));
+            return p?.categoria === 'helados' ? { ...p, categoria: 'unidad', unidad_medida: 'unidad' } : p;
+          })()} placeholder="Ej. 5" min={1} />
                       </div>
 
                       {/* Weight Inputs for Helado */}
@@ -322,6 +325,13 @@ const AdminHistoricalView = () => {
                   const qty = parseInt(adminHistForm.cantidad) || 0;
                   setAdminHistWeights(Array(qty).fill(val));
                 }
+              }} onBlur={e => {
+                if (e.target.value !== '') {
+                  const norm = normalizeWeight(e.target.value);
+                  setAdminHistDefaultWeight(norm);
+                  const qty = parseInt(adminHistForm.cantidad) || 0;
+                  setAdminHistWeights(Array(qty).fill(norm));
+                }
               }} />
                               {adminHistDefaultWeight && <button type="button" className="btn btn-secondary" style={{
                 padding: '0.35rem 0.8rem',
@@ -357,7 +367,7 @@ const AdminHistoricalView = () => {
           }}>
                             {adminHistWeights.map((w, idx) => {
               const tare = getTareByTipo(productos.find(p => p.id === parseInt(adminHistForm.producto_id))?.tipo);
-              const gross = parseFloat(w) || 0;
+              const gross = normalizeWeight(w);
               const net = Math.max(0, gross - tare);
               return <div key={idx} className="form-group" style={{
                 margin: 0
@@ -374,6 +384,13 @@ const AdminHistoricalView = () => {
                   const next = [...adminHistWeights];
                   next[idx] = e.target.value;
                   setAdminHistWeights(next);
+                }} onBlur={e => {
+                  if (e.target.value !== '') {
+                    const norm = normalizeWeight(e.target.value);
+                    const next = [...adminHistWeights];
+                    next[idx] = norm;
+                    setAdminHistWeights(next);
+                  }
                 }} placeholder="kg" />
                                   <div style={{
                   fontSize: '0.7rem',
@@ -394,8 +411,8 @@ const AdminHistoricalView = () => {
             display: 'flex',
             justifyContent: 'space-between'
           }}>
-                            <span><strong>Total Bruto:</strong> {adminHistWeights.reduce((acc, curr) => acc + (parseFloat(curr) || 0), 0).toFixed(3)} kg</span>
-                            <span><strong>Total Neto:</strong> {adminHistWeights.reduce((acc, curr) => acc + Math.max(0, (parseFloat(curr) || 0) - getTareByTipo(productos.find(p => p.id === parseInt(adminHistForm.producto_id))?.tipo)), 0).toFixed(3)} kg</span>
+                            <span><strong>Total Bruto:</strong> {adminHistWeights.reduce((acc, curr) => acc + normalizeWeight(curr), 0).toFixed(3)} kg</span>
+                            <span><strong>Total Neto:</strong> {adminHistWeights.reduce((acc, curr) => acc + Math.max(0, normalizeWeight(curr) - getTareByTipo(productos.find(p => p.id === parseInt(adminHistForm.producto_id))?.tipo)), 0).toFixed(3)} kg</span>
                           </div>
                         </div>}
 

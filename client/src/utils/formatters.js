@@ -11,7 +11,7 @@ export const getTareByTipo = (tipo) => {
     case 'vasqueta_5_6k':
       return 0.630;
     case 'balde_4k':
-      return 0.155;
+      return 0.190;
     case 'balde_8k':
       return 0.270;
     default:
@@ -29,7 +29,7 @@ export const normalizeWeight = (val) => {
   return Number(num.toFixed(3));
 };
 
-export const calculateNetWeight = (rawInput, tipo, discountTare = true) => {
+export const calculateNetWeight = (rawInput, tipo, discountTare = true, explicitCount = 0) => {
   if (rawInput === undefined || rawInput === null || rawInput === '') {
     return { gross: 0, tare: 0, net: 0, count: 0 };
   }
@@ -53,6 +53,16 @@ export const calculateNetWeight = (rawInput, tipo, discountTare = true) => {
       const unitNet = Math.max(0, num - tarePerUnit);
       totalNet += unitNet;
     }
+  }
+
+  if (explicitCount > 0) {
+    const totalTare = discountTare ? explicitCount * tarePerUnit : 0;
+    return {
+      gross: Number(totalGross.toFixed(3)),
+      tare: Number(totalTare.toFixed(3)),
+      net: Number(Math.max(0, totalGross - totalTare).toFixed(3)),
+      count: explicitCount
+    };
   }
 
   return {
