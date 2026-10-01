@@ -9,20 +9,23 @@ export const getLocalDateString = () => {
 export const formatQuantity = (cantidad, p) => {
   if (cantidad === undefined || cantidad === null) return '-';
   if (!p) return `${cantidad}`;
-  if (p.unidad_medida === 'peso') {
+  if (p.unidad_medida === 'peso' || p.categoria === 'helados') {
     const kg = parseFloat(cantidad);
-    return `${kg.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 3 })} kg`;
+    return `${kg.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} kg`;
   }
   return `${cantidad} u`;
 };
 
 export const formatQuantityShort = (cantidad, p) => {
   if (cantidad === undefined || cantidad === null) return '-';
-  if (cantidad === 0) return '0';
+  if (cantidad === 0) {
+    if (p && (p.unidad_medida === 'peso' || p.categoria === 'helados')) return '0 kg';
+    return '0 u';
+  }
   if (!p) return `${cantidad}`;
-  if (p.unidad_medida === 'peso') {
+  if (p.unidad_medida === 'peso' || p.categoria === 'helados') {
     const kg = parseFloat(cantidad);
-    return `${kg.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 3 })} kg`;
+    return `${kg.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} kg`;
   }
   return `${cantidad} u`;
 };

@@ -162,7 +162,7 @@ const OrderDetailModal = () => {
                 </div>
               )}
 
-              {/* ACTION: EDIT ORDER (Sucursal only) */}
+              {/* ACTION: EDIT ORDER (Sucursal only) - Temporarily hidden
               {user.rol === 'sucursal' && selectedPedido.estado === 'solicitado' && (
                 <div style={{ marginBottom: '1.5rem' }}>
                   <button className="btn btn-primary" onClick={() => startEditingOrder(selectedPedido)} style={{ width: '100%', background: 'var(--warning)', borderColor: 'var(--warning)' }}>
@@ -170,6 +170,7 @@ const OrderDetailModal = () => {
                   </button>
                 </div>
               )}
+              */}
 
               {/* ACTION: PREPARE ORDER (Transportista / Heladero for event orders) */}
               {(user.rol === 'transportista' || user.rol === 'heladero' && selectedPedido.es_evento) && selectedPedido.estado === 'solicitado' && <div>

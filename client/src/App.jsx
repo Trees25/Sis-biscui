@@ -254,7 +254,7 @@ const AppContent = () => {
         {user.rol === 'sucursal' && (
           <div>
             <div className="tabs">
-              <button className={`tab-btn ${activeTab === 'pedido_nuevo' ? 'active' : ''}`} onClick={() => setActiveTab('pedido_nuevo')}>Nuevo Pedido a Fábrica</button>
+
               <button className={`tab-btn ${activeTab === 'pedidos_lista' ? 'active' : ''}`} onClick={() => setActiveTab('pedidos_lista')}>Mis Recepciones</button>
               <button className={`tab-btn ${activeTab === 'consumo' ? 'active' : ''}`} onClick={() => setActiveTab('consumo')}>Registrar Consumo Diario</button>
               <button className={`tab-btn ${activeTab === 'mi_stock' ? 'active' : ''}`} onClick={() => setActiveTab('mi_stock')}>Mi Stock Actual</button>
@@ -263,7 +263,7 @@ const AppContent = () => {
               )}
             </div>
 
-            {activeTab === 'pedido_nuevo' && <BranchOrderView />}
+
             {activeTab === 'pedidos_lista' && <BranchOrderListView />}
             {activeTab === 'consumo' && <BranchConsumptionView />}
             {activeTab === 'mi_stock' && <BranchStockView />}

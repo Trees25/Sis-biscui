@@ -1,6 +1,6 @@
 import { useData } from '../../context/DataContext';
 import React from 'react';
-import { formatTipo } from '../../utils/formatters';
+import { formatTipo, formatQuantity } from '../../utils/formatters';
 import UnitCalculatorInput from '../../components/common/UnitCalculatorInput';
 const BranchRetiroInternoView = () => {
   const {
@@ -107,7 +107,7 @@ const BranchRetiroInternoView = () => {
                 color: stockFab > 0 ? 'var(--success)' : 'var(--danger)',
                 fontWeight: 600
               }}>
-                      {stockFab} {p.unidad_medida === 'peso' ? 'kg' : 'u'}
+                      {formatQuantity(stockFab, p)}
                     </td>
                     <td>
                       <UnitCalculatorInput value={retiroItems[p.id] || ''} onChange={val => {

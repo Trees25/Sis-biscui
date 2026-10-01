@@ -1,7 +1,7 @@
 import React from 'react';
 
 const UnitCalculatorInput = ({ value, onChange, product, placeholder = "Cantidad", disabled = false, min = 0 }) => {
-  const isWeight = product?.unidad_medida === 'peso';
+  const isWeight = product?.unidad_medida === 'peso' || product?.categoria === 'helados';
 
   if (isWeight) {
     const displayVal = value !== undefined && value !== null && value !== '' ? parseFloat(value) : '';

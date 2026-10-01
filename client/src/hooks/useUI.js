@@ -12,7 +12,7 @@ export const useUI = () => {
       if (parsedUser.rol === 'admin') return 'matrix';
       if (parsedUser.rol === 'heladero' || parsedUser.rol === 'pastelero') return 'produccion';
       if (parsedUser.rol === 'transportista') return 'pedidos';
-      return 'pedido_nuevo';
+      return 'pedidos_lista';
     }
     return '';
   });
