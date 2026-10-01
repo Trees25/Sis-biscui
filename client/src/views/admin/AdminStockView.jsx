@@ -298,7 +298,8 @@ const AdminStockView = () => {
                         setEditStockItemDetails({
                           producto_nombre: prod.producto_nombre,
                           sucursal_nombre: s.nombre,
-                          tipo: prod.tipo
+                          tipo: prod.tipo,
+                          stock_actual: qty
                         });
                         setShowEditStockModal(true);
                       }

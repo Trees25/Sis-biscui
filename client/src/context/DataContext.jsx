@@ -1,4 +1,4 @@
-import { formatDate } from '../utils/formatters';
+import { formatDate, formatQuantity, formatQuantityShort, normalizeWeight } from '../utils/formatters';
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../hooks/useAuth';
@@ -87,34 +87,6 @@ const getLocalDateString = () => {
   const day = String(d.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
-const formatQuantity = (cantidad, p) => {
-  if (cantidad === undefined || cantidad === null) return '-';
-  if (!p) return `${cantidad}`;
-  if (p.unidad_medida === 'peso' || p.categoria === 'helados') {
-    const kg = parseFloat(cantidad);
-    return `${kg.toLocaleString(undefined, {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2
-    })} kg`;
-  }
-  return `${cantidad} u`;
-};
-const formatQuantityShort = (cantidad, p) => {
-  if (cantidad === undefined || cantidad === null) return '-';
-  if (cantidad === 0) {
-    if (p && (p.unidad_medida === 'peso' || p.categoria === 'helados')) return '0 kg';
-    return '0 u';
-  }
-  if (!p) return `${cantidad}`;
-  if (p.unidad_medida === 'peso' || p.categoria === 'helados') {
-    const kg = parseFloat(cantidad);
-    return `${kg.toLocaleString(undefined, {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2
-    })} kg`;
-  }
-  return `${cantidad} u`;
-};
 const UnitCalculatorInput = ({
   value,
   onChange,
@@ -125,7 +97,7 @@ const UnitCalculatorInput = ({
 }) => {
   const isWeight = product?.unidad_medida === 'peso' || product?.categoria === 'helados';
   if (isWeight) {
-    const displayVal = value !== undefined && value !== null && value !== '' ? parseFloat(value) : '';
+    const displayVal = value !== undefined && value !== null ? value : '';
     return <div style={{
       display: 'flex',
       gap: '0.4rem',
@@ -136,7 +108,13 @@ const UnitCalculatorInput = ({
         flex: 1
       }} value={displayVal} onChange={e => {
         const val = e.target.value;
-        onChange(val === '' ? '' : Math.max(min, parseFloat(val)));
+        onChange(val === '' ? '' : val);
+      }} onBlur={e => {
+        const raw = e.target.value;
+        if (raw !== '') {
+          const normalized = normalizeWeight(raw);
+          onChange(Math.max(min, normalized));
+        }
       }} placeholder={`${placeholder} (kg)`} disabled={disabled} min={min} />
         <span style={{
         fontSize: '0.9rem',
@@ -469,7 +447,7 @@ const getTiposPorCategoria = (categoria, allProds = []) => {
 const getTareByTipo = tipo => {
   switch (tipo) {
     case 'vasqueta_5_6k':
-      return 0.620;
+      return 0.630;
     case 'balde_4k':
       return 0.155;
     case 'balde_8k':
@@ -1225,13 +1203,14 @@ const handleProductionSubmit = async e => {
     let netKilos = qty; // Default to qty for non-ice cream
 
     if (selectedProd && selectedProd.categoria === 'helados') {
-      pesosArray = prodWeights.map(w => parseFloat(w) || 0);
+      pesosArray = prodWeights.map(w => normalizeWeight(w));
       if (pesosArray.length !== qty || pesosArray.some(w => w <= 0)) {
         throw new Error('Por favor, ingresa un peso válido mayor a 0 para cada unidad.');
       }
       
       const tare = getTareByTipo(selectedProd.tipo);
       netKilos = pesosArray.reduce((acc, curr) => acc + Math.max(0, curr - tare), 0);
+      netKilos = Number(netKilos.toFixed(3));
       
       if (netKilos <= 0) {
         throw new Error('El peso neto total debe ser mayor a 0.');
@@ -1677,7 +1656,9 @@ const handleConsumoSubmit = async e => {
   setLoading(true);
   try {
     const pId = parseInt(consumoForm.producto_id);
-    const qty = parseInt(consumoForm.cantidad);
+    const selectedProd = productos.find(p => p.id === pId);
+    const isWeight = selectedProd?.unidad_medida === 'peso' || selectedProd?.categoria === 'helados';
+    const qty = isWeight ? normalizeWeight(consumoForm.cantidad) : (parseInt(consumoForm.cantidad) || 0);
     const isEvent = consumoForm.es_evento || false;
     const {
       error: rpcErr
@@ -2733,17 +2714,24 @@ const handleSaveMaquina = async e => {
     setLoading(false);
   }
 };
-const handleSaveStockAdmin = async e => {
-  e.preventDefault();
+const handleSaveStockAdmin = async (formDataOrEvent) => {
+  if (formDataOrEvent && formDataOrEvent.preventDefault) {
+    formDataOrEvent.preventDefault();
+  }
   setLoading(true);
   try {
+    const formData = (formDataOrEvent && formDataOrEvent.producto_id) ? formDataOrEvent : editStockForm;
     const {
       producto_id,
       sucursal_id,
       es_evento,
       cantidad
-    } = editStockForm;
-    const numCant = parseInt(cantidad);
+    } = formData;
+
+    const prod = productos.find(p => p.id === producto_id);
+    const isWeight = prod?.unidad_medida === 'peso' || prod?.categoria === 'helados';
+    const numCant = isWeight ? normalizeWeight(cantidad) : (parseInt(cantidad) || 0);
+
     if (isNaN(numCant) || numCant < 0) throw new Error("La cantidad debe ser un número válido mayor o igual a cero.");
     const {
       data: existing,
@@ -2933,7 +2921,7 @@ const handleSaveInventory = async (inventoryItems) => {
     const payload = inventoryItems.map(item => ({
       sucursal_id: user.sucursal_id,
       producto_id: item.producto_id,
-      cantidad: item.cantidad,
+      cantidad: typeof item.cantidad === 'number' ? Number(item.cantidad.toFixed(3)) : (parseFloat(item.cantidad) || 0),
       es_evento: false
     }));
     
@@ -2967,6 +2955,7 @@ const handleSaveInventory = async (inventoryItems) => {
     getLocalDateString,
     formatQuantity,
     formatQuantityShort,
+    normalizeWeight,
     user,
     setUser,
     usernameInput,

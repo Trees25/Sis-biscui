@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useData } from '../../context/DataContext';
-import { formatTipo, formatQuantity } from '../../utils/formatters';
+import { formatTipo, formatQuantity, normalizeWeight, getTareByTipo, calculateNetWeight } from '../../utils/formatters';
+
 const BranchStockView = () => {
   const {
     categories,
@@ -10,10 +11,11 @@ const BranchStockView = () => {
     branchStockSearch,
     setBranchStockSearch,
     sucursales,
-    handleSaveInventory
+    handleSaveInventory,
+    showToast
   } = useData();
 
-  const myBranch = sucursales.find(s => s.id === user.sucursal_id);
+  const myBranch = (sucursales || []).find(s => s.id === user?.sucursal_id);
   const canTakeInventory = myBranch?.inventario_habilitado;
 
   const [inventoryMode, setInventoryMode] = useState(false);
@@ -21,6 +23,38 @@ const BranchStockView = () => {
 
   const [branchStockCategoryFilter, setBranchStockCategoryFilter] = useState('Todos');
   const [branchStockFormatFilter, setBranchStockFormatFilter] = useState('Todos');
+
+  const onSave = () => {
+    const items = Object.entries(inventoryForm)
+      .filter(([_, val]) => val !== '' && val !== null && !isNaN(Number(val.toString().replace(',', '.'))) && Number(val.toString().replace(',', '.')) !== 0)
+      .map(([pId, addVal]) => {
+        const prod = productos.find(x => x.id === Number(pId));
+        const isW = prod?.unidad_medida === 'peso' || prod?.categoria === 'helados';
+        const sData = stockData.find(s => s.producto_id === Number(pId) && s.sucursal_id === user.sucursal_id && s.es_evento === false);
+        const current = sData ? Number(sData.cantidad) : 0;
+        
+        let addedNet = 0;
+        if (isW) {
+          const calc = calculateNetWeight(addVal, prod?.tipo, true);
+          addedNet = calc.net;
+        } else {
+          addedNet = Number(addVal);
+        }
+        
+        const finalQty = isW ? Number((current + addedNet).toFixed(3)) : (current + addedNet);
+        return { producto_id: Number(pId), cantidad: finalQty };
+      });
+
+    if (items.length === 0) {
+      showToast('No ingresaste cantidades para sumar al stock.', 'warning');
+      return;
+    }
+
+    handleSaveInventory(items).then(() => {
+      setInventoryForm({});
+      setInventoryMode(false);
+    });
+  };
 
   return <div className="glass-card">
       <div style={{
@@ -31,34 +65,39 @@ const BranchStockView = () => {
       flexWrap: 'wrap',
       gap: '1rem'
     }}>
-        <h3 className="section-title" style={{
-        margin: 0,
-        border: 'none'
-      }}>Stock Actual en mi Sucursal</h3>
+        <div>
+          <h3 className="section-title" style={{
+            margin: 0,
+            border: 'none'
+          }}>Stock Actual en mi Sucursal</h3>
+          {inventoryMode && (
+            <p style={{ margin: '0.4rem 0 0 0', fontSize: '0.85rem', color: 'var(--text-light)' }}>
+              Ingresa el peso bruto de balanza (ej: <strong>5600</strong> = 5.600 kg). El sistema <strong>descuenta automáticamente la tara del envase</strong> (vasqueta o balde) y lo suma al stock actual.
+            </p>
+          )}
+        </div>
         
         {canTakeInventory && !inventoryMode && (
           <button className="btn btn-primary btn-sm" onClick={() => {
-            const form = {};
-            productos.forEach(p => {
-              const sData = stockData.find(s => s.producto_id === p.id && s.sucursal_id === user.sucursal_id && s.es_evento === false);
-              form[p.id] = sData ? sData.cantidad : 0;
-            });
-            setInventoryForm(form);
+            setInventoryForm({});
             setInventoryMode(true);
           }}>
-            📋 Hacer Inventario
+            📋 Agregar / Hacer Inventario
           </button>
         )}
         {inventoryMode && (
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button className="btn btn-outline btn-sm" onClick={() => setInventoryMode(false)}>Cancelar</button>
-            <button className="btn btn-primary btn-sm" onClick={() => {
-               const items = Object.entries(inventoryForm).map(([pId, qty]) => ({ producto_id: Number(pId), cantidad: qty }));
-               handleSaveInventory(items).then(() => setInventoryMode(false));
-            }}>Guardar Inventario</button>
+            <button className="btn btn-outline btn-sm" onClick={() => {
+              setInventoryForm({});
+              setInventoryMode(false);
+            }}>Cancelar</button>
+            <button className="btn btn-primary btn-sm" onClick={onSave}>
+              Guardar Inventario
+            </button>
           </div>
         )}
       </div>
+
       <div style={{
       display: 'flex',
       alignItems: 'center',
@@ -112,7 +151,6 @@ const BranchStockView = () => {
       </div>
 
       {categories.filter(cat => branchStockCategoryFilter === 'Todos' || cat.id === branchStockCategoryFilter).map(cat => {
-      // Filter out factory stock! Only show user.sucursal_id
       let catProds = productos.filter(p => p.categoria === cat.id);
       if (branchStockSearch) {
         catProds = catProds.filter(p => p.nombre.toLowerCase().includes(branchStockSearch.toLowerCase()) || p.tipo && formatTipo(p.tipo).toLowerCase().includes(branchStockSearch.toLowerCase()));
@@ -138,9 +176,15 @@ const BranchStockView = () => {
             </h4>
             <div className="items-grid">
               {catProds.map(p => {
-                const sData = stockData.find(s => s.producto_id === p.id && s.sucursal_id === user.sucursal_id && s.es_evento === false);
-                const cantidadActual = sData ? sData.cantidad : 0;
-                const cantidadInput = inventoryForm[p.id] !== undefined ? inventoryForm[p.id] : cantidadActual;
+                const sData = (stockData || []).find(s => s.producto_id === p.id && s.sucursal_id === user?.sucursal_id && s.es_evento === false);
+                const cantidadActual = sData ? Number(sData.cantidad) : 0;
+                const isWeight = p.unidad_medida === 'peso' || p.categoria === 'helados';
+                const tareVal = getTareByTipo(p.tipo);
+                const enteredVal = inventoryForm[p.id];
+                
+                const calc = isWeight ? calculateNetWeight(enteredVal, p.tipo, true) : { gross: Number(enteredVal || 0), tare: 0, net: Number(enteredVal || 0) };
+                const hasInput = enteredVal !== undefined && enteredVal !== '' && !isNaN(Number(enteredVal.toString().replace(',', '.'))) && calc.gross > 0;
+                const newTotal = isWeight ? Number((cantidadActual + calc.net).toFixed(3)) : (cantidadActual + calc.net);
 
                 return <div key={p.id} className="glass-card" style={{
             padding: '1.2rem',
@@ -167,22 +211,61 @@ const BranchStockView = () => {
                   <div style={{
               fontSize: '0.8rem',
               color: 'var(--text-light)',
-              marginBottom: '1rem',
+              marginBottom: '0.4rem',
               textTransform: 'capitalize'
             }}>
-                    {formatTipo(p.tipo)}
+                    {formatTipo(p.tipo)} {tareVal > 0 && <span style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 600 }}>• Tara: {tareVal.toFixed(3)} kg</span>}
                   </div>
                   
                   {inventoryMode ? (
-                    <div style={{ marginTop: '0.5rem' }}>
-                      <input 
-                        type="number" 
-                        step={(p.unidad_medida === 'peso' || p.categoria === 'helados') ? "0.01" : "1"}
-                        className="form-control text-center" 
-                        value={cantidadInput} 
-                        onChange={e => setInventoryForm({ ...inventoryForm, [p.id]: e.target.value === '' ? '' : Number(e.target.value) })}
-                        style={{ fontSize: '1.2rem', fontWeight: 'bold' }}
-                      />
+                    <div style={{ marginTop: '0.5rem', textAlign: 'left' }}>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '4px' }}>
+                        Stock actual: <strong>{formatQuantity(cantidadActual, { ...p, unidad_medida: isWeight ? 'peso' : p.unidad_medida })}</strong>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ fontWeight: 'bold', color: 'var(--primary)', fontSize: '1.1rem' }}>+</span>
+                        <input 
+                          type="number" 
+                          step={isWeight ? "0.001" : "1"}
+                          className="form-control text-center" 
+                          value={enteredVal !== undefined ? enteredVal : ''} 
+                          placeholder={isWeight ? "Peso bruto (ej. 5600)" : "Ej. 5"}
+                          onChange={e => setInventoryForm({ ...inventoryForm, [p.id]: e.target.value })}
+                          onBlur={e => {
+                            if (isWeight && e.target.value !== '') {
+                              const norm = normalizeWeight(e.target.value);
+                              setInventoryForm({ ...inventoryForm, [p.id]: norm });
+                            }
+                          }}
+                          style={{ fontSize: '1.1rem', fontWeight: 'bold', flex: 1 }}
+                        />
+                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-light)' }}>
+                          {isWeight ? 'kg' : 'u'}
+                        </span>
+                      </div>
+                      {hasInput ? (
+                        <div style={{ 
+                          marginTop: '6px', 
+                          fontSize: '0.78rem', 
+                          padding: '4px 8px', 
+                          background: 'rgba(46, 204, 113, 0.15)', 
+                          color: '#27ae60', 
+                          borderRadius: '6px', 
+                          fontWeight: 600,
+                          textAlign: 'center'
+                        }}>
+                          {tareVal > 0 && (
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-dark)', marginBottom: '2px' }}>
+                              Bruto: {calc.gross.toFixed(3)} kg - Tara ({tareVal.toFixed(3)} kg) = <strong>Neto: +{calc.net.toFixed(3)} kg</strong>
+                            </div>
+                          )}
+                          ➡️ Nuevo Total: {formatQuantity(newTotal, { ...p, unidad_medida: isWeight ? 'peso' : p.unidad_medida })}
+                        </div>
+                      ) : (
+                        <div style={{ marginTop: '6px', fontSize: '0.75rem', color: 'var(--text-light)', textAlign: 'center' }}>
+                          Sin cambios
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div style={{

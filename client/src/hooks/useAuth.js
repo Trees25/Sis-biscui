@@ -3,8 +3,13 @@ import { supabase } from '../supabaseClient';
 
 export const useAuth = (showToast, setActiveTab, setLoading) => {
   const [user, setUser] = useState(() => {
-    const localData = localStorage.getItem('biscui_user');
-    return localData ? JSON.parse(localData) : null;
+    try {
+      const localData = localStorage.getItem('biscui_user');
+      return localData ? JSON.parse(localData) : null;
+    } catch (e) {
+      console.error("Error reading biscui_user from localStorage", e);
+      return null;
+    }
   });
   const [usernameInput, setUsernameInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');

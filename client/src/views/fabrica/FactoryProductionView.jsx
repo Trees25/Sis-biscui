@@ -1,7 +1,7 @@
 import { useData } from '../../context/DataContext';
 import React from 'react';
 import UnitCalculatorInput from '../../components/common/UnitCalculatorInput';
-import { formatQuantity, formatQuantityShort, formatTipo, getBadgeClass, translateState, formatDate } from '../../utils/formatters';
+import { formatQuantity, formatQuantityShort, formatTipo, getBadgeClass, translateState, formatDate, normalizeWeight } from '../../utils/formatters';
 const FactoryProductionView = () => {
   const {
     user,
@@ -450,7 +450,14 @@ const FactoryProductionView = () => {
                   const next = [...prodWeights];
                   next[idx] = e.target.value;
                   setProdWeights(next);
-                }} placeholder="kg" />
+                }} onBlur={e => {
+                  if (e.target.value !== '') {
+                    const norm = normalizeWeight(e.target.value);
+                    const next = [...prodWeights];
+                    next[idx] = norm;
+                    setProdWeights(next);
+                  }
+                }} placeholder="Ej. 5.600 o 5600" />
                                 <div style={{
                   fontSize: '0.7rem',
                   color: net > 0 ? 'var(--success)' : 'var(--text-light)',

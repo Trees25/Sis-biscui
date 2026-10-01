@@ -1,10 +1,11 @@
 import React from 'react';
+import { normalizeWeight } from '../../utils/formatters';
 
 const UnitCalculatorInput = ({ value, onChange, product, placeholder = "Cantidad", disabled = false, min = 0 }) => {
   const isWeight = product?.unidad_medida === 'peso' || product?.categoria === 'helados';
 
   if (isWeight) {
-    const displayVal = value !== undefined && value !== null && value !== '' ? parseFloat(value) : '';
+    const displayVal = value !== undefined && value !== null ? value : '';
     return (
       <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', width: '100%' }}>
         <input
@@ -15,7 +16,14 @@ const UnitCalculatorInput = ({ value, onChange, product, placeholder = "Cantidad
           value={displayVal}
           onChange={e => {
             const val = e.target.value;
-            onChange(val === '' ? '' : Math.max(min, parseFloat(val)));
+            onChange(val === '' ? '' : val);
+          }}
+          onBlur={e => {
+            const raw = e.target.value;
+            if (raw !== '') {
+              const normalized = normalizeWeight(raw);
+              onChange(Math.max(min, normalized));
+            }
           }}
           placeholder={`${placeholder} (kg)`}
           disabled={disabled}
