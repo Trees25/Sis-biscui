@@ -586,7 +586,7 @@ const AdminHistoricalView = () => {
                                 <td><strong>{formatQuantity(l.cantidad, { ...l.productos, unidad_medida: l.productos?.categoria === 'helados' ? 'peso' : l.productos?.unidad_medida })}</strong></td>
                                 <td style={{
                   fontSize: '0.8rem'
-                }}>{new Date(l.fecha_produccion).toLocaleDateString()}</td>
+                }}>{formatDate(l.fecha_produccion)}</td>
                               </tr>;
             })}
                       </tbody>

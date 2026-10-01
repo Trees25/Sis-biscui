@@ -692,7 +692,7 @@ const handleCategoriaChange = cat => {
           lote_pesos ( peso_bruto, peso_neto )
         `).order('id', {
       ascending: false
-    }).limit(20);
+    }).limit(250);
     if (version !== fetchVersionRef.current) return;
     if (!lotesErr) {
       const mappedLotes = (lotesRaw || []).map(lote => ({
@@ -1726,26 +1726,52 @@ const handleDeleteLote = async (lote) => {
   }
 };
 
-const handleEditLote = async (lote, newQty) => {
+const handleEditLote = async (lote, newQty, newWeights = null) => {
   if (isNaN(newQty) || newQty < 0) {
     showToast('Cantidad inválida. Debe ser un número mayor o igual a 0.', 'error');
     return;
   }
   
-  const diff = newQty - parseFloat(lote.cantidad);
-  if (diff === 0) return;
+  let diff = 0;
+  let oldNetWeight = 0;
+  let newNetWeight = 0;
+  const isEvent = lote.es_evento || false;
+  const tareVal = lote.productos ? getTareByTipo(lote.productos.tipo) : 0;
+  
+  if (newWeights !== null) {
+    // Ice cream - compute by net weight
+    oldNetWeight = (lote.pesos || []).reduce((acc, curr) => acc + Math.max(0, parseFloat(curr) - tareVal), 0);
+    newNetWeight = newWeights.reduce((acc, curr) => acc + Math.max(0, parseFloat(curr) - tareVal), 0);
+    diff = newNetWeight - oldNetWeight;
+  } else {
+    // Regular product - compute by quantity
+    diff = newQty - parseFloat(lote.cantidad);
+  }
+  
+  if (diff === 0 && (newWeights === null || JSON.stringify(newWeights) === JSON.stringify(lote.pesos))) return;
   
   setLoading(true);
   try {
-    const isEvent = lote.es_evento || false;
-    
-    // Update lote
+    // Update lote quantity
     const { error: loteUpdateErr } = await supabase
       .from('lotes_produccion')
       .update({ cantidad: newQty })
       .eq('id', lote.id);
       
     if (loteUpdateErr) throw loteUpdateErr;
+    
+    // If we have weights, update lote_pesos
+    if (newWeights !== null) {
+      await supabase.from('lote_pesos').delete().eq('lote_id', lote.id);
+      if (newWeights.length > 0) {
+        const pesosToInsert = newWeights.map(w => ({
+          lote_id: lote.id,
+          peso_bruto: parseFloat(w),
+          peso_neto: Math.max(0, parseFloat(w) - tareVal)
+        }));
+        await supabase.from('lote_pesos').insert(pesosToInsert);
+      }
+    }
 
     // Update stock
     const { data: currentStock, error: stockFetchErr } = await supabase

@@ -6,6 +6,8 @@ import BranchStockView from '../sucursal/BranchStockView';
 const AdminStockView = () => {
   const [stockPastryFilter, setStockPastryFilter] = React.useState('Todos');
   const [selectedBranchId, setSelectedBranchId] = React.useState('all');
+  const [isExporting, setIsExporting] = React.useState(false);
+  const [exportIncludeBranches, setExportIncludeBranches] = React.useState(true);
   const {
     showEventStock,
     setShowEventStock,
@@ -87,6 +89,80 @@ const AdminStockView = () => {
           minHeight: 'unset'
         }} onClick={() => setShowEventStock(true)}>
             🎉 Stock de Eventos
+          </button>
+        </div>
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginLeft: 'auto' }}>
+          <label style={{ fontSize: '0.8rem', color: 'var(--text-light)', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
+            <input type="checkbox" checked={exportIncludeBranches} onChange={e => setExportIncludeBranches(e.target.checked)} />
+            Incluir Sucursales
+          </label>
+          <button className="btn btn-primary btn-sm" disabled={isExporting} onClick={() => {
+            setIsExporting(true);
+            try {
+              const selectedCat = categories.find(c => c.id === adminStockTab);
+              let catProdsExport = adminStockMatriz.filter(p => p.categoria === selectedCat?.id && p.es_evento === showEventStock);
+              
+              if (selectedCat?.id === 'helados') {
+                if (showEventStock) catProdsExport = catProdsExport.filter(p => p.tipo && p.tipo.includes('balde'));
+                if (stockGroupFilter !== 'Todos') catProdsExport = catProdsExport.filter(p => (p.clasificacion_sabor || getFlavorGroup(p.producto_nombre)) === stockGroupFilter);
+                if (iceCreamFormatFilter === 'Vasqueta') catProdsExport = catProdsExport.filter(p => p.tipo === 'vasqueta_5_6k');
+                else if (iceCreamFormatFilter === 'Balde') catProdsExport = catProdsExport.filter(p => p.tipo === 'balde_4k' || p.tipo === 'balde_8k');
+              }
+              if (selectedCat?.id === 'pasteleria' && stockPastryFilter !== 'Todos') {
+                catProdsExport = catProdsExport.filter(p => p.tipo === stockPastryFilter);
+              }
+              if (adminStockSearch) {
+                catProdsExport = catProdsExport.filter(p => p.producto_nombre.toLowerCase().includes(adminStockSearch.toLowerCase()) || p.tipo && formatTipo(p.tipo).toLowerCase().includes(adminStockSearch.toLowerCase()));
+              }
+
+              const colsToExport = exportIncludeBranches ? displaySucursales : displaySucursales.filter(s => s.id === 1);
+
+              let htmlContent = `
+                <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+                <head><meta charset="utf-8" /></head>
+                <body>
+                  <table>
+                    <tr><td colspan="${colsToExport.length + 3}" style="font-weight: bold; font-size: 16px; background-color: #059669; color: white;">Stock Actual - ${selectedCat?.name} (${showEventStock ? 'Eventos' : 'Común'})</td></tr>
+                    <tr>
+                      <th style="background-color: #e2e8f0;">Producto / Sabor</th>
+                      <th style="background-color: #e2e8f0;">Tipo / Formato</th>
+                      ${colsToExport.map(s => `<th style="background-color: #e2e8f0;">${s.nombre}</th>`).join('')}
+                      <th style="background-color: #cbd5e1;">TOTAL GENERAL</th>
+                    </tr>
+              `;
+
+              catProdsExport.forEach(prod => {
+                const isHelado = prod.categoria === 'helados';
+                let rowHtml = `<tr>
+                  <td><strong>${prod.producto_nombre}</strong></td>
+                  <td style="text-transform: capitalize;">${formatTipo(prod.tipo)}</td>
+                `;
+                let rowTotal = 0;
+                colsToExport.forEach(s => {
+                  const qty = prod.stock_por_sucursal?.[s.id.toString()] || 0;
+                  rowTotal += qty;
+                  rowHtml += `<td>${isHelado ? Number(qty).toFixed(2) + ' kg' : qty + ' u'}</td>`;
+                });
+                rowHtml += `<td style="font-weight: bold; background-color: #f8fafc;">${isHelado ? Number(rowTotal).toFixed(2) + ' kg' : rowTotal + ' u'}</td></tr>`;
+                htmlContent += rowHtml;
+              });
+
+              htmlContent += `</table></body></html>`;
+
+              const blob = new Blob([htmlContent], { type: 'application/vnd.ms-excel;charset=utf-8' });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement("a");
+              link.setAttribute("href", url);
+              link.setAttribute("download", `stock_actual_${selectedCat?.name}.xls`);
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            } finally {
+              setIsExporting(false);
+            }
+          }}>
+            {isExporting ? '⏳ Exportando...' : '📊 Exportar a Excel'}
           </button>
         </div>
       </div>

@@ -34,6 +34,7 @@ const FactoryProductionView = () => {
   const [assignQty, setAssignQty] = React.useState('');
   const [editLoteData, setEditLoteData] = React.useState(null);
   const [editLoteQty, setEditLoteQty] = React.useState('');
+  const [editLoteWeights, setEditLoteWeights] = React.useState([]);
   const [prodFormCategory, setProdFormCategory] = React.useState('');
   const [prodFormTipo, setProdFormTipo] = React.useState('');
 
@@ -497,7 +498,7 @@ const FactoryProductionView = () => {
                 <div className="glass-card">
                   <h3 className="section-title">Producción Reciente (Lotes)</h3>
                   <div className="table-container" style={{
-        maxHeight: '420px',
+        maxHeight: '850px',
         overflowY: 'auto'
       }}>
                     <table>
@@ -538,7 +539,7 @@ const FactoryProductionView = () => {
                                 <td><strong>{formatQuantity(l.cantidad, { ...l.productos, unidad_medida: l.productos?.categoria === 'helados' ? 'peso' : l.productos?.unidad_medida })}</strong></td>
                                 <td style={{
                   fontSize: '0.8rem'
-                }}>{new Date(l.fecha_produccion).toLocaleDateString()}</td>
+                }}>{formatDate(l.fecha_produccion)}</td>
                                 <td>
                                   <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                                     <button 
@@ -547,6 +548,7 @@ const FactoryProductionView = () => {
                                       onClick={() => {
                                         setEditLoteData(l);
                                         setEditLoteQty(l.cantidad);
+                                        setEditLoteWeights(l.pesos || Array(l.cantidad).fill(''));
                                       }}
                                     >
                                       ✏️ Editar
@@ -619,32 +621,89 @@ const FactoryProductionView = () => {
               <p><strong>Producto:</strong> {editLoteData.productos?.nombre}</p>
               <p><strong>Cantidad actual:</strong> {editLoteData.cantidad}</p>
             </div>
-            <div className="form-group">
-              <label>Nueva cantidad correcta</label>
-              <input 
-                type="number" 
-                min="0" 
-                step="0.001"
-                className="form-control"
-                value={editLoteQty}
-                onChange={(e) => setEditLoteQty(e.target.value)}
-                placeholder="Ej. 1.5"
-                autoFocus
-              />
-            </div>
+            {!(editLoteData.productos?.categoria === 'helados' && editLoteData.cantidad === 1) && (
+              <div className="form-group">
+                <label>{editLoteData.productos?.categoria === 'helados' ? 'Peso Neto Total' : 'Nueva cantidad correcta'}</label>
+                {editLoteData.productos?.categoria === 'helados' ? (
+                  <div className="form-control" style={{ background: 'rgba(0,0,0,0.03)', fontWeight: 600, color: 'var(--success)' }}>
+                    {(() => {
+                      const tare = getTareByTipo(editLoteData.productos.tipo);
+                      const totalNet = editLoteWeights.reduce((sum, w) => sum + Math.max(0, parseFloat(w || 0) - tare), 0);
+                      return `${totalNet.toFixed(2)} kg`;
+                    })()}
+                  </div>
+                ) : (
+                  <input 
+                    type="number" 
+                    min="0" 
+                    step="0.001"
+                    className="form-control"
+                    value={editLoteQty}
+                    onChange={(e) => setEditLoteQty(e.target.value)}
+                    placeholder="Ej. 1.5"
+                    autoFocus
+                  />
+                )}
+              </div>
+            )}
+            
+            {editLoteData.productos?.categoria === 'helados' && (
+              <div style={{ marginTop: editLoteData.cantidad === 1 ? '0' : '1rem' }}>
+                <label style={{ fontSize: '0.9rem', marginBottom: '0.4rem', display: 'block', fontWeight: 600 }}>
+                  {editLoteQty <= 1 ? 'Peso Bruto del Envase' : 'Pesos de Envases (Bruto)'}
+                </label>
+                <div style={editLoteQty <= 1 ? {} : { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.5rem', maxHeight: '150px', overflowY: 'auto' }}>
+                  {editLoteWeights.map((w, idx) => (
+                    <div key={idx}>
+                      <input 
+                        type="number" 
+                        step="0.001" 
+                        min="0.001" 
+                        className="form-control"
+                        style={editLoteQty <= 1 ? {} : { padding: '0.3rem', fontSize: '0.8rem' }}
+                        value={w}
+                        onChange={(e) => {
+                          const newW = [...editLoteWeights];
+                          newW[idx] = e.target.value;
+                          setEditLoteWeights(newW);
+                        }}
+                        placeholder="Ej. 4.19"
+                        autoFocus={editLoteData.cantidad === 1 && idx === 0}
+                        required
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
-              <button className="btn btn-outline" onClick={() => { setEditLoteData(null); setEditLoteQty(''); }}>
+              <button className="btn btn-outline" onClick={() => { setEditLoteData(null); setEditLoteQty(''); setEditLoteWeights([]); }}>
                 Cancelar
               </button>
               <button className="btn btn-primary" onClick={async () => {
-                const parsed = parseFloat(editLoteQty);
-                if (!isNaN(parsed)) {
-                  await handleEditLote(editLoteData, parsed);
-                  setEditLoteData(null);
-                  setEditLoteQty('');
-                } else {
+                const parsed = editLoteData.productos?.categoria === 'helados' ? parseInt(editLoteQty) : parseFloat(editLoteQty);
+                const isHelado = editLoteData.productos?.categoria === 'helados';
+                
+                if (isNaN(parsed) || parsed < 0) {
                   showToast('Cantidad inválida', 'error');
+                  return;
                 }
+                
+                if (isHelado) {
+                  const hasEmpty = editLoteWeights.some(w => !w || isNaN(parseFloat(w)));
+                  if (hasEmpty) {
+                    showToast('Por favor, completa todos los pesos', 'error');
+                    return;
+                  }
+                  await handleEditLote(editLoteData, parsed, editLoteWeights);
+                } else {
+                  await handleEditLote(editLoteData, parsed);
+                }
+                
+                setEditLoteData(null);
+                setEditLoteQty('');
+                setEditLoteWeights([]);
               }} disabled={editLoteQty === '' || isNaN(parseFloat(editLoteQty)) || parseFloat(editLoteQty) < 0}>
                 Guardar Cambios
               </button>

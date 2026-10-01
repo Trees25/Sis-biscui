@@ -101,7 +101,6 @@ const AdminProjectionsView = () => {
                                       <th class="th-green">Lote</th>
                                       <th class="th-green">Producto/Sabor</th>
                                       <th class="th-green">Formato/Tipo</th>
-                                      <th class="th-green" style="text-align: right;">Unidades</th>
                                       <th class="th-green" style="text-align: right;">Pesos Brutos</th>
                                       <th class="th-green" style="text-align: right;">Stock Fábrica</th>
                                       <th class="th-green" style="text-align: right;">Stock Eventos</th>
@@ -117,27 +116,22 @@ const AdminProjectionsView = () => {
                               const tareVal = l.productos ? getTareByTipo(l.productos.tipo) : 0;
                               const netKilos = l.pesos && l.pesos.length > 0 ? l.pesos.reduce((acc, curr) => acc + Math.max(0, parseFloat(curr) - tareVal), 0) : 0;
                               
-                              const unidades = formatQuantity(l.cantidad, l.productos);
                               const pesosBrutos = isHelado && l.pesos && l.pesos.length > 0 ? l.pesos.map(w => `${parseFloat(w).toFixed(2)}kg`).join(', ') : '-';
-                              const pesoNeto = isHelado && l.pesos && l.pesos.length > 0 ? `${netKilos.toFixed(2)} kg` : (isHelado ? `~${(l.cantidad * getProductNetWeight(l.productos.id, l.productos.tipo)).toFixed(2)} kg (Est.)` : '-');
-                              const fecha = new Date(l.fecha_produccion).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
+                              const pesoNetoLote = isHelado && l.pesos && l.pesos.length > 0 ? `${netKilos.toFixed(2)} kg` : (isHelado ? `~${(l.cantidad * getProductNetWeight(l.productos.id, l.productos.tipo)).toFixed(2)} kg (Est.)` : `${l.cantidad} u`);
+                              const fecha = formatDate(l.fecha_produccion);
                               
-                              const pId = l.producto_id;
-                              const stockFabricaItem = stockList.find(s => s.producto_id === pId && s.sucursal_id === 1 && !s.es_evento);
-                              const stockEventosItem = stockList.find(s => s.producto_id === pId && s.sucursal_id === 1 && s.es_evento);
-                              const stockFabrica = stockFabricaItem ? stockFabricaItem.cantidad : 0;
-                              const stockEventos = stockEventosItem ? stockEventosItem.cantidad : 0;
+                              const stockFabrica = !l.es_evento ? pesoNetoLote : '-';
+                              const stockEventos = l.es_evento ? pesoNetoLote : '-';
 
                               htmlContent += `
                                 <tr>
                                   <td class="td" style="font-family: monospace; font-size: 11px;">${l.codigo_lote}</td>
                                   <td class="td-strong">${l.productos?.nombre}</td>
-                                  <td class="td">${l.productos?.tipo}</td>
-                                  <td class="td-number">${unidades}</td>
+                                  <td class="td">${formatTipo(l.productos?.tipo)}</td>
                                   <td class="td-number" style="font-size: 11px;">${pesosBrutos}</td>
                                   <td class="td-number">${stockFabrica}</td>
                                   <td class="td-number">${stockEventos}</td>
-                                  <td class="td-number" style="font-weight: bold; color: #047857;">${pesoNeto}</td>
+                                  <td class="td-number" style="font-weight: bold; color: #047857;">${pesoNetoLote}</td>
                                   <td class="td">${fecha}</td>
                                 </tr>
                               `;
@@ -267,7 +261,7 @@ const AdminProjectionsView = () => {
                               <td>
                                 {isHelado && l.pesos && l.pesos.length > 0 ? <strong style={{ color: 'var(--success)' }}>{netKilos.toFixed(2)} kg</strong> : isHelado ? <span style={{ color: 'var(--warning)', fontSize: '0.85rem', fontWeight: 600 }}>~{(l.cantidad * getProductNetWeight(l.productos.id, l.productos.tipo)).toFixed(2)} kg (Est.)</span> : <span style={{ color: 'var(--text-light)', fontSize: '0.85rem' }}>-</span>}
                               </td>
-                              <td style={{ fontSize: '0.85rem' }}>{formatDate()}</td>
+                              <td style={{ fontSize: '0.85rem' }}>{formatDate(l.fecha_produccion)}</td>
                             </tr>;
             })}
                         {recentLotes.length === 0 && <tr>
