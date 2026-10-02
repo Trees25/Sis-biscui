@@ -6,6 +6,7 @@ import EditStockModal from './components/modals/EditStockModal';
 import MaintenanceModal from './components/modals/MaintenanceModal';
 import AdminConsumptionAuditView from './views/admin/AdminConsumptionAuditView';
 import AdminProjectionsView from './views/admin/AdminProjectionsView';
+import AdminAuditView from './views/admin/AdminAuditView';
 import AdminHistoricalView from './views/admin/AdminHistoricalView';
 import AdminMaintenanceView from './views/admin/AdminMaintenanceView';
 import AdminSuppliersView from './views/admin/AdminSuppliersView';
@@ -19,6 +20,7 @@ import TransportRoutesView from './views/logistica/TransportRoutesView';
 import BranchOrderView from './views/sucursal/BranchOrderView';
 import BranchOrderListView from './views/sucursal/BranchOrderListView';
 import BranchConsumptionView from './views/sucursal/BranchConsumptionView';
+import BranchInventoryCheckView from './views/sucursal/BranchInventoryCheckView';
 import BranchStockView from './views/sucursal/BranchStockView';
 import BranchRetiroInternoView from './views/sucursal/BranchRetiroInternoView';
 import AdminProductsView from './views/admin/AdminProductsView';
@@ -205,6 +207,7 @@ const AppContent = () => {
               <button className={`tab-btn ${activeTab === 'catalogo' ? 'active' : ''}`} onClick={() => setActiveTab('catalogo')}>Productos</button>
               <button className={`tab-btn ${activeTab === 'proveedores' ? 'active' : ''}`} onClick={() => setActiveTab('proveedores')}>Proveedores</button>
               <button className={`tab-btn ${activeTab === 'maquinas' ? 'active' : ''}`} onClick={() => setActiveTab('maquinas')}>Mantenimiento y Máquinas</button>
+              <button className={`tab-btn ${activeTab === 'auditoria' ? 'active' : ''}`} onClick={() => setActiveTab('auditoria')}>Auditoría de Movimientos</button>
             </div>
 
             {activeTab === 'matrix' && <AdminStockView />}
@@ -214,6 +217,7 @@ const AppContent = () => {
             {activeTab === 'catalogo' && <AdminProductsView />}
             {activeTab === 'maquinas' && <AdminMaintenanceView />}
             {activeTab === 'proveedores' && <AdminSuppliersView />}
+            {activeTab === 'auditoria' && <AdminAuditView />}
           </div>
         )}
 
@@ -254,19 +258,21 @@ const AppContent = () => {
         {user.rol === 'sucursal' && (
           <div>
             <div className="tabs">
-
+              <button className={`tab-btn ${activeTab === 'pedido_nuevo' ? 'active' : ''}`} onClick={() => setActiveTab('pedido_nuevo')}>Nuevo Pedido a Fábrica</button>
               <button className={`tab-btn ${activeTab === 'pedidos_lista' ? 'active' : ''}`} onClick={() => setActiveTab('pedidos_lista')}>Mis Recepciones</button>
               <button className={`tab-btn ${activeTab === 'consumo' ? 'active' : ''}`} onClick={() => setActiveTab('consumo')}>Registrar Consumo Diario</button>
               <button className={`tab-btn ${activeTab === 'mi_stock' ? 'active' : ''}`} onClick={() => setActiveTab('mi_stock')}>Mi Stock Actual</button>
+              <button className={`tab-btn ${activeTab === 'ajuste_inventario' ? 'active' : ''}`} onClick={() => setActiveTab('ajuste_inventario')}>Ajuste Semanal</button>
               {user.sucursal_id === 4 && (
                 <button className={`tab-btn ${activeTab === 'retiro_interno' ? 'active' : ''}`} onClick={() => setActiveTab('retiro_interno')}>Retiro Interno (Fábrica)</button>
               )}
             </div>
 
-
+            {activeTab === 'pedido_nuevo' && <BranchOrderView />}
             {activeTab === 'pedidos_lista' && <BranchOrderListView />}
             {activeTab === 'consumo' && <BranchConsumptionView />}
             {activeTab === 'mi_stock' && <BranchStockView />}
+            {activeTab === 'ajuste_inventario' && <BranchInventoryCheckView />}
             {activeTab === 'retiro_interno' && user.sucursal_id === 4 && <BranchRetiroInternoView />}
           </div>
         )}

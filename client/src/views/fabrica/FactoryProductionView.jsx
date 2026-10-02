@@ -137,7 +137,7 @@ const FactoryProductionView = () => {
         </div>
       </div>
     )}
-  
+
   <div className="dashboard-grid">
                 <div className="glass-card">
                   <h3 className="section-title">

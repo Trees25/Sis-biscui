@@ -1707,6 +1707,17 @@ const handleDeleteLote = async (lote) => {
         .eq('id', currentStock.id);
         
       if (stockUpdateErr) throw stockUpdateErr;
+      
+      // Register Audit Log
+      const { error: auditErr } = await supabase.from('historial_movimientos').insert({
+        sucursal_id: 1,
+        producto_id: lote.producto_id,
+        tipo_movimiento: 'ajuste_inventario',
+        cantidad: -parseFloat(lote.cantidad),
+        stock_resultante: newQty,
+        detalle: `Eliminación de carga/lote: ${lote.codigo_lote}`
+      });
+      if (auditErr) console.error("Error registrando auditoría:", auditErr);
     }
     
     // Now delete the lote
@@ -1790,6 +1801,17 @@ const handleEditLote = async (lote, newQty, newWeights = null) => {
         .eq('id', currentStock.id);
         
       if (stockUpdateErr) throw stockUpdateErr;
+      
+      // Register Audit Log
+      const { error: auditErr } = await supabase.from('historial_movimientos').insert({
+        sucursal_id: 1,
+        producto_id: lote.producto_id,
+        tipo_movimiento: 'ajuste_inventario',
+        cantidad: diff,
+        stock_resultante: updatedStockQty,
+        detalle: `Edición de carga/lote: ${lote.codigo_lote}`
+      });
+      if (auditErr) console.error("Error registrando auditoría:", auditErr);
     }
     
     showToast(`Lote ${lote.codigo_lote} actualizado correctamente.`, 'success');
@@ -2100,6 +2122,14 @@ const handlePrepareOrder = async () => {
     });
     for (const item of selectedPedido.items) {
       const pId = item.producto_id;
+      const prod = productos.find(p => p.id === pId);
+      
+      // No descontar/ajustar stock de fabrica al preparar si es helado,
+      // porque el helado se descuenta en kilos reales cuando la sucursal confirma la recepcion.
+      if (prod && prod.categoria === 'helados') {
+        continue;
+      }
+
       const requestedQty = item.cantidad_solicitada;
       const qtyPrimary = (targetEsEvento ? eventStockMap[pId] : commonStockMap[pId]) ?? 0;
       const qtySecondary = (targetEsEvento ? commonStockMap[pId] : eventStockMap[pId]) ?? 0;
@@ -2276,7 +2306,7 @@ const handleConfirmReceive = async () => {
   if (!selectedPedido) return;
   const items = Object.entries(receiveItems).map(([prodId, qty]) => ({
     producto_id: parseInt(prodId),
-    cantidad_recibida: parseInt(qty),
+    cantidad_recibida: parseFloat(qty) || 0,
     motivo_diferencia: receiveReasons[prodId] || ''
   }));
   setLoading(true);
@@ -2296,10 +2326,31 @@ const handleConfirmReceive = async () => {
     let hasDiscrepancies = false;
     for (let item of items) {
       const origDetail = selectedPedido.items.find(it => it.producto_id === item.producto_id);
+      const prod = productos.find(p => p.id === item.producto_id);
+      const isHelado = prod && prod.categoria === 'helados';
+      
       const loadedQty = selectedPedido.estado === 'solicitado' ? item.cantidad_recibida : origDetail ? origDetail.cantidad_cargada > 0 ? origDetail.cantidad_cargada : origDetail.cantidad_preparada : 0;
-      if (loadedQty - item.cantidad_recibida !== 0) {
+      
+      if (!isHelado && loadedQty - item.cantidad_recibida !== 0) {
         hasDiscrepancies = true;
-        break;
+      }
+
+      // Restar kilos reales de helado del stock de la fábrica
+      if (isHelado) {
+        const kilosARestar = item.cantidad_recibida;
+        if (kilosARestar > 0) {
+          const { data: fStock } = await supabase.from('stock_sucursales')
+            .select('cantidad')
+            .eq('sucursal_id', 1)
+            .eq('producto_id', prod.id)
+            .eq('es_evento', selectedPedido.es_evento)
+            .single();
+          if (fStock) {
+            await supabase.from('stock_sucursales').update({
+              cantidad: Number(fStock.cantidad) - Number(kilosARestar)
+            }).eq('sucursal_id', 1).eq('producto_id', prod.id).eq('es_evento', selectedPedido.es_evento);
+          }
+        }
       }
     }
     const finalEstado = hasDiscrepancies ? 'con_discrepancia' : 'entregado';

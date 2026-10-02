@@ -1,5 +1,5 @@
 import { useData } from '../../context/DataContext';
-import React from 'react';
+import React, { useState } from 'react';
 import UnitCalculatorInput from '../../components/common/UnitCalculatorInput';
 import { formatQuantity, formatQuantityShort, formatTipo, getBadgeClass, translateState, formatDate, getCategoryEmoji } from '../../utils/formatters';
 const BranchOrderView = () => {
@@ -26,6 +26,9 @@ const BranchOrderView = () => {
     editingOrderId,
     setEditingOrderId
   } = useData();
+
+  const [orderFormatFilter, setOrderFormatFilter] = useState('Todos');
+
   return <div style={{
     display: 'flex',
     gap: '1.5rem',
@@ -190,6 +193,29 @@ const BranchOrderView = () => {
                         {`${getCategoryEmoji(tab.id)} ${tab.name}`}
                       </button>)}
                   </div>
+
+                  {orderSubTab === 'helados' && (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      background: 'rgba(255,255,255,0.05)',
+                      padding: '0.5rem',
+                      borderRadius: '8px'
+                    }}>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>Formato:</span>
+                      <select
+                        className="form-control"
+                        style={{ padding: '0.3rem 0.5rem', fontSize: '0.9rem', width: 'auto' }}
+                        value={orderFormatFilter}
+                        onChange={e => setOrderFormatFilter(e.target.value)}
+                      >
+                        <option value="Todos">Todos</option>
+                        <option value="Vasqueta">Vasqueta</option>
+                        <option value="Balde">Balde (5L/10L)</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
 
                 {(() => {
@@ -199,6 +225,13 @@ const BranchOrderView = () => {
 
           if (orderSearchQuery) {
             catSuggestions = catSuggestions.filter(s => s.nombre.toLowerCase().includes(orderSearchQuery.toLowerCase()) || formatTipo(s.tipo).toLowerCase().includes(orderSearchQuery.toLowerCase()));
+          }
+          if (cat.id === 'helados' && orderFormatFilter !== 'Todos') {
+            if (orderFormatFilter === 'Vasqueta') {
+              catSuggestions = catSuggestions.filter(s => s.tipo === 'vasqueta_5_6k');
+            } else if (orderFormatFilter === 'Balde') {
+              catSuggestions = catSuggestions.filter(s => s.tipo === 'balde_4k' || s.tipo === 'balde_8k');
+            }
           }
           return catSuggestions.length > 0;
         });
@@ -223,6 +256,13 @@ const BranchOrderView = () => {
 
           if (orderSearchQuery) {
             catSuggestions = catSuggestions.filter(s => s.nombre.toLowerCase().includes(orderSearchQuery.toLowerCase()) || formatTipo(s.tipo).toLowerCase().includes(orderSearchQuery.toLowerCase()));
+          }
+          if (cat.id === 'helados' && orderFormatFilter !== 'Todos') {
+            if (orderFormatFilter === 'Vasqueta') {
+              catSuggestions = catSuggestions.filter(s => s.tipo === 'vasqueta_5_6k');
+            } else if (orderFormatFilter === 'Balde') {
+              catSuggestions = catSuggestions.filter(s => s.tipo === 'balde_4k' || s.tipo === 'balde_8k');
+            }
           }
           if (catSuggestions.length === 0) return null;
           return <div key={cat.id} style={{
@@ -289,12 +329,15 @@ const BranchOrderView = () => {
                                     </td>
                                     <td>{formatQuantity(s.stock_actual, productos.find(p => p.id === s.producto_id))}</td>
                                     <td>
-                                      <span style={{
-                          fontWeight: 600,
-                          color: s.stock_fabrica > 0 ? 'var(--success)' : 'var(--danger)'
-                        }}>
-                                        {formatQuantity(s.stock_fabrica, productos.find(p => p.id === s.producto_id))}
-                                      </span>
+                                      {s.categoria === 'helados' ? (
+                                        <span style={{ fontWeight: 600, color: s.stock_fabrica > 10 ? 'var(--success)' : s.stock_fabrica > 3 ? 'var(--warning)' : 'var(--danger)' }}>
+                                          {s.stock_fabrica > 10 ? '🟢 Alto' : s.stock_fabrica > 3 ? '🟠 Medio' : '🔴 Bajo'}
+                                        </span>
+                                      ) : (
+                                        <span style={{ fontWeight: 600, color: s.stock_fabrica > 0 ? 'var(--success)' : 'var(--danger)' }}>
+                                          {formatQuantity(s.stock_fabrica, productos.find(p => p.id === s.producto_id))}
+                                        </span>
+                                      )}
                                     </td>
                                     <td>{formatQuantity(s.consumo_promedio_diario, productos.find(p => p.id === s.producto_id))}</td>
                                   </tr>;
@@ -450,7 +493,7 @@ const BranchOrderView = () => {
                       ...prev,
                       [item.id]: val
                     }));
-                  }} product={prod} placeholder="0" min={0} />
+                  }} product={prod.categoria === 'helados' ? { ...prod, categoria: 'unidad', unidad_medida: 'unidad' } : prod} placeholder="0" min={0} />
                                 </div>
                               </div>;
             })}

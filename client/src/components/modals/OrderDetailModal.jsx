@@ -80,7 +80,7 @@ const OrderDetailModal = () => {
                 </div>
                 <div>
                   <strong>Solicitado por:</strong> {selectedPedido.creado_por_nombre || 'N/D'}<br />
-                  <strong>Fecha:</strong> {formatDate()}
+                  <strong>Fecha:</strong> {formatDate(selectedPedido.created_at || selectedPedido.fecha_solicitud)}
                 </div>
               </div>
 
@@ -91,43 +91,59 @@ const OrderDetailModal = () => {
                 <table>
                   <thead>
                     <tr>
+                      <th style={{ textAlign: 'center', width: '90px' }}>Cant. Pedida</th>
                       <th>Producto / Sabor</th>
-                      <th style={{
-                textAlign: 'center'
-              }}>Solicitado</th>
-                      {selectedPedido.estado !== 'solicitado' && <th style={{
-                textAlign: 'center'
-              }}>Preparado</th>}
-                      {selectedPedido.estado !== 'solicitado' && selectedPedido.estado !== 'preparado' && <th style={{
-                textAlign: 'center'
-              }}>Cargado</th>}
-                      {selectedPedido.estado === 'entregado' || selectedPedido.estado === 'con_discrepancia' ? <th style={{
-                textAlign: 'center'
-              }}>Recibido</th> : null}
+                      <th style={{ textAlign: 'center', width: '160px' }}>Peso Recibido</th>
                     </tr>
                   </thead>
                   <tbody>
                     {selectedPedido.items.map(it => {
-              const prod = productos.find(p => p.id === it.producto_id);
-              return <tr key={it.producto_id}>
+                      const prod = productos.find(p => p.id === it.producto_id);
+                      const isHelado = prod?.categoria === 'helados';
+                      const qtyRequestedLabel = isHelado ? it.cantidad_solicitada : formatQuantityShort(it.cantidad_solicitada, prod);
+
+                      return (
+                        <tr key={it.producto_id}>
+                          <td style={{ textAlign: 'center', fontWeight: 600 }}>{qtyRequestedLabel}</td>
                           <td><strong>{it.producto_nombre}</strong></td>
-                          <td style={{
-                  textAlign: 'center'
-                }}>{formatQuantityShort(it.cantidad_solicitada, prod)}</td>
-                          {selectedPedido.estado !== 'solicitado' && <td style={{
-                  textAlign: 'center'
-                }}>{formatQuantityShort(it.cantidad_preparada, prod)}</td>}
-                          {selectedPedido.estado !== 'solicitado' && selectedPedido.estado !== 'preparado' && <td style={{
-                  textAlign: 'center'
-                }}>{formatQuantityShort(it.cantidad_cargada, prod)}</td>}
-                          {selectedPedido.estado === 'entregado' || selectedPedido.estado === 'con_discrepancia' ? <td style={{
-                  textAlign: 'center'
-                }}>{formatQuantityShort(it.cantidad_recibida, prod)}</td> : null}
-                        </tr>;
-            })}
+                          <td style={{ textAlign: 'center' }}>
+                            {selectedPedido.estado === 'entregado' || selectedPedido.estado === 'con_discrepancia' ? (
+                              formatQuantityShort(it.cantidad_recibida, prod)
+                            ) : (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                              <UnitCalculatorInput 
+                                value={receiveItems[it.producto_id] !== undefined ? receiveItems[it.producto_id] : ''} 
+                                onChange={val => {
+                                  setReceiveItems(prev => ({
+                                    ...prev,
+                                    [it.producto_id]: val
+                                  }));
+                                }} 
+                                product={prod} 
+                                placeholder={isHelado ? "Ej: 4200 (gr)" : "Recibido"} 
+                                min={0} 
+                              />
+                              {!isHelado && (receiveItems[it.producto_id] ?? it.cantidad_solicitada) !== it.cantidad_solicitada && (
+                                <input type="text" className="form-control" placeholder="Motivo de dif." style={{ fontSize: '0.8rem', padding: '0.4rem' }} value={receiveReasons[it.producto_id] || ''} onChange={e => setReceiveReasons(prev => ({ ...prev, [it.producto_id]: e.target.value }))} required />
+                              )}
+                            </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
+              
+              {/* Confirm Receipt Button */}
+              {selectedPedido.estado !== 'entregado' && selectedPedido.estado !== 'con_discrepancia' && (
+                <div style={{ marginTop: '1rem' }}>
+                  <button className="btn btn-success" onClick={handleConfirmReceive} disabled={loading} style={{ width: '100%', fontWeight: 600, padding: '0.8rem' }}>
+                    Confirmar Recepción y Actualizar Stock
+                  </button>
+                </div>
+              )}
 
               {/* Discrepancias / Pérdidas */}
               {selectedPedido.discrepancias && selectedPedido.discrepancias.length > 0 && (
@@ -303,10 +319,10 @@ const OrderDetailModal = () => {
                   fontSize: '0.8rem',
                   color: 'var(--text-light)'
                 }}>
-                              <div>Pedido Original: <strong>{formatQuantity(it.cantidad_solicitada, productos.find(p => p.id === it.producto_id))}</strong></div>
+                              <div>Pedido Original: <strong>{formatQuantity(it.cantidad_solicitada, productos.find(p => p.id === it.producto_id)?.categoria === 'helados' ? { ...productos.find(p => p.id === it.producto_id), categoria: 'unidad', unidad_medida: 'unidad' } : productos.find(p => p.id === it.producto_id))}</strong></div>
                               <div style={{
                     marginTop: '2px'
-                  }}>Preparado en Fábrica: <strong>{formatQuantity(it.cantidad_preparada, productos.find(p => p.id === it.producto_id))}</strong></div>
+                  }}>Preparado en Fábrica: <strong>{formatQuantity(it.cantidad_preparada, productos.find(p => p.id === it.producto_id)?.categoria === 'helados' ? { ...productos.find(p => p.id === it.producto_id), categoria: 'unidad', unidad_medida: 'unidad' } : productos.find(p => p.id === it.producto_id))}</strong></div>
                             </div>
                             <div style={{
                   display: 'flex',
@@ -332,7 +348,7 @@ const OrderDetailModal = () => {
                           ...prev,
                           [it.producto_id]: clampedVal
                         }));
-                      }} product={productos.find(p => p.id === it.producto_id)} placeholder="Cargar" min={1} />
+                      }} product={productos.find(p => p.id === it.producto_id)?.categoria === 'helados' ? { ...productos.find(p => p.id === it.producto_id), categoria: 'unidad', unidad_medida: 'unidad' } : productos.find(p => p.id === it.producto_id)} placeholder="Cargar" min={1} />
                                   </div>
                                 </div> : <div style={{
                     fontWeight: 600,
@@ -409,54 +425,6 @@ const OrderDetailModal = () => {
                   {user.sucursal_id === 4 ? 'Controla la mercadería retirada directamente de Fábrica. Escribe las cantidades físicas recibidas. Si hay diferencias, detalla el motivo.' : user.rol === 'transportista' ? 'Controla los insumos que ingresan a tu depósito. Ingresa las cantidades físicas recibidas.' : 'Controla la mercadería junto con el transportista. Escribe cantidades físicas recibidas. Si hay diferencias, detalla el motivo.'}
                 </p>
 
-                <div className="items-selection-grid" style={{
-          marginBottom: '1.5rem'
-        }}>
-                  {selectedPedido.items.map(it => {
-            const baseQty = it.cantidad_cargada > 0 ? it.cantidad_cargada : it.cantidad_preparada;
-            return <div key={it.producto_id} style={{
-              background: '#f9f9f9',
-              padding: '1rem',
-              borderRadius: '12px',
-              border: '1px solid rgba(0,0,0,0.05)',
-              marginBottom: '0.75rem'
-            }}>
-                        <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '0.5rem'
-              }}>
-                          <strong>{it.producto_nombre}</strong>
-                          <span style={{
-                  fontSize: '0.85rem',
-                  color: 'var(--text-light)'
-                }}>
-                            {user.sucursal_id === 4 || user.rol === 'transportista' ? 'Preparado' : 'Despachado'}: <strong>{formatQuantity(baseQty, productos.find(p => p.id === it.producto_id))}</strong>
-                          </span>
-                        </div>
-
-                        <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                gap: '0.75rem',
-                alignItems: 'center'
-              }}>
-                          <UnitCalculatorInput value={receiveItems[it.producto_id] ?? baseQty} onChange={val => {
-                  setReceiveItems(prev => ({
-                    ...prev,
-                    [it.producto_id]: val
-                  }));
-                }} product={productos.find(p => p.id === it.producto_id)} placeholder="Recibido" min={0} />
-
-                          {(receiveItems[it.producto_id] ?? baseQty) !== baseQty && <input type="text" className="form-control" placeholder="Motivo de la discrepancia (Obligatorio)" value={receiveReasons[it.producto_id] || ''} onChange={e => setReceiveReasons(prev => ({
-                  ...prev,
-                  [it.producto_id]: e.target.value
-                }))} required />}
-                        </div>
-                      </div>;
-          })}
-                </div>
 
                 <button className="btn btn-success" onClick={handleConfirmReceive} disabled={loading} style={{
           width: '100%'
