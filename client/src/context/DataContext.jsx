@@ -95,7 +95,7 @@ const UnitCalculatorInput = ({
   disabled = false,
   min = 0
 }) => {
-  const isWeight = product?.unidad_medida === 'peso' || product?.categoria === 'helados';
+  const isWeight = product?.unidad_medida === 'peso' || product?.categoria === 'helados' || product?.categoria?.toLowerCase().includes('fruta') || product?.categoria?.toLowerCase().includes('verdura') || product?.nombre?.toLowerCase().includes('fruta') || product?.nombre?.toLowerCase().includes('verdura');
   if (isWeight) {
     const displayVal = value !== undefined && value !== null ? value : '';
     return <div style={{
@@ -1164,7 +1164,7 @@ const handleDownloadAuditoriaCSV = () => {
   let csvContent = "data:text/csv;charset=utf-8,";
   csvContent += "Fecha,Sucursal,Producto,Cantidad,Unidad,Registrado Por\n";
   auditoriaData.forEach(row => {
-    const isWeight = row.unidad_medida === 'peso';
+    const isWeight = row.unidad_medida === 'peso' || row.categoria === 'helados' || row.categoria?.toLowerCase().includes('fruta') || row.categoria?.toLowerCase().includes('verdura') || row.producto_nombre?.toLowerCase().includes('fruta') || row.producto_nombre?.toLowerCase().includes('verdura');
     const qty = isWeight ? parseFloat(row.cantidad).toFixed(3) : row.cantidad;
     const unit = isWeight ? "kg" : "unidades";
     const pName = (row.producto_nombre || "Desconocido").replace(/,/g, '');
@@ -1403,7 +1403,7 @@ const handleTranspCargaSubmit = async e => {
     const inputQty = parseFloat(transpCargaForm.cantidad);
     const pDate = new Date(transpCargaForm.fecha);
     const selectedProd = productos.find(p => p.id === pId);
-    const isWeight = selectedProd?.unidad_medida === 'peso';
+    const isWeight = selectedProd?.unidad_medida === 'peso' || selectedProd?.categoria === 'helados' || selectedProd?.categoria?.toLowerCase().includes('fruta') || selectedProd?.categoria?.toLowerCase().includes('verdura') || selectedProd?.nombre?.toLowerCase().includes('fruta') || selectedProd?.nombre?.toLowerCase().includes('verdura');
     const finalQty = isWeight ? parseFloat(inputQty) : inputQty;
     const dateStr = pDate.toISOString().slice(0, 10).replace(/-/g, '');
     const rand = Math.floor(1000 + Math.random() * 9000);
@@ -1657,7 +1657,7 @@ const handleConsumoSubmit = async e => {
   try {
     const pId = parseInt(consumoForm.producto_id);
     const selectedProd = productos.find(p => p.id === pId);
-    const isWeight = selectedProd?.unidad_medida === 'peso' || selectedProd?.categoria === 'helados';
+    const isWeight = selectedProd?.unidad_medida === 'peso' || selectedProd?.categoria === 'helados' || selectedProd?.categoria?.toLowerCase().includes('fruta') || selectedProd?.categoria?.toLowerCase().includes('verdura') || selectedProd?.nombre?.toLowerCase().includes('fruta') || selectedProd?.nombre?.toLowerCase().includes('verdura');
     const qty = isWeight ? normalizeWeight(consumoForm.cantidad) : (parseInt(consumoForm.cantidad) || 0);
     const isEvent = consumoForm.es_evento || false;
     const {
@@ -2091,7 +2091,11 @@ const viewOrderDetail = async pedidoId => {
     const recs = {};
     const reasons = {};
     itemsMapped.forEach(it => {
-      recs[it.producto_id] = it.cantidad_cargada > 0 ? it.cantidad_cargada : it.cantidad_preparada;
+      let val = it.cantidad_cargada > 0 ? it.cantidad_cargada : it.cantidad_preparada;
+      if (it.categoria === 'helados' && val === 0) {
+        val = '';
+      }
+      recs[it.producto_id] = val;
       reasons[it.producto_id] = '';
     });
     setReceiveItems(recs);
@@ -2806,7 +2810,7 @@ const handleSaveStockAdmin = async (formDataOrEvent) => {
     } = formData;
 
     const prod = productos.find(p => p.id === producto_id);
-    const isWeight = prod?.unidad_medida === 'peso' || prod?.categoria === 'helados';
+    const isWeight = prod?.unidad_medida === 'peso' || prod?.categoria === 'helados' || prod?.categoria?.toLowerCase().includes('fruta') || prod?.categoria?.toLowerCase().includes('verdura') || prod?.nombre?.toLowerCase().includes('fruta') || prod?.nombre?.toLowerCase().includes('verdura');
     const numCant = isWeight ? normalizeWeight(cantidad) : (parseInt(cantidad) || 0);
 
     if (isNaN(numCant) || numCant < 0) throw new Error("La cantidad debe ser un número válido mayor o igual a cero.");

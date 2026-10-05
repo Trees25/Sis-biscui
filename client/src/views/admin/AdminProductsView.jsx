@@ -291,7 +291,7 @@ const AdminProductsView = () => {
                               <td>
                                 <strong>{p.nombre}</strong>
                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', textTransform: 'capitalize' }}>
-                                  Categoría: {p.categoria?.replace(/_/g, ' ')} | Medida: {p.unidad_medida === 'peso' || p.categoria === 'helados' ? 'Peso (kg)' : 'Unidad'}
+                                  Categoría: {p.categoria?.replace(/_/g, ' ')} | Medida: {p.unidad_medida === 'peso' || p.categoria === 'helados' || p.categoria?.toLowerCase().includes('fruta') || p.categoria?.toLowerCase().includes('verdura') || p.nombre?.toLowerCase().includes('fruta') || p.nombre?.toLowerCase().includes('verdura') ? 'Peso (kg)' : 'Unidad'}
                                 </div>
                               </td>
                               <td><span style={{ fontSize: '0.85rem' }}>{formatTipo(p.tipo)}</span></td>

@@ -76,7 +76,7 @@ export const calculateNetWeight = (rawInput, tipo, discountTare = true, explicit
 export const formatQuantity = (cantidad, p) => {
   if (cantidad === undefined || cantidad === null) return '-';
   if (!p) return `${cantidad}`;
-  if (p.unidad_medida === 'peso' || p.categoria === 'helados') {
+  if (p.unidad_medida === 'peso' || p.categoria === 'helados' || p.categoria?.toLowerCase().includes('fruta') || p.categoria?.toLowerCase().includes('verdura') || p.nombre?.toLowerCase().includes('fruta') || p.nombre?.toLowerCase().includes('verdura')) {
     const num = typeof cantidad === 'string' ? parseFloat(cantidad.replace(',', '.')) : Number(cantidad);
     const kg = isNaN(num) ? 0 : num;
     return `${kg.toLocaleString('es-AR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} kg`;
@@ -87,7 +87,7 @@ export const formatQuantity = (cantidad, p) => {
 export const formatQuantityShort = (cantidad, p) => {
   if (cantidad === undefined || cantidad === null) return '-';
   if (!p) return `${cantidad}`;
-  if (p.unidad_medida === 'peso' || p.categoria === 'helados') {
+  if (p.unidad_medida === 'peso' || p.categoria === 'helados' || p.categoria?.toLowerCase().includes('fruta') || p.categoria?.toLowerCase().includes('verdura') || p.nombre?.toLowerCase().includes('fruta') || p.nombre?.toLowerCase().includes('verdura')) {
     const num = typeof cantidad === 'string' ? parseFloat(cantidad.replace(',', '.')) : Number(cantidad);
     const kg = isNaN(num) ? 0 : num;
     return `${kg.toLocaleString('es-AR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} kg`;
