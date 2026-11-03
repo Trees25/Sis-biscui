@@ -29,6 +29,7 @@ import AdminFlujoView from './views/admin/AdminFlujoView';
 import AdminStockView from './views/admin/AdminStockView';
 import AdminLogisticsHub from './views/admin/AdminLogisticsHub';
 import { DataProvider, useData } from './context/DataContext';
+import { useAutoUpdate } from './hooks/useAutoUpdate';
 
 const AppContent = () => {
   const { 
@@ -38,6 +39,8 @@ const AppContent = () => {
     selectedPedido, showLossModal, fetchData, showToast,
     handleClearTestData
   } = useData();
+
+  useAutoUpdate(showToast);
 
   if (!user) {
     return (
