@@ -47,6 +47,7 @@ const BranchInventoryCheckView = () => {
           const { error: auditErr } = await supabase.from('historial_movimientos').insert({
             sucursal_id: user.sucursal_id,
             producto_id: pId,
+            usuario_id: user?.auth_id || null,
             tipo_movimiento: diff > 0 ? 'sobrante_inventario' : 'merma_inventario',
             cantidad: diff,
             stock_resultante: realQty,

@@ -60,6 +60,7 @@ export const useAuth = (showToast, setActiveTab, setLoading) => {
 
       const sessionUser = {
         id: userData.id,
+        auth_id: userData.auth_id,
         nombre: userData.nombre,
         rol: userData.rol,
         sucursal_id: userData.sucursal_id,
