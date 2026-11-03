@@ -653,7 +653,7 @@ const handleCategoriaChange = cat => {
     } catch (err) {
       console.error('Error refreshing stock:', err);
     }
-  }, [user]);
+  }, [user?.id, user?.rol, user?.sucursal_id]);
 
   const refreshOrders = useCallback(async () => {
     if (!user) return;
@@ -711,7 +711,7 @@ const handleCategoriaChange = cat => {
     } catch (err) {
       console.error('Error refreshing orders:', err);
     }
-  }, [user]);
+  }, [user?.id, user?.rol]);
 
   const refreshProductionOrders = useCallback(async () => {
     if (!user) return;
@@ -738,7 +738,7 @@ const handleCategoriaChange = cat => {
     } catch (err) {
       console.error('Error refreshing production orders:', err);
     }
-  }, [user]);
+  }, [user?.id]);
 
   const refreshLotes = useCallback(async () => {
     if (!user) return;
@@ -757,7 +757,7 @@ const handleCategoriaChange = cat => {
     } catch (err) {
       console.error('Error refreshing lotes:', err);
     }
-  }, [user]);
+  }, [user?.id]);
 
   // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1151,7 +1151,7 @@ const handleCategoriaChange = cat => {
     } catch (err) {
       console.error('Error fetching data:', err);
     }
-  }, [user]);
+  }, [user?.id, user?.rol, user?.sucursal_id]);
   const fetchBranchOrderData = useCallback(async () => {
     if (!user || user.rol !== 'sucursal' || activeTab !== 'pedido_nuevo') return;
     try {
@@ -1307,7 +1307,7 @@ useEffect(() => {
     supabase.removeChannel(prodOrdersChannel);
     supabase.removeChannel(lotesChannel);
   };
-}, [user, fetchData, refreshStock, refreshOrders, refreshProductionOrders, refreshLotes]);
+}, [user?.id]);
 // ─────────────────────────────────────────────────────────────────────────────
 const fetchMaquinasYMantenimientos = useCallback(async () => {
   if (!user || user.rol !== 'admin') return;
