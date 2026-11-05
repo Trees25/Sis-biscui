@@ -47,7 +47,10 @@ async function backupData() {
       }
       backup[table] = [];
     } else {
-      backup[table] = data;
+      // Omitir contraseñas en texto plano por seguridad
+      backup[table] = table === 'usuarios'
+        ? data.map(({ password, ...rest }) => rest)
+        : data;
       console.log(`- ${data.length} registros descargados.`);
     }
   }

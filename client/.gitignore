@@ -12,6 +12,14 @@ dist
 dist-ssr
 *.local
 .env
+.env.*
+backup.json
+temp.json
+*backup*.json
+scratch_*
+test_supa*.js
+clear_data.js
+check_dates.js
 
 # Editor directories and files
 .vscode/*
