@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useData } from '../../context/DataContext';
 import { supabase } from '../../supabaseClient';
 import { formatTipo, formatQuantityShort } from '../../utils/formatters';
@@ -8,6 +8,7 @@ const AdminAuditView = () => {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
+  const usersMapRef = useRef(null);
 
   // Filters
   const [selectedSucursal, setSelectedSucursal] = useState('');
@@ -30,44 +31,50 @@ const AdminAuditView = () => {
   const fetchLogs = useCallback(async () => {
     setLoading(true);
     try {
-      // 1. Fetch from historial_movimientos (inventory adjustments, branch checks, manual adjustments)
-      const { data: histData, error: histError } = await supabase
-        .from('historial_movimientos')
-        .select(`
-          *,
-          sucursales ( nombre ),
-          productos ( nombre, tipo, categoria, unidad_medida )
-        `)
-        .order('fecha', { ascending: false })
-        .limit(2000);
+      const promises = [
+        supabase
+          .from('historial_movimientos')
+          .select(`
+            *,
+            sucursales ( nombre ),
+            productos ( nombre, tipo, categoria, unidad_medida )
+          `)
+          .order('fecha', { ascending: false })
+          .limit(1000),
+        supabase
+          .from('lotes_produccion')
+          .select(`
+            *,
+            productos ( nombre, tipo, categoria, unidad_medida )
+          `)
+          .order('fecha_produccion', { ascending: false })
+          .limit(1000)
+      ];
+
+      if (!usersMapRef.current) {
+        promises.push(supabase.from('usuarios').select('id, nombre, auth_id'));
+      }
+
+      const results = await Promise.all(promises);
+      const { data: histData, error: histError } = results[0];
+      const { data: lotesData, error: lotesError } = results[1];
 
       if (histError && histError.code !== '42P01') {
         throw histError;
       }
-
-      // 2. Fetch from lotes_produccion (all production batches and historical stock loads)
-      const { data: lotesData, error: lotesError } = await supabase
-        .from('lotes_produccion')
-        .select(`
-          *,
-          productos ( nombre, tipo, categoria, unidad_medida )
-        `)
-        .order('fecha_produccion', { ascending: false })
-        .limit(2000);
-
       if (lotesError) {
         throw lotesError;
       }
 
-      // Map users
-      const { data: usersData } = await supabase.from('usuarios').select('id, nombre, auth_id');
-      const usersMap = {};
-      if (usersData) {
-        usersData.forEach(u => {
-          usersMap[u.id] = u.nombre;
-          if (u.auth_id) usersMap[u.auth_id] = u.nombre;
+      if (results[2]?.data) {
+        const map = {};
+        results[2].data.forEach(u => {
+          map[u.id] = u.nombre;
+          if (u.auth_id) map[u.auth_id] = u.nombre;
         });
+        usersMapRef.current = map;
       }
+      const usersMap = usersMapRef.current || {};
 
       // Format historial_movimientos
       const mappedHist = (histData || []).map(item => ({
@@ -117,21 +124,30 @@ const AdminAuditView = () => {
   useEffect(() => {
     fetchLogs();
 
+    let debounceTimer = null;
+    const debouncedFetchLogs = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        fetchLogs();
+      }, 800);
+    };
+
     const channelHist = supabase
       .channel('realtime-hist-audit')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'historial_movimientos' }, () => {
-        fetchLogs();
+        debouncedFetchLogs();
       })
       .subscribe();
 
     const channelLotes = supabase
       .channel('realtime-lotes-audit')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'lotes_produccion' }, () => {
-        fetchLogs();
+        debouncedFetchLogs();
       })
       .subscribe();
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(channelHist);
       supabase.removeChannel(channelLotes);
     };

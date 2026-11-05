@@ -5,7 +5,7 @@ import UnitCalculatorInput from '../../components/common/UnitCalculatorInput';
 import { formatQuantityShort } from '../../utils/formatters';
 
 const BranchInventoryCheckView = () => {
-  const { stockData, productos, categories, user, showToast, fetchData } = useData();
+  const { stockData, productos, categories, user, showToast, refreshStock } = useData();
   const [adjustedStock, setAdjustedStock] = useState({});
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -17,6 +17,9 @@ const BranchInventoryCheckView = () => {
   const handleSubmit = async () => {
     setLoading(true);
     try {
+      const stockUpserts = [];
+      const auditInserts = [];
+
       for (const [prodIdStr, realQty] of Object.entries(adjustedStock)) {
         if (realQty === '' || realQty === undefined || realQty === null) continue;
         const pId = parseInt(prodIdStr);
@@ -26,25 +29,14 @@ const BranchInventoryCheckView = () => {
         const diff = Number(realQty) - Number(currentQty);
         
         if (diff !== 0) {
-          if (currentStockItem) {
-            const { error: updErr } = await supabase.from('stock_sucursales')
-              .update({ cantidad: realQty })
-              .eq('sucursal_id', user.sucursal_id)
-              .eq('producto_id', pId)
-              .eq('es_evento', false);
-            if (updErr) throw updErr;
-          } else {
-            const { error: insErr } = await supabase.from('stock_sucursales').insert({
-              sucursal_id: user.sucursal_id,
-              producto_id: pId,
-              cantidad: realQty,
-              es_evento: false
-            });
-            if (insErr) throw insErr;
-          }
+          stockUpserts.push({
+            sucursal_id: user.sucursal_id,
+            producto_id: pId,
+            cantidad: realQty,
+            es_evento: false
+          });
 
-          // Register Audit Log
-          const { error: auditErr } = await supabase.from('historial_movimientos').insert({
+          auditInserts.push({
             sucursal_id: user.sucursal_id,
             producto_id: pId,
             usuario_id: user?.auth_id || null,
@@ -53,13 +45,26 @@ const BranchInventoryCheckView = () => {
             stock_resultante: realQty,
             detalle: 'Ajuste semanal de inventario'
           });
-          if (auditErr) throw auditErr;
         }
+      }
+
+      if (stockUpserts.length > 0) {
+        const { error: upsertErr } = await supabase
+          .from('stock_sucursales')
+          .upsert(stockUpserts, { onConflict: 'sucursal_id,producto_id,es_evento' });
+        if (upsertErr) throw upsertErr;
+      }
+
+      if (auditInserts.length > 0) {
+        const { error: auditErr } = await supabase
+          .from('historial_movimientos')
+          .insert(auditInserts);
+        if (auditErr) throw auditErr;
       }
 
       showToast('Inventario ajustado y guardado correctamente.');
       setAdjustedStock({});
-      fetchData();
+      await refreshStock();
     } catch (error) {
       showToast(error.message, 'error');
     } finally {

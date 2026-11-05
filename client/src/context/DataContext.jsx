@@ -566,6 +566,47 @@ const handleCategoriaChange = cat => {
   });
 };
   const fetchVersionRef = React.useRef(0);
+  const sucursalesRef = React.useRef(sucursales);
+  const productosRef = React.useRef(productos);
+  const stockDataRef = React.useRef(stockData);
+  useEffect(() => { sucursalesRef.current = sucursales; }, [sucursales]);
+  useEffect(() => { productosRef.current = productos; }, [productos]);
+  useEffect(() => { stockDataRef.current = stockData; }, [stockData]);
+
+  const buildAdminStockMatriz = useCallback((stockAll, branchList, prodList) => {
+    const groupedMatriz = [];
+    (prodList || []).forEach(prod => {
+      const stockPorSucursalComun = {};
+      const stockPorSucursalEvento = {};
+      (branchList || []).forEach(suc => {
+        const entryComun = stockAll.find(s => s.sucursal_id === suc.id && s.producto_id === prod.id && !s.es_evento);
+        const entryEvento = stockAll.find(s => s.sucursal_id === suc.id && s.producto_id === prod.id && s.es_evento);
+        stockPorSucursalComun[suc.id] = entryComun ? entryComun.cantidad : 0;
+        stockPorSucursalEvento[suc.id] = entryEvento ? entryEvento.cantidad : 0;
+      });
+      groupedMatriz.push({
+        producto_id: prod.id,
+        producto_nombre: prod.nombre,
+        clasificacion_sabor: prod.clasificacion_sabor,
+        categoria: prod.categoria,
+        tipo: prod.tipo,
+        unidad_medida: prod.unidad_medida,
+        es_evento: false,
+        stock_por_sucursal: stockPorSucursalComun
+      });
+      groupedMatriz.push({
+        producto_id: prod.id,
+        producto_nombre: prod.nombre,
+        clasificacion_sabor: prod.clasificacion_sabor,
+        categoria: prod.categoria,
+        tipo: prod.tipo,
+        unidad_medida: prod.unidad_medida,
+        es_evento: true,
+        stock_por_sucursal: stockPorSucursalEvento
+      });
+    });
+    return groupedMatriz;
+  }, []);
 
   // ─── Granular refresh functions (called by Realtime subscriptions) ───────────
 
@@ -608,57 +649,28 @@ const handleCategoriaChange = cat => {
       setStockData(stockD);
 
       if (user.rol === 'admin') {
-        const { data: rawAllStock, error: allStockErr } = await supabase.from('stock_sucursales').select(`
-              sucursal_id,
-              sucursales ( nombre ),
-              producto_id,
-              productos ( nombre, tipo, categoria, activo, unidad_medida ),
-              cantidad,
-              es_evento
-            `);
-        if (allStockErr) throw allStockErr;
-        const stockAll = (rawAllStock || [])
-          .filter(s => s.productos && (s.productos.activo == 1 || s.productos.activo === true || s.productos.activo === 'true' || s.productos.activo === '1'))
-          .map(s => ({
-            sucursal_id: s.sucursal_id,
-            sucursal_nombre: s.sucursales?.nombre,
-            producto_id: s.producto_id,
-            producto_nombre: s.productos?.nombre,
-            tipo: s.productos?.tipo,
-            categoria: s.productos?.categoria,
-            unidad_medida: s.productos?.unidad_medida,
-            cantidad: s.cantidad,
-            es_evento: s.es_evento
-          }));
-
-        const { data: sData } = await supabase.from('sucursales').select('*');
-        const { data: pDataRaw } = await supabase.from('productos').select('*');
-        const pDataActive = (pDataRaw || []).filter(p => p.activo == 1 || p.activo === true || p.activo === 'true' || p.activo === '1');
-        const branchList = sData || [];
-        const groupedMatriz = [];
-        pDataActive.forEach(prod => {
-          const stockPorSucursalComun = {};
-          const stockPorSucursalEvento = {};
-          branchList.forEach(suc => {
-            const entryComun = stockAll.find(s => s.sucursal_id === suc.id && s.producto_id === prod.id && !s.es_evento);
-            const entryEvento = stockAll.find(s => s.sucursal_id === suc.id && s.producto_id === prod.id && s.es_evento);
-            stockPorSucursalComun[suc.id] = entryComun ? entryComun.cantidad : 0;
-            stockPorSucursalEvento[suc.id] = entryEvento ? entryEvento.cantidad : 0;
-          });
-          groupedMatriz.push({ producto_id: prod.id, producto_nombre: prod.nombre, clasificacion_sabor: prod.clasificacion_sabor, categoria: prod.categoria, tipo: prod.tipo, unidad_medida: prod.unidad_medida, es_evento: false, stock_por_sucursal: stockPorSucursalComun });
-          groupedMatriz.push({ producto_id: prod.id, producto_nombre: prod.nombre, clasificacion_sabor: prod.clasificacion_sabor, categoria: prod.categoria, tipo: prod.tipo, unidad_medida: prod.unidad_medida, es_evento: true, stock_por_sucursal: stockPorSucursalEvento });
-        });
-        setAdminStockMatriz(groupedMatriz);
+        // Reutilizar stockD (ya contiene todas las sucursales para admin) y memoria local
+        let branchList = sucursalesRef.current;
+        let prodList = productosRef.current;
+        if (!branchList || branchList.length === 0) {
+          const { data: sData } = await supabase.from('sucursales').select('*');
+          branchList = sData || [];
+        }
+        if (!prodList || prodList.length === 0) {
+          const { data: pDataRaw } = await supabase.from('productos').select('*');
+          prodList = (pDataRaw || []).filter(p => p.activo == 1 || p.activo === true || p.activo === 'true' || p.activo === '1');
+        }
+        setAdminStockMatriz(buildAdminStockMatriz(stockD, branchList, prodList));
       }
     } catch (err) {
       console.error('Error refreshing stock:', err);
     }
-  }, [user?.id, user?.rol, user?.sucursal_id]);
+  }, [user?.id, user?.rol, user?.sucursal_id, buildAdminStockMatriz]);
 
   const refreshOrders = useCallback(async () => {
     if (!user) return;
     try {
-      const { data: pedidosData, error: pedidosErr } = await supabase.from('pedidos').select(`
+      let pedidosQuery = supabase.from('pedidos').select(`
             *,
             sucursales!pedidos_sucursal_destino_id_fkey ( nombre ),
             u_trans: transportista_id ( nombre ),
@@ -680,6 +692,10 @@ const handleCategoriaChange = cat => {
               usuarios ( nombre )
             )
           `).order('created_at', { ascending: false });
+      if (user.rol === 'sucursal' && user.sucursal_id) {
+        pedidosQuery = pedidosQuery.eq('sucursal_destino_id', user.sucursal_id);
+      }
+      const { data: pedidosData, error: pedidosErr } = await pedidosQuery;
       if (pedidosErr) throw pedidosErr;
       const ordersD = (pedidosData || []).map(o => ({
         ...o,
@@ -702,19 +718,18 @@ const handleCategoriaChange = cat => {
       setOrders(ordersD);
 
       if (user.rol === 'admin') {
-        const { data: allOrders } = await supabase.from('pedidos').select('estado');
         const counts = {};
-        (allOrders || []).forEach(o => { counts[o.estado] = (counts[o.estado] || 0) + 1; });
+        ordersD.forEach(o => { counts[o.estado] = (counts[o.estado] || 0) + 1; });
         const activeOrders = Object.entries(counts).map(([estado, count]) => ({ estado, count }));
         setDashboardStats(prev => prev ? { ...prev, activeOrders } : null);
       }
     } catch (err) {
       console.error('Error refreshing orders:', err);
     }
-  }, [user?.id, user?.rol]);
+  }, [user?.id, user?.rol, user?.sucursal_id]);
 
   const refreshProductionOrders = useCallback(async () => {
-    if (!user) return;
+    if (!user || !['admin', 'heladero', 'pastelero'].includes(user.rol)) return;
     try {
       const { data: pOrdersData, error: pOrdersErr } = await supabase.from('ordenes_produccion').select(`
             id,
@@ -738,10 +753,10 @@ const handleCategoriaChange = cat => {
     } catch (err) {
       console.error('Error refreshing production orders:', err);
     }
-  }, [user?.id]);
+  }, [user?.id, user?.rol]);
 
   const refreshLotes = useCallback(async () => {
-    if (!user) return;
+    if (!user || !['admin', 'heladero', 'pastelero'].includes(user.rol)) return;
     try {
       const { data: lotesRaw, error: lotesErr } = await supabase.from('lotes_produccion').select(`
             *,
@@ -757,7 +772,7 @@ const handleCategoriaChange = cat => {
     } catch (err) {
       console.error('Error refreshing lotes:', err);
     }
-  }, [user?.id]);
+  }, [user?.id, user?.rol]);
 
   // ─────────────────────────────────────────────────────────────────────────────
 
@@ -809,51 +824,7 @@ const handleCategoriaChange = cat => {
       });
     }
 
-    pData.sort((a, b) => {
-      if (a.categoria !== b.categoria) {
-        return (a.categoria || '').localeCompare(b.categoria || '');
-      }
-      const nA = a.nombre.toLowerCase();
-      const nB = b.nombre.toLowerCase();
-      const isTermicoOrVaso = (n) => n.includes('termico') || n.includes('térmico') || n.includes('vaso');
-      
-      if (isTermicoOrVaso(nA) || isTermicoOrVaso(nB)) {
-        const getTypeScore = (n) => {
-          if (n.includes('termico') || n.includes('térmico')) return 1;
-          if (n.includes('vaso')) return 2;
-          return 3;
-        };
-        const typeA = getTypeScore(nA);
-        const typeB = getTypeScore(nB);
-        if (typeA !== typeB) return typeA - typeB;
-        
-        const getSize = (n) => {
-          if (n.includes('1/8')) return 0.125;
-          if (n.includes('1/4')) return 0.25;
-          if (n.includes('1/2')) return 0.5;
-          if (n.includes('3/4')) return 0.75;
-          if (n.includes('chico')) return 0.1;
-          if (n.includes('mediano')) return 0.2;
-          if (n.includes('grande')) return 0.3;
-          const ccMatch = n.match(/(\d+)\s*cc/);
-          if (ccMatch) return parseInt(ccMatch[1]) / 1000;
-          const kgMatch = n.match(/(\d+)\s*kg/);
-          if (kgMatch) return parseInt(kgMatch[1]);
-          const lMatch = n.match(/(\d+)\s*l(itro)?s?/);
-          if (lMatch) return parseInt(lMatch[1]);
-          if (/\b1\b/.test(n)) return 1;
-          if (/\b2\b/.test(n)) return 2;
-          if (/\b3\b/.test(n)) return 3;
-          if (/\b4\b/.test(n)) return 4;
-          if (/\b5\b/.test(n)) return 5;
-          return 999;
-        };
-        const sizeA = getSize(nA);
-        const sizeB = getSize(nB);
-        if (sizeA !== sizeB) return sizeA - sizeB;
-      }
-      return a.nombre.localeCompare(b.nombre);
-    });
+    pData.sort(sortProductsLogic);
 
     if (version !== fetchVersionRef.current) return;
     setProductos(pData);
@@ -873,30 +844,32 @@ const handleCategoriaChange = cat => {
       setProveedores(provData || []);
     }
     if (user.rol === 'admin') {
-      // Removed v_stock_matriz because it lacks 'tipo' column and causes bugs
       const { data: flujoData, error: flujoErr } = await supabase.from('v_flujo_pedidos_stats').select('*');
       if (version !== fetchVersionRef.current) return;
       if (!flujoErr) setFlujoPedidosStats(flujoData || []);
     }
-    const {
-      data: lotesRaw,
-      error: lotesErr
-    } = await supabase.from('lotes_produccion').select(`
-          *,
-          productos ( nombre, tipo, categoria, unidad_medida ),
-          lote_pesos ( peso_bruto, peso_neto )
-        `).order('id', {
-      ascending: false
-    }).limit(250);
-    if (version !== fetchVersionRef.current) return;
-    if (!lotesErr) {
-      const mappedLotes = (lotesRaw || []).map(lote => ({
-        ...lote,
-        pesos: lote.lote_pesos ? lote.lote_pesos.map(p => p.peso_bruto) : []
-      }));
-      setRecentLotes(mappedLotes);
+    if (['admin', 'heladero', 'pastelero'].includes(user.rol)) {
+      const {
+        data: lotesRaw,
+        error: lotesErr
+      } = await supabase.from('lotes_produccion').select(`
+            *,
+            productos ( nombre, tipo, categoria, unidad_medida ),
+            lote_pesos ( peso_bruto, peso_neto )
+          `).order('id', {
+        ascending: false
+      }).limit(250);
+      if (version !== fetchVersionRef.current) return;
+      if (!lotesErr) {
+        const mappedLotes = (lotesRaw || []).map(lote => ({
+          ...lote,
+          pesos: lote.lote_pesos ? lote.lote_pesos.map(p => p.peso_bruto) : []
+        }));
+        setRecentLotes(mappedLotes);
+      }
     }
     let rawStock = [];
+    let stockD = [];
     let stockQuery = supabase.from('stock_sucursales').select(`
           sucursal_id,
           sucursales ( nombre ),
@@ -913,13 +886,13 @@ const handleCategoriaChange = cat => {
       }
     }
     const {
-      data: stockData,
+      data: stockRawData,
       error: stockErr
     } = await stockQuery;
     if (version !== fetchVersionRef.current) return;
     if (!stockErr) {
-      rawStock = stockData || [];
-      const stockD = rawStock.filter(s => s.productos && (s.productos.activo == 1 || s.productos.activo === true || s.productos.activo === 'true' || s.productos.activo === '1')).map(s => ({
+      rawStock = stockRawData || [];
+      stockD = rawStock.filter(s => s.productos && (s.productos.activo == 1 || s.productos.activo === true || s.productos.activo === 'true' || s.productos.activo === '1')).map(s => ({
         sucursal_id: s.sucursal_id,
         sucursal_nombre: s.sucursales?.nombre,
         producto_id: s.producto_id,
@@ -934,10 +907,7 @@ const handleCategoriaChange = cat => {
       }));
       setStockData(stockD);
     }
-    const {
-      data: pedidosData,
-      error: pedidosErr
-    } = await supabase.from('pedidos').select(`
+    let pedidosQuery = supabase.from('pedidos').select(`
           *,
           sucursales!pedidos_sucursal_destino_id_fkey ( nombre ),
           u_trans: transportista_id ( nombre ),
@@ -961,9 +931,17 @@ const handleCategoriaChange = cat => {
         `).order('created_at', {
       ascending: false
     });
+    if (user.rol === 'sucursal' && user.sucursal_id) {
+      pedidosQuery = pedidosQuery.eq('sucursal_destino_id', user.sucursal_id);
+    }
+    const {
+      data: pedidosData,
+      error: pedidosErr
+    } = await pedidosQuery;
     if (version !== fetchVersionRef.current) return;
+    let ordersD = [];
     if (!pedidosErr) {
-      const ordersD = (pedidosData || []).map(o => ({
+      ordersD = (pedidosData || []).map(o => ({
         ...o,
         sucursal_nombre: o.sucursales?.nombre,
         transportista_nombre: o.u_trans?.nombre,
@@ -983,103 +961,39 @@ const handleCategoriaChange = cat => {
       }
       setOrders(ordersD);
     }
-    const {
-      data: pOrdersData,
-      error: pOrdersErr
-    } = await supabase.from('ordenes_produccion').select(`
-          id,
-          estado,
-          notas,
-          fecha_requerida,
-          es_evento,
-          created_at,
-          creado_por_id,
-          usuarios ( nombre ),
-          orden_produccion_detalles (
+    if (['admin', 'heladero', 'pastelero'].includes(user.rol)) {
+      const {
+        data: pOrdersData,
+        error: pOrdersErr
+      } = await supabase.from('ordenes_produccion').select(`
             id,
-            producto_id,
-            cantidad_solicitada,
-            cantidad_producida,
-            productos ( nombre, categoria, tipo, unidad_medida )
-          )
-        `).order('created_at', { ascending: false });
-    if (version !== fetchVersionRef.current) return;
-    if (!pOrdersErr) {
-      setProductionOrders(pOrdersData || []);
-    }  
+            estado,
+            notas,
+            fecha_requerida,
+            es_evento,
+            created_at,
+            creado_por_id,
+            usuarios ( nombre ),
+            orden_produccion_detalles (
+              id,
+              producto_id,
+              cantidad_solicitada,
+              cantidad_producida,
+              productos ( nombre, categoria, tipo, unidad_medida )
+            )
+          `).order('created_at', { ascending: false });
+      if (version !== fetchVersionRef.current) return;
+      if (!pOrdersErr) {
+        setProductionOrders(pOrdersData || []);
+      }
+    }
     if (user.rol === 'admin') {
-      const {
-        data: rawAllStock,
-        error: allStockErr
-      } = await supabase.from('stock_sucursales').select(`
-            sucursal_id,
-            sucursales ( nombre ),
-            producto_id,
-            productos ( nombre, tipo, categoria, activo, unidad_medida ),
-            cantidad,
-            es_evento
-          `);
-      if (allStockErr) throw allStockErr;
-      const stockAll = (rawAllStock || []).filter(s => s.productos && (s.productos.activo == 1 || s.productos.activo === true || s.productos.activo === 'true' || s.productos.activo === '1')).map(s => ({
-        sucursal_id: s.sucursal_id,
-        sucursal_nombre: s.sucursales?.nombre,
-        producto_id: s.producto_id,
-        producto_nombre: s.productos?.nombre,
-        tipo: s.productos?.tipo,
-        categoria: s.productos?.categoria,
-        unidad_medida: s.productos?.unidad_medida,
-        cantidad: s.cantidad,
-        es_evento: s.es_evento
-      }));
+      // Reutilizar stockD y ordersD ya descargados sin volver a consultar las tablas
+      const stockAll = stockD;
+      setAdminStockMatriz(buildAdminStockMatriz(stockAll, sData || [], pData || []));
 
-      const groupedMatriz = [];
-      const branchList = sData || [];
-      const prodList = pData || [];
-      
-      prodList.forEach(prod => {
-        const stockPorSucursalComun = {};
-        const stockPorSucursalEvento = {};
-        
-        branchList.forEach(suc => {
-          const entryComun = stockAll.find(s => s.sucursal_id === suc.id && s.producto_id === prod.id && !s.es_evento);
-          const entryEvento = stockAll.find(s => s.sucursal_id === suc.id && s.producto_id === prod.id && s.es_evento);
-          
-          stockPorSucursalComun[suc.id] = entryComun ? entryComun.cantidad : 0;
-          stockPorSucursalEvento[suc.id] = entryEvento ? entryEvento.cantidad : 0;
-        });
-
-        groupedMatriz.push({
-          producto_id: prod.id,
-          producto_nombre: prod.nombre,
-          clasificacion_sabor: prod.clasificacion_sabor,
-
-          categoria: prod.categoria,
-          tipo: prod.tipo,
-          unidad_medida: prod.unidad_medida,
-          es_evento: false,
-          stock_por_sucursal: stockPorSucursalComun
-        });
-        
-        groupedMatriz.push({
-          producto_id: prod.id,
-          producto_nombre: prod.nombre,
-          clasificacion_sabor: prod.clasificacion_sabor,
-
-          categoria: prod.categoria,
-          tipo: prod.tipo,
-          unidad_medida: prod.unidad_medida,
-          es_evento: true,
-          stock_por_sucursal: stockPorSucursalEvento
-        });
-      });
-      setAdminStockMatriz(groupedMatriz);
-      const {
-        data: allOrders,
-        error: allOrdersErr
-      } = await supabase.from('pedidos').select('estado');
-      if (allOrdersErr) throw allOrdersErr;
       const counts = {};
-      (allOrders || []).forEach(o => {
+      ordersD.forEach(o => {
         counts[o.estado] = (counts[o.estado] || 0) + 1;
       });
       const activeOrders = Object.entries(counts).map(([estado, count]) => ({
@@ -1107,31 +1021,23 @@ const handleCategoriaChange = cat => {
         sucursal_nombre: d.pedidos?.s_dest?.nombre,
         reportado_por_nombre: d.usuarios?.nombre
       }));
-      const {
-        data: rawDetails,
-        error: detErr
-      } = await supabase.from('pedido_detalles').select(`
-            producto_id,
-            cantidad_solicitada,
-            cantidad_preparada,
-            productos ( nombre, tipo, categoria, unidad_medida ),
-            pedidos!inner ( estado )
-          `).eq('pedidos.estado', 'solicitado');
-      if (detErr) throw detErr;
+
       const groupedNeeded = {};
-      (rawDetails || []).forEach(d => {
-        const prodId = d.producto_id;
-        if (!groupedNeeded[prodId]) {
-          groupedNeeded[prodId] = {
-            producto_id: prodId,
-            producto_nombre: d.productos?.nombre,
-            tipo: d.productos?.tipo,
-            categoria: d.productos?.categoria,
-            unidad_medida: d.productos?.unidad_medida,
-            cantidad_pendiente: 0
-          };
-        }
-        groupedNeeded[prodId].cantidad_pendiente += d.cantidad_solicitada - d.cantidad_preparada;
+      ordersD.filter(o => o.estado === 'solicitado').forEach(o => {
+        (o.pedido_detalles || []).forEach(d => {
+          const prodId = d.producto_id;
+          if (!groupedNeeded[prodId]) {
+            groupedNeeded[prodId] = {
+              producto_id: prodId,
+              producto_nombre: d.productos?.nombre,
+              tipo: d.productos?.tipo,
+              categoria: d.productos?.categoria,
+              unidad_medida: d.productos?.unidad_medida,
+              cantidad_pendiente: 0
+            };
+          }
+          groupedNeeded[prodId].cantidad_pendiente += d.cantidad_solicitada - d.cantidad_preparada;
+        });
       });
       const stockFabrica = stockAll.filter(s => s.sucursal_id === 1 && !s.es_evento);
       const stockFabMap = {};
@@ -1151,20 +1057,26 @@ const handleCategoriaChange = cat => {
     } catch (err) {
       console.error('Error fetching data:', err);
     }
-  }, [user?.id, user?.rol, user?.sucursal_id]);
+  }, [user?.id, user?.rol, user?.sucursal_id, buildAdminStockMatriz]);
   const fetchBranchOrderData = useCallback(async () => {
     if (!user || user.rol !== 'sucursal' || activeTab !== 'pedido_nuevo') return;
     try {
-      const {
-        data: pendsRaw,
-        error: pendsErr
-      } = await supabase.from('items_pendientes').select(`
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      const [pendsRes, consumosRes] = await Promise.all([
+        supabase.from('items_pendientes').select(`
             producto_id,
             cantidad,
             productos ( nombre, tipo, categoria, unidad_medida )
-          `).eq('sucursal_id', user.sucursal_id).eq('es_evento', orderIsEvent);
-      if (pendsErr) throw pendsErr;
-      const pendsMapped = (pendsRaw || []).map(p => ({
+          `).eq('sucursal_id', user.sucursal_id).eq('es_evento', orderIsEvent),
+        supabase.from('consumo_diario').select('producto_id, cantidad').eq('sucursal_id', user.sucursal_id).eq('es_evento', false).gte('fecha', sevenDaysAgo.toISOString())
+      ]);
+
+      if (pendsRes.error) throw pendsRes.error;
+      if (consumosRes.error) throw consumosRes.error;
+
+      const pendsMapped = (pendsRes.data || []).map(p => ({
         producto_id: p.producto_id,
         cantidad: p.cantidad,
         nombre: p.productos?.nombre,
@@ -1172,53 +1084,40 @@ const handleCategoriaChange = cat => {
         categoria: p.productos?.categoria
       }));
       setPendingItems(pendsMapped);
-      const {
-        data: apData,
-        error: apErr
-      } = await supabase.from('productos').select('id, nombre, tipo, categoria, unidad_medida, cant_por_caja, cant_por_pack, activo');
-      if (apErr) throw apErr;
-      let activeProds = (apData || []).filter(p => p.activo == 1 || p.activo === true || p.activo === 'true' || p.activo === '1');
-      activeProds = activeProds.filter(p => {
-        const n = p.nombre.toLowerCase();
-        if (p.categoria === 'sembrados') {
-          return n.includes('frutos rojos') || 
-                 n.includes('maracuya') || 
-                 n.includes('maracuyá') || 
-                 n.includes('gel de brillo') || 
-                 n.includes('crema pastelera');
-        }
-        if (p.categoria === 'otros') {
-          const toRemove = ['harina 0000', 'harina 000', 'harina de almendras', 'mayonesa natura', 'pan de miga', 'vino marsala'];
-          if (toRemove.some(item => n.includes(item))) return false;
-          if ((n.includes('azucar') || n.includes('azúcar')) && !n.includes('impalpable')) return false;
-        }
-        return true;
-      });
-      activeProds.sort(sortProductsLogic);
-      const {
-        data: localSt,
-        error: lsErr
-      } = await supabase.from('stock_sucursales').select('producto_id, cantidad').eq('sucursal_id', user.sucursal_id).eq('es_evento', orderIsEvent);
-      if (lsErr) throw lsErr;
+
+      // Reutilizar productos y stockData en memoria si están disponibles
+      let activeProds = productosRef.current;
+      if (!activeProds || activeProds.length === 0) {
+        const { data: apData, error: apErr } = await supabase.from('productos').select('id, nombre, tipo, categoria, unidad_medida, cant_por_caja, cant_por_pack, activo');
+        if (apErr) throw apErr;
+        activeProds = (apData || []).filter(p => p.activo == 1 || p.activo === true || p.activo === 'true' || p.activo === '1').filter(p => {
+          const n = p.nombre.toLowerCase();
+          if (p.categoria === 'sembrados') {
+            return n.includes('frutos rojos') || n.includes('maracuya') || n.includes('maracuyá') || n.includes('gel de brillo') || n.includes('crema pastelera');
+          }
+          if (p.categoria === 'otros') {
+            const toRemove = ['harina 0000', 'harina 000', 'harina de almendras', 'mayonesa natura', 'pan de miga', 'vino marsala'];
+            if (toRemove.some(item => n.includes(item))) return false;
+            if ((n.includes('azucar') || n.includes('azúcar')) && !n.includes('impalpable')) return false;
+          }
+          return true;
+        });
+        activeProds.sort(sortProductsLogic);
+      }
+
+      const currentStockList = stockDataRef.current || [];
       const stockLocalMap = {};
-      (localSt || []).forEach(s => stockLocalMap[s.producto_id] = s.cantidad);
-      const {
-        data: factorySt,
-        error: fsErr
-      } = await supabase.from('stock_sucursales').select('producto_id, cantidad').eq('sucursal_id', 1).eq('es_evento', orderIsEvent);
-      if (fsErr) throw fsErr;
       const stockFabricaMap = {};
-      (factorySt || []).forEach(s => stockFabricaMap[s.producto_id] = s.cantidad);
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      const {
-        data: consumosRaw,
-        error: cErr
-      } = await supabase.from('consumo_diario').select('producto_id, cantidad').eq('sucursal_id', user.sucursal_id).eq('es_evento', false).gte('fecha', sevenDaysAgo.toISOString());
-      if (cErr) throw cErr;
+      currentStockList.forEach(s => {
+        if (Boolean(s.es_evento) === Boolean(orderIsEvent)) {
+          if (s.sucursal_id === user.sucursal_id) stockLocalMap[s.producto_id] = s.cantidad;
+          if (s.sucursal_id === 1) stockFabricaMap[s.producto_id] = s.cantidad;
+        }
+      });
+
       const consumosSum = {};
       const consumosCount = {};
-      (consumosRaw || []).forEach(c => {
+      (consumosRes.data || []).forEach(c => {
         consumosSum[c.producto_id] = (consumosSum[c.producto_id] || 0) + c.cantidad;
         consumosCount[c.producto_id] = (consumosCount[c.producto_id] || 0) + 1;
       });
@@ -1249,65 +1148,79 @@ const handleCategoriaChange = cat => {
     } catch (err) {
       console.error('Error fetching branch order data:', err);
     }
-  }, [user, activeTab, orderIsEvent]);
+  }, [user?.id, user?.rol, user?.sucursal_id, activeTab, orderIsEvent]);
   useEffect(() => {
     fetchBranchOrderData();
   }, [fetchBranchOrderData]);
-// ─── Initial load + Supabase Realtime subscriptions ─────────────────────────
+// ─── Initial load + Supabase Realtime subscriptions (with Debounce) ─────────
 useEffect(() => {
   if (!user) return;
 
   // 1. Initial full data load
   fetchData();
 
+  const timers = {};
+  const debounceRealtime = (key, fn, delay = 600) => {
+    if (timers[key]) clearTimeout(timers[key]);
+    timers[key] = setTimeout(() => {
+      delete timers[key];
+      fn();
+    }, delay);
+  };
+
+  const channels = [];
+
   // 2. stock_sucursales → refresh stock & stock matrix
   const stockChannel = supabase
     .channel('realtime-stock')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_sucursales' }, () => {
-      refreshStock();
+      debounceRealtime('stock', refreshStock);
     })
     .subscribe();
+  channels.push(stockChannel);
 
   // 3. pedidos + pedido_detalles + discrepancias → refresh orders
   const pedidosChannel = supabase
     .channel('realtime-pedidos')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, () => {
-      refreshOrders();
+      debounceRealtime('orders', refreshOrders);
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'pedido_detalles' }, () => {
-      refreshOrders();
+      debounceRealtime('orders', refreshOrders);
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'discrepancias' }, () => {
-      refreshOrders();
+      debounceRealtime('orders', refreshOrders);
     })
     .subscribe();
+  channels.push(pedidosChannel);
 
-  // 4. ordenes_produccion → refresh production orders
-  const prodOrdersChannel = supabase
-    .channel('realtime-ordenes-produccion')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'ordenes_produccion' }, () => {
-      refreshProductionOrders();
-    })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'orden_produccion_detalles' }, () => {
-      refreshProductionOrders();
-    })
-    .subscribe();
+  // 4 & 5. ordenes_produccion & lotes_produccion → solo para roles de fábrica y admin
+  if (['admin', 'heladero', 'pastelero'].includes(user.rol)) {
+    const prodOrdersChannel = supabase
+      .channel('realtime-ordenes-produccion')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ordenes_produccion' }, () => {
+        debounceRealtime('prodOrders', refreshProductionOrders);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orden_produccion_detalles' }, () => {
+        debounceRealtime('prodOrders', refreshProductionOrders);
+      })
+      .subscribe();
+    channels.push(prodOrdersChannel);
 
-  // 5. lotes_produccion → refresh lotes
-  const lotesChannel = supabase
-    .channel('realtime-lotes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'lotes_produccion' }, () => {
-      refreshLotes();
-    })
-    .subscribe();
+    const lotesChannel = supabase
+      .channel('realtime-lotes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lotes_produccion' }, () => {
+        debounceRealtime('lotes', refreshLotes);
+      })
+      .subscribe();
+    channels.push(lotesChannel);
+  }
 
   return () => {
-    supabase.removeChannel(stockChannel);
-    supabase.removeChannel(pedidosChannel);
-    supabase.removeChannel(prodOrdersChannel);
-    supabase.removeChannel(lotesChannel);
+    Object.values(timers).forEach(clearTimeout);
+    channels.forEach(ch => supabase.removeChannel(ch));
   };
-}, [user?.id]);
+}, [user?.id, user?.rol, fetchData, refreshStock, refreshOrders, refreshProductionOrders, refreshLotes]);
 // ─────────────────────────────────────────────────────────────────────────────
 const fetchMaquinasYMantenimientos = useCallback(async () => {
   if (!user || user.rol !== 'admin') return;
@@ -1496,7 +1409,7 @@ const handleProductionSubmit = async e => {
       es_evento: false
     });
     setProdWeights([]);
-    fetchData();
+    await Promise.all([refreshStock(), refreshLotes(), isEvent ? refreshProductionOrders() : Promise.resolve()]);
   } catch (err) {
     showToast(err.message, 'error');
   } finally {
@@ -1523,7 +1436,7 @@ const handleAssignEventStock = async (detailId, productId, qtyToAdd) => {
     await supabase.from('ordenes_produccion').update({ estado: 'en_proceso' }).eq('id', detailRes.data.orden_id);
 
     showToast('Stock asignado correctamente a la orden.');
-    fetchData();
+    await refreshProductionOrders();
   } catch (err) {
     showToast(err.message, 'error');
   } finally {
@@ -1534,25 +1447,35 @@ const handleAssignEventStock = async (detailId, productId, qtyToAdd) => {
 const handleCompleteEventOrder = async (order) => {
   try {
     setLoading(true);
-    // Deduct stock from sucursal 1 (es_evento = true)
-    for (const d of order.orden_produccion_detalles) {
-      if (d.cantidad_producida > 0) {
-        // We use an RPC to deduct safely or we query and update.
-        // Since we are doing it simply, let's query the current stock and subtract.
-        const stockRes = await supabase.from('stock_sucursales')
-          .select('cantidad')
-          .eq('sucursal_id', 1)
-          .eq('es_evento', true)
-          .eq('producto_id', d.producto_id)
-          .single();
-          
-        if (!stockRes.error && stockRes.data) {
-          const newStock = Math.max(0, stockRes.data.cantidad - d.cantidad_producida);
-          await supabase.from('stock_sucursales')
-            .update({ cantidad: newStock })
-            .eq('sucursal_id', 1)
-            .eq('es_evento', true)
-            .eq('producto_id', d.producto_id);
+    const detailsToDeduct = (order.orden_produccion_detalles || []).filter(d => d.cantidad_producida > 0);
+    if (detailsToDeduct.length > 0) {
+      const prodIds = detailsToDeduct.map(d => d.producto_id);
+      const { data: currentEventStocks, error: stockErr } = await supabase
+        .from('stock_sucursales')
+        .select('producto_id, cantidad')
+        .eq('sucursal_id', 1)
+        .eq('es_evento', true)
+        .in('producto_id', prodIds);
+
+      if (!stockErr && currentEventStocks && currentEventStocks.length > 0) {
+        const stockMap = {};
+        currentEventStocks.forEach(s => { stockMap[s.producto_id] = s.cantidad; });
+        const upserts = [];
+        detailsToDeduct.forEach(d => {
+          if (stockMap[d.producto_id] !== undefined) {
+            upserts.push({
+              sucursal_id: 1,
+              producto_id: d.producto_id,
+              es_evento: true,
+              cantidad: Math.max(0, stockMap[d.producto_id] - d.cantidad_producida)
+            });
+          }
+        });
+        if (upserts.length > 0) {
+          const { error: upsertErr } = await supabase
+            .from('stock_sucursales')
+            .upsert(upserts, { onConflict: 'sucursal_id,producto_id,es_evento' });
+          if (upsertErr) throw upsertErr;
         }
       }
     }
@@ -1563,7 +1486,7 @@ const handleCompleteEventOrder = async (order) => {
     if (error) throw error;
 
     showToast('Orden completada y stock descontado exitosamente.', 'success');
-    fetchData();
+    await Promise.all([refreshStock(), refreshProductionOrders()]);
   } catch (err) {
     showToast(err.message, 'error');
   } finally {
@@ -1622,7 +1545,7 @@ const handleAdminHistSubmit = async e => {
     setAdminHistWeights([]);
     setAdminHistDefaultWeight('');
     setAdminHistSearch('');
-    fetchData();
+    await Promise.all([refreshStock(), refreshLotes()]);
   } catch (err) {
     showToast(err.message, 'error');
   } finally {
@@ -1663,7 +1586,7 @@ const handleTranspCargaSubmit = async e => {
       cantidad: '',
       fecha: getLocalDateString()
     });
-    fetchData();
+    await Promise.all([refreshStock(), refreshLotes()]);
   } catch (err) {
     console.error(err);
     showToast('Error al registrar la carga: ' + err.message, 'error');
@@ -1869,7 +1792,7 @@ const handleUploadHistTemplate = async e => {
         }
       }
       showToast(`Carga masiva finalizada. Éxito: ${successCount} productos. Fallidos: ${failCount}.${failCount > 0 ? ` Último error: ${lastErrorMsg}` : ''}`, failCount > 0 ? 'error' : 'success');
-      fetchData();
+      await Promise.all([refreshStock(), refreshLotes()]);
       e.target.value = '';
     } catch (err) {
       showToast(err.message || 'Error al procesar la planilla.', 'error');
@@ -1931,7 +1854,7 @@ const handleConsumoSubmit = async e => {
       cantidad: '',
       es_evento: false
     });
-    fetchData();
+    await refreshStock();
   } catch (err) {
     showToast(err.message, 'error');
   } finally {
@@ -1984,7 +1907,7 @@ const handleDeleteLote = async (lote) => {
     if (delErr) throw delErr;
     
     showToast(`Lote ${lote.codigo_lote} eliminado correctamente.`, 'success');
-    fetchData();
+    await Promise.all([refreshStock(), refreshLotes()]);
   } catch (err) {
     showToast('Error al eliminar el lote: ' + err.message, 'error');
   } finally {
@@ -2070,7 +1993,7 @@ const handleEditLote = async (lote, newQty, newWeights = null) => {
     }
     
     showToast(`Lote ${lote.codigo_lote} actualizado correctamente.`, 'success');
-    fetchData();
+    await Promise.all([refreshStock(), refreshLotes()]);
   } catch (err) {
     showToast('Error al actualizar el lote: ' + err.message, 'error');
   } finally {
@@ -2135,7 +2058,7 @@ const handleCreateOrder = async () => {
     setEditingOrderId(null);
     setOrderItems({});
     setActiveTab('pedidos_lista');
-    fetchData();
+    await Promise.all([refreshOrders(), refreshStock()]);
   } catch (err) {
     showToast(err.message, 'error');
   } finally {
@@ -2199,7 +2122,7 @@ const handleAdminCreateOrder = async () => {
     setAdminOrderIsEvent(false);
     setAdminOrderSolicitFabrication(false);
     setActiveTab('flujo'); 
-    fetchData();
+    await Promise.all([refreshOrders(), refreshStock()]);
   } catch (err) {
     showToast(err.message, 'error');
   } finally {
@@ -2251,7 +2174,7 @@ const handleRetiroInternoSubmit = async e => {
     if (recErr) throw recErr;
     showToast(`Retiro interno registrado exitosamente (Ref: #${pedido_id}).`);
     setRetiroItems({});
-    fetchData();
+    await Promise.all([refreshOrders(), refreshStock()]);
   } catch (err) {
     showToast('Error en retiro interno: ' + err.message, 'error');
   } finally {
@@ -2379,6 +2302,7 @@ const handlePrepareOrder = async () => {
         commonStockMap[s.producto_id] = s.cantidad;
       }
     });
+    const stockUpserts = [];
     for (const item of selectedPedido.items) {
       const pId = item.producto_id;
       const prod = productos.find(p => p.id === pId);
@@ -2400,36 +2324,29 @@ const handlePrepareOrder = async () => {
       let finalPrimaryQty = qtyPrimary;
       if (takeFromSecondary > 0) {
         const newQtySecondary = qtySecondary - takeFromSecondary;
-        const {
-          error: updSecErr
-        } = await supabase.from('stock_sucursales').update({
-          cantidad: newQtySecondary
-        }).eq('sucursal_id', 1).eq('producto_id', pId).eq('es_evento', !targetEsEvento);
-        if (updSecErr) throw updSecErr;
+        stockUpserts.push({
+          sucursal_id: 1,
+          producto_id: pId,
+          cantidad: newQtySecondary,
+          es_evento: !targetEsEvento
+        });
         finalPrimaryQty += takeFromSecondary;
       }
       if (finalPrimaryQty < requestedQty) {
         finalPrimaryQty = requestedQty;
       }
-      const hasPrimaryRow = targetEsEvento ? eventStockMap[pId] !== undefined : commonStockMap[pId] !== undefined;
-      if (hasPrimaryRow) {
-        const {
-          error: updPriErr
-        } = await supabase.from('stock_sucursales').update({
-          cantidad: finalPrimaryQty
-        }).eq('sucursal_id', 1).eq('producto_id', pId).eq('es_evento', targetEsEvento);
-        if (updPriErr) throw updPriErr;
-      } else {
-        const {
-          error: insPriErr
-        } = await supabase.from('stock_sucursales').insert({
-          sucursal_id: 1,
-          producto_id: pId,
-          cantidad: finalPrimaryQty,
-          es_evento: targetEsEvento
-        });
-        if (insPriErr) throw insPriErr;
-      }
+      stockUpserts.push({
+        sucursal_id: 1,
+        producto_id: pId,
+        cantidad: finalPrimaryQty,
+        es_evento: targetEsEvento
+      });
+    }
+    if (stockUpserts.length > 0) {
+      const { error: upsertStockErr } = await supabase
+        .from('stock_sucursales')
+        .upsert(stockUpserts, { onConflict: 'sucursal_id,producto_id,es_evento' });
+      if (upsertStockErr) throw upsertStockErr;
     }
     const {
       error: updErr
@@ -2464,7 +2381,7 @@ const handlePrepareOrder = async () => {
     showToast('Pedido preparado y stock de fábrica reservado.');
     setSelectedPedido(null);
     setPrepareStockSource('evento');
-    fetchData();
+    await Promise.all([refreshOrders(), refreshStock()]);
   } catch (err) {
     showToast(err.message, 'error');
   } finally {
@@ -2489,7 +2406,7 @@ const handleConfirmLoad = async () => {
     if (rpcErr) throw rpcErr;
     showToast('Pedido cargado en camión. Estado cambiado a En Tránsito.');
     setSelectedPedido(null);
-    fetchData();
+    await refreshOrders();
   } catch (err) {
     showToast(err.message, 'error');
   } finally {
@@ -2554,7 +2471,7 @@ const handleMarkDelivered = async () => {
     if (updOrderErr) throw updOrderErr;
     showToast('Pedido marcado como entregado físicamente. Pendiente confirmación de sucursal.');
     setSelectedPedido(null);
-    fetchData();
+    await refreshOrders();
   } catch (err) {
     showToast(err.message, 'error');
   } finally {
@@ -2582,6 +2499,27 @@ const handleConfirmReceive = async () => {
     // Habilitar inventario para la sucursal de destino luego de recibir un pedido
     await supabase.from('sucursales').update({ inventario_habilitado: true }).eq('id', selectedPedido.sucursal_destino_id);
 
+    const itemProdIds = items.map(it => it.producto_id);
+    const { data: relevantStocks } = await supabase
+      .from('stock_sucursales')
+      .select('sucursal_id, producto_id, cantidad')
+      .in('sucursal_id', [1, selectedPedido.sucursal_destino_id])
+      .eq('es_evento', selectedPedido.es_evento || false)
+      .in('producto_id', itemProdIds);
+
+    const destStockMap = {};
+    const factoryStockMap = {};
+    (relevantStocks || []).forEach(s => {
+      if (s.sucursal_id === selectedPedido.sucursal_destino_id) {
+        destStockMap[s.producto_id] = s.cantidad;
+      }
+      if (s.sucursal_id === 1) {
+        factoryStockMap[s.producto_id] = s.cantidad;
+      }
+    });
+
+    const auditInserts = [];
+    const factoryStockUpserts = [];
     let hasDiscrepancies = false;
     for (let item of items) {
       const origDetail = selectedPedido.items.find(it => it.producto_id === item.producto_id);
@@ -2596,20 +2534,14 @@ const handleConfirmReceive = async () => {
 
       // Registrar auditoría de recepción en la sucursal de destino
       if (item.cantidad_recibida > 0) {
-        const { data: destStock } = await supabase.from('stock_sucursales')
-          .select('cantidad')
-          .eq('sucursal_id', selectedPedido.sucursal_destino_id)
-          .eq('producto_id', prod?.id || item.producto_id)
-          .eq('es_evento', selectedPedido.es_evento)
-          .single();
-
-        await supabase.from('historial_movimientos').insert({
+        const pId = prod?.id || item.producto_id;
+        auditInserts.push({
           sucursal_id: selectedPedido.sucursal_destino_id,
-          producto_id: prod?.id || item.producto_id,
+          producto_id: pId,
           usuario_id: user?.auth_id || null,
           tipo_movimiento: 'recepcion',
           cantidad: item.cantidad_recibida,
-          stock_resultante: destStock ? destStock.cantidad : item.cantidad_recibida,
+          stock_resultante: destStockMap[pId] !== undefined ? destStockMap[pId] : item.cantidad_recibida,
           es_evento: selectedPedido.es_evento || false,
           detalle: `Recepción de Pedido #${selectedPedido.id}`
         });
@@ -2618,38 +2550,38 @@ const handleConfirmReceive = async () => {
       // Restar kilos reales de helado del stock de la fábrica
       if (isHelado) {
         const kilosARestar = item.cantidad_recibida;
-        if (kilosARestar > 0) {
-          const { data: fStock } = await supabase.from('stock_sucursales')
-            .select('cantidad')
-            .eq('sucursal_id', 1)
-            .eq('producto_id', prod.id)
-            .eq('es_evento', selectedPedido.es_evento)
-            .single();
-          if (fStock) {
-            const nuevoStockFabrica = Number(fStock.cantidad) - Number(kilosARestar);
-            await supabase.from('stock_sucursales').update({
-              cantidad: nuevoStockFabrica
-            }).eq('sucursal_id', 1).eq('producto_id', prod.id).eq('es_evento', selectedPedido.es_evento);
-
-            // Registrar salida de fábrica en auditoría
-            await supabase.from('historial_movimientos').insert({
-              sucursal_id: 1,
-              producto_id: prod.id,
-              usuario_id: user?.auth_id || null,
-              tipo_movimiento: 'envio_sucursal',
-              cantidad: -kilosARestar,
-              stock_resultante: nuevoStockFabrica,
-              es_evento: selectedPedido.es_evento || false,
-              detalle: `Envío a sucursal por Pedido #${selectedPedido.id}`
-            });
-          }
+        if (kilosARestar > 0 && factoryStockMap[prod.id] !== undefined) {
+          const nuevoStockFabrica = Number(factoryStockMap[prod.id]) - Number(kilosARestar);
+          factoryStockMap[prod.id] = nuevoStockFabrica;
+          factoryStockUpserts.push({
+            sucursal_id: 1,
+            producto_id: prod.id,
+            cantidad: nuevoStockFabrica,
+            es_evento: selectedPedido.es_evento || false
+          });
+          auditInserts.push({
+            sucursal_id: 1,
+            producto_id: prod.id,
+            usuario_id: user?.auth_id || null,
+            tipo_movimiento: 'envio_sucursal',
+            cantidad: -kilosARestar,
+            stock_resultante: nuevoStockFabrica,
+            es_evento: selectedPedido.es_evento || false,
+            detalle: `Envío a sucursal por Pedido #${selectedPedido.id}`
+          });
         }
       }
+    }
+    if (factoryStockUpserts.length > 0) {
+      await supabase.from('stock_sucursales').upsert(factoryStockUpserts, { onConflict: 'sucursal_id,producto_id,es_evento' });
+    }
+    if (auditInserts.length > 0) {
+      await supabase.from('historial_movimientos').insert(auditInserts);
     }
     const finalEstado = hasDiscrepancies ? 'con_discrepancia' : 'entregado';
     showToast(`Pedido recibido. Estado final: ${finalEstado === 'entregado' ? 'Entregado OK' : 'Entregado con Discrepancias'}.`);
     setSelectedPedido(null);
-    fetchData();
+    await Promise.all([refreshOrders(), refreshStock()]);
   } catch (err) {
     showToast(err.message, 'error');
   } finally {
@@ -3160,7 +3092,7 @@ const handleSaveStockAdmin = async (formDataOrEvent) => {
     }
     showToast("Stock actualizado correctamente.", "success");
     setShowEditStockModal(false);
-    fetchData();
+    await refreshStock();
   } catch (err) {
     console.error(err);
     showToast(err.message || "Error al actualizar stock", "error");
@@ -3330,30 +3262,29 @@ const handleSaveInventory = async (inventoryItems) => {
     const { error: upsertErr } = await supabase.from('stock_sucursales').upsert(payload, { onConflict: 'sucursal_id,producto_id,es_evento' });
     if (upsertErr) throw upsertErr;
 
-    let auditFailed = 0;
-    for (const item of payload) {
-      // Supabase NO lanza excepciones: hay que revisar `error` explícitamente
-      const { error: auditErr } = await supabase.from('historial_movimientos').insert({
-        sucursal_id: item.sucursal_id,
-        producto_id: item.producto_id,
-        usuario_id: user?.auth_id || null,
-        tipo_movimiento: 'ajuste_inventario',
-        cantidad: item.cantidad,
-        stock_resultante: item.cantidad,
-        es_evento: false,
-        detalle: 'Carga de inventario general de sucursal'
-      });
+    const auditPayload = payload.map(item => ({
+      sucursal_id: item.sucursal_id,
+      producto_id: item.producto_id,
+      usuario_id: user?.auth_id || null,
+      tipo_movimiento: 'ajuste_inventario',
+      cantidad: item.cantidad,
+      stock_resultante: item.cantidad,
+      es_evento: false,
+      detalle: 'Carga de inventario general de sucursal'
+    }));
+
+    if (auditPayload.length > 0) {
+      const { error: auditErr } = await supabase.from('historial_movimientos').insert(auditPayload);
       if (auditErr) {
-        auditFailed++;
         console.error('Error registrando auditoría inventario:', auditErr);
+        showToast('Stock guardado, pero hubo un error al registrar en auditoría.', 'error');
+      } else {
+        showToast("Inventario guardado correctamente.", "success");
       }
-    }
-    if (auditFailed > 0) {
-      showToast(`Stock guardado, pero ${auditFailed} movimiento(s) no se registraron en auditoría.`, 'error');
     } else {
       showToast("Inventario guardado correctamente.", "success");
     }
-    fetchData();
+    await refreshStock();
   } catch (err) {
     showToast("Error al guardar inventario: " + err.message, "error");
   } finally {
