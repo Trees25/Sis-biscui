@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import OrderDetailModal from './components/modals/OrderDetailModal';
 import TransitLossModal from './components/modals/TransitLossModal';
 import MachineModal from './components/modals/MachineModal';
@@ -30,10 +30,18 @@ import AdminStockView from './views/admin/AdminStockView';
 import AdminLogisticsHub from './views/admin/AdminLogisticsHub';
 import { DataProvider, useData } from './context/DataContext';
 import { useAutoUpdate } from './hooks/useAutoUpdate';
+import { ROLE_ALLOWED_TABS, ROLE_DEFAULT_TAB } from './hooks/useAuth';
+
+const ProtectedRoute = ({ user, allowedRoles, requireSucursalId, children }) => {
+  if (!user || !user.auth_id) return null;
+  if (allowedRoles && !allowedRoles.includes(user.rol)) return null;
+  if (requireSucursalId && user.sucursal_id !== requireSucursalId) return null;
+  return children;
+};
 
 const AppContent = () => {
   const { 
-    user, activeTab, setActiveTab, loading, toast, handleLogout, 
+    user, authLoading, activeTab, setActiveTab, loading, toast, handleLogout, 
     usernameInput, setUsernameInput, passwordInput, setPasswordInput, handleLogin,
     showEditStockModal, showMaquinaModal, showMaintenanceModal, 
     selectedPedido, showLossModal, fetchData, showToast,
@@ -41,6 +49,30 @@ const AppContent = () => {
   } = useData();
 
   useAutoUpdate(showToast);
+
+  // Guardián de rutas/pestañas protegidas según el rol autenticado
+  useEffect(() => {
+    if (!user || !user.rol) return;
+    const allowed = ROLE_ALLOWED_TABS[user.rol] || [];
+    const isForbiddenBranchTab = user.rol === 'sucursal' && activeTab === 'retiro_interno' && user.sucursal_id !== 4;
+    if (!activeTab || !allowed.includes(activeTab) || isForbiddenBranchTab) {
+      const fallback = ROLE_DEFAULT_TAB[user.rol] || 'pedidos_lista';
+      setActiveTab(fallback);
+      localStorage.setItem('biscui_tab', fallback);
+    } else {
+      localStorage.setItem('biscui_tab', activeTab);
+    }
+  }, [user, activeTab, setActiveTab]);
+
+  if (authLoading && !user) {
+    return (
+      <div className="login-wrapper">
+        <div className="glass-card login-card" style={{ textAlign: 'center', padding: '2.5rem' }}>
+          <p style={{ margin: 0, color: 'var(--text-light)' }}>Verificando sesión segura...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
     return (
@@ -200,7 +232,7 @@ const AppContent = () => {
       </header>
 
       <main className="main-content">
-        {user.rol === 'admin' && (
+        <ProtectedRoute user={user} allowedRoles={['admin']}>
           <div>
             <div className="tabs">
               <button className={`tab-btn ${activeTab === 'matrix' ? 'active' : ''}`} onClick={() => setActiveTab('matrix')}>Stock de Sucursales</button>
@@ -214,7 +246,7 @@ const AppContent = () => {
             </div>
 
             {activeTab === 'matrix' && <AdminStockView />}
-            {activeTab === 'logistics' && <AdminLogisticsHub />}
+            {(activeTab === 'logistics' || activeTab === 'flujo') && <AdminLogisticsHub />}
             {activeTab === 'produccion_req' && <AdminProjectionsView />}
             {activeTab === 'carga_produccion' && <FactoryProductionView />}
             {activeTab === 'catalogo' && <AdminProductsView />}
@@ -222,9 +254,9 @@ const AppContent = () => {
             {activeTab === 'proveedores' && <AdminSuppliersView />}
             {activeTab === 'auditoria' && <AdminAuditView />}
           </div>
-        )}
+        </ProtectedRoute>
 
-        {(user.rol === 'heladero' || user.rol === 'pastelero') && (
+        <ProtectedRoute user={user} allowedRoles={['heladero', 'pastelero']}>
           <div>
             <div className="tabs">
               <button className={`tab-btn ${activeTab === 'produccion' ? 'active' : ''}`} onClick={() => setActiveTab('produccion')}>
@@ -240,9 +272,9 @@ const AppContent = () => {
             {activeTab === 'stock' && <FactoryStockView />}
             {activeTab === 'pedidos_eventos' && user.rol === 'heladero' && <FactoryEventOrdersView />}
           </div>
-        )}
+        </ProtectedRoute>
 
-        {user.rol === 'transportista' && (
+        <ProtectedRoute user={user} allowedRoles={['transportista']}>
           <div>
             <div className="tabs">
               <button className={`tab-btn ${activeTab === 'pedidos' ? 'active' : ''}`} onClick={() => setActiveTab('pedidos')}>Preparar Pedidos</button>
@@ -256,9 +288,9 @@ const AppContent = () => {
             {activeTab === 'pedidos' && <TransportOrdersView />}
             {activeTab === 'rutas' && <TransportRoutesView />}
           </div>
-        )}
+        </ProtectedRoute>
 
-        {user.rol === 'sucursal' && (
+        <ProtectedRoute user={user} allowedRoles={['sucursal']}>
           <div>
             <div className="tabs">
               <button className={`tab-btn ${activeTab === 'pedido_nuevo' ? 'active' : ''}`} onClick={() => setActiveTab('pedido_nuevo')}>Nuevo Pedido a Fábrica</button>
@@ -276,9 +308,13 @@ const AppContent = () => {
             {activeTab === 'consumo' && <BranchConsumptionView />}
             {activeTab === 'mi_stock' && <BranchStockView />}
             {activeTab === 'ajuste_inventario' && <BranchInventoryCheckView />}
-            {activeTab === 'retiro_interno' && user.sucursal_id === 4 && <BranchRetiroInternoView />}
+            {activeTab === 'retiro_interno' && (
+              <ProtectedRoute user={user} allowedRoles={['sucursal']} requireSucursalId={4}>
+                <BranchRetiroInternoView />
+              </ProtectedRoute>
+            )}
           </div>
-        )}
+        </ProtectedRoute>
 
         {selectedPedido && <OrderDetailModal />}
         {showLossModal && <TransitLossModal />}

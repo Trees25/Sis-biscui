@@ -15,7 +15,7 @@ export const sortProductsLogic = (a, b) => {
   const nA = a.nombre.toLowerCase();
   const nB = b.nombre.toLowerCase();
   const isTermicoOrVaso = (n) => n.includes('termico') || n.includes('térmico') || n.includes('vaso');
-  
+
   if (isTermicoOrVaso(nA) || isTermicoOrVaso(nB)) {
     const getTypeScore = (n) => {
       if (n.includes('termico') || n.includes('térmico')) return 1;
@@ -25,7 +25,7 @@ export const sortProductsLogic = (a, b) => {
     const typeA = getTypeScore(nA);
     const typeB = getTypeScore(nB);
     if (typeA !== typeB) return typeA - typeB;
-    
+
     const getSize = (n) => {
       if (n.includes('1/8')) return 0.125;
       if (n.includes('1/4')) return 0.25;
@@ -104,7 +104,7 @@ const UnitCalculatorInput = ({
       alignItems: 'center',
       width: '100%'
     }}>
-        <input type="number" step="0.001" className="form-control" style={{
+      <input type="number" step="0.001" className="form-control" style={{
         flex: 1
       }} value={displayVal} onChange={e => {
         const val = e.target.value;
@@ -116,12 +116,12 @@ const UnitCalculatorInput = ({
           onChange(Math.max(min, normalized));
         }
       }} placeholder={`${placeholder} (kg)`} disabled={disabled} min={min} />
-        <span style={{
+      <span style={{
         fontSize: '0.9rem',
         color: 'var(--text-light)',
         fontWeight: 600
       }}>kg</span>
-      </div>;
+    </div>;
   }
   return <div style={{
     display: 'flex',
@@ -129,18 +129,18 @@ const UnitCalculatorInput = ({
     alignItems: 'center',
     width: '100%'
   }}>
-      <input type="number" step="1" className="form-control" style={{
+    <input type="number" step="1" className="form-control" style={{
       flex: 1
     }} value={value === undefined || value === null ? '' : value} onChange={e => {
       const val = e.target.value;
       onChange(val === '' ? '' : Math.max(min, parseInt(val) || 0));
     }} placeholder={`${placeholder} (u)`} disabled={disabled} min={min} />
-      <span style={{
+    <span style={{
       fontSize: '0.9rem',
       color: 'var(--text-light)',
       fontWeight: 600
     }}>u</span>
-    </div>;
+  </div>;
 };
 const flavorGroups = {
   'Dulces de leche': ['Chocotorta', 'Dulce de Leche Biscui', 'Rogel', 'Granizado', 'Coco crunch'],
@@ -245,326 +245,327 @@ export const DataProvider = ({ children }) => {
   } = useMaintenance();
   const {
     user, setUser,
+    authLoading,
     usernameInput, setUsernameInput,
     passwordInput, setPasswordInput,
     handleLogin, handleLogout
   } = useAuth(showToast, setActiveTab, setLoading);
-const [dashboardStats, setDashboardStats] = useState(null);
-const [editingOrderId, setEditingOrderId] = useState(null);
+  const [dashboardStats, setDashboardStats] = useState(null);
+  const [editingOrderId, setEditingOrderId] = useState(null);
 
-const startEditingOrder = (order) => {
-  setEditingOrderId(order.id);
-  setOrderIsEvent(order.es_evento || false);
-  
-  const newOrderItems = {};
-  if (order.items) {
-    order.items.forEach(it => {
-      newOrderItems[it.producto_id] = it.cantidad_solicitada;
-    });
-  } else if (order.pedido_detalles) {
-    order.pedido_detalles.forEach(it => {
-      newOrderItems[it.producto_id] = it.cantidad_solicitada;
-    });
-  }
-  setOrderItems(newOrderItems);
-  
-  setSelectedPedido(null);
-  setActiveTab('pedido_nuevo');
-};
+  const startEditingOrder = (order) => {
+    setEditingOrderId(order.id);
+    setOrderIsEvent(order.es_evento || false);
 
-const [auditoriaData, setAuditoriaData] = useState([]);
-const [auditoriaFilterSucursal, setAuditoriaFilterSucursal] = useState('');
-const [auditoriaFilterDays, setAuditoriaFilterDays] = useState('7');
-const [prodForm, setProdForm] = useState({
-  producto_id: '',
-  cantidad: '',
-  fecha: getLocalDateString(),
-  es_evento: false
-});
-const [prodWeights, setProdWeights] = useState([]);
-const [discrepancias, setDiscrepancias] = useState([]);
-const [productionOrders, setProductionOrders] = useState([]);
-const [recentLotes, setRecentLotes] = useState([]);
-const [branchOtrosForm, setBranchOtrosForm] = useState({
-  nombre: '',
-  tipo: 'packaging'
-});
-const [adminHistForm, setAdminHistForm] = useState({
-  producto_id: '',
-  cantidad: '',
-  fecha: getLocalDateString(),
-  es_evento: false
-});
-const [adminHistWeights, setAdminHistWeights] = useState([]);
-const [adminHistDefaultWeight, setAdminHistDefaultWeight] = useState('');
-const [histCargaMode, setHistCargaMode] = useState('individual'); 
-const [histBulkCategory, setHistBulkCategory] = useState('helados');
-const [consumoForm, setConsumoForm] = useState({
-  producto_id: '',
-  cantidad: '',
-  es_evento: false
-});
-const [newProductForm, setNewProductForm] = useState({
-  nombre: '',
-  categoria: 'helados',
-  tipo: 'vasqueta_5_6k',
-  clasificacion_sabor: '',
-  proveedor_id: '',
-  unidad_medida: 'unidad',
-  cant_por_caja: 24,
-  cant_por_pack: ''
-});
-const [provForm, setProvForm] = useState({
-  nombre: '',
-  cuit: '',
-  telefono: '',
-  direccion: '',
-  email: ''
-});
-const [prodFormSearch, setProdFormSearch] = useState('');
-const [adminFlujoSearch, setAdminFlujoSearch] = useState('');
-const [adminDiscrepanciaSearch, setAdminDiscrepanciaSearch] = useState('');
-const [adminHistSearch, setAdminHistSearch] = useState('');
-const [sucursalConsumoSearch, setSucursalConsumoSearch] = useState('');
-const [heladeroEventSearch, setHeladeroEventSearch] = useState('');
-const [showSupplierForm, setShowSupplierForm] = useState(false);
-const [newSupplierName, setNewSupplierName] = useState('');
-const isCategoryVisibleToRole = (category, role) => {
-  if (role === 'heladero') return category === 'helados';
-  if (role === 'pastelero') return category === 'pasteleria' || category === 'sembrados' || category === 'pasteleria_helada';
-  return false;
-};
-const getTiposPorCategoria = (categoria, allProds = []) => {
-  switch (categoria) {
-    case 'helados':
-      return [{
-        value: 'vasqueta_5_6k',
-        label: 'Vasqueta'
-      }, {
-        value: 'balde_4k',
-        label: 'Balde 5L'
-      }, {
-        value: 'balde_8k',
-        label: 'Balde 10L'
-      }];
-    case 'pasteleria_helada':
-      return [{
-        value: 'cubanitos',
-        label: 'Cubanitos'
-      }, {
-        value: 'buche_oreo',
-        label: 'Buche Oreo'
-      }, {
-        value: 'buche_tiramisu',
-        label: 'Buche Tiramisú'
-      }, {
-        value: 'paleta',
-        label: 'Paleta'
-      }, {
-        value: 'mini_paleta',
-        label: 'Mini Paleta'
-      }, {
-        value: 'lingote',
-        label: 'Lingote'
-      }, {
-        value: 'mini_cake',
-        label: 'Mini Cake'
-      }, {
-        value: 'sanguche_miga',
-        label: 'Sánguches de Miga'
-      }];
-    case 'pasteleria':
-      return [{
-        value: 'Chocolates, macaron y postres',
-        label: 'Chocolates, macaron y postres'
-      }, {
-        value: 'Festivos',
-        label: 'Festivos'
-      }, {
-        value: 'Viennoiserie y escones',
-        label: 'Viennoiserie y escones'
-      }, {
-        value: 'Sanguches',
-        label: 'Sanguches'
-      }, {
-        value: 'Tortas',
-        label: 'Tortas'
-      }, {
-        value: 'Alfajores',
-        label: 'Alfajores'
-      }];
-    case 'sembrados': {
-      const unwanted = ['brownie', 'croissant', 'roll', 'roll de canela', 'danesas', 'viennoiserie otra', 'prueba de sembrado', 'medialuna', 'medialunas'];
-      const existing = allProds
-        .filter(p => p.categoria === 'sembrados' && p.tipo)
-        .map(p => p.tipo)
-        .filter(t => !unwanted.includes(t.toLowerCase()));
-      const unique = [...new Set(existing)];
-      return unique.map(t => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1).replace(/_/g, ' ') }));
+    const newOrderItems = {};
+    if (order.items) {
+      order.items.forEach(it => {
+        newOrderItems[it.producto_id] = it.cantidad_solicitada;
+      });
+    } else if (order.pedido_detalles) {
+      order.pedido_detalles.forEach(it => {
+        newOrderItems[it.producto_id] = it.cantidad_solicitada;
+      });
     }
-    case 'sin_tacc': {
-      const existing = allProds
-        .filter(p => p.categoria === 'sin_tacc' && p.tipo)
-        .map(p => p.tipo);
-      const unique = [...new Set(existing)];
-      return unique.map(t => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1).replace(/_/g, ' ') }));
-    }
-    case 'termicos':
-      return [{
-        value: 'vaso_1_bocha',
-        label: 'Vaso 1 bocha'
-      }, {
-        value: 'vaso_2_bochas',
-        label: 'Vaso 2 bochas'
-      }, {
-        value: 'termico_1_4',
-        label: 'Térmico 1/4 kg'
-      }, {
-        value: 'termico_1_2',
-        label: 'Térmico 1/2 kg'
-      }, {
-        value: 'termico_3_4',
-        label: 'Térmico 3/4 kg'
-      }, {
-        value: 'termico_1k',
-        label: 'Térmico 1 kg'
-      }, {
-        value: 'termico_buche',
-        label: 'Térmico de Buche'
-      }];
-    case 'otros':
-      return [{
-        value: 'packaging',
-        label: 'Packaging'
-      }, {
-        value: 'insumo',
-        label: 'Insumo'
-      }];
-    default:
-      return [];
-  }
-};
-const getTareByTipo = tipo => {
-  switch (tipo) {
-    case 'vasqueta_5_6k':
-      return 0.630;
-    case 'balde_4k':
-      return 0.190;
-    case 'balde_8k':
-      return 0.270;
-    default:
-      return 0.0;
-  }
-};
-const isProductVisibleToRole = (p, role) => {
-  if (!role) return true;
-  if (role === 'heladero') {
-    return p.categoria === 'helados';
-  }
-  if (role === 'pastelero') {
-    return p.categoria === 'pasteleria' || p.categoria === 'panaderia' || p.categoria === 'pasteleria_helada' || p.categoria === 'sembrados';
-  }
-  return true;
-};
+    setOrderItems(newOrderItems);
 
-const getProductOptionLabel = p => {
-  const formatted = formatTipo(p.tipo);
-  if (!formatted) return p.nombre;
-  const normNombre = p.nombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  const normTipo = formatted.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  if (normNombre.includes(normTipo) || normTipo.includes(normNombre)) {
-    return p.nombre;
-  }
-  const typeWords = normTipo.split(' ');
-  if (typeWords.length > 0 && typeWords[0].length > 3) {
-    const firstWordStem = typeWords[0].slice(0, 5);
-    if (normNombre.includes(firstWordStem)) {
+    setSelectedPedido(null);
+    setActiveTab('pedido_nuevo');
+  };
+
+  const [auditoriaData, setAuditoriaData] = useState([]);
+  const [auditoriaFilterSucursal, setAuditoriaFilterSucursal] = useState('');
+  const [auditoriaFilterDays, setAuditoriaFilterDays] = useState('7');
+  const [prodForm, setProdForm] = useState({
+    producto_id: '',
+    cantidad: '',
+    fecha: getLocalDateString(),
+    es_evento: false
+  });
+  const [prodWeights, setProdWeights] = useState([]);
+  const [discrepancias, setDiscrepancias] = useState([]);
+  const [productionOrders, setProductionOrders] = useState([]);
+  const [recentLotes, setRecentLotes] = useState([]);
+  const [branchOtrosForm, setBranchOtrosForm] = useState({
+    nombre: '',
+    tipo: 'packaging'
+  });
+  const [adminHistForm, setAdminHistForm] = useState({
+    producto_id: '',
+    cantidad: '',
+    fecha: getLocalDateString(),
+    es_evento: false
+  });
+  const [adminHistWeights, setAdminHistWeights] = useState([]);
+  const [adminHistDefaultWeight, setAdminHistDefaultWeight] = useState('');
+  const [histCargaMode, setHistCargaMode] = useState('individual');
+  const [histBulkCategory, setHistBulkCategory] = useState('helados');
+  const [consumoForm, setConsumoForm] = useState({
+    producto_id: '',
+    cantidad: '',
+    es_evento: false
+  });
+  const [newProductForm, setNewProductForm] = useState({
+    nombre: '',
+    categoria: 'helados',
+    tipo: 'vasqueta_5_6k',
+    clasificacion_sabor: '',
+    proveedor_id: '',
+    unidad_medida: 'unidad',
+    cant_por_caja: 24,
+    cant_por_pack: ''
+  });
+  const [provForm, setProvForm] = useState({
+    nombre: '',
+    cuit: '',
+    telefono: '',
+    direccion: '',
+    email: ''
+  });
+  const [prodFormSearch, setProdFormSearch] = useState('');
+  const [adminFlujoSearch, setAdminFlujoSearch] = useState('');
+  const [adminDiscrepanciaSearch, setAdminDiscrepanciaSearch] = useState('');
+  const [adminHistSearch, setAdminHistSearch] = useState('');
+  const [sucursalConsumoSearch, setSucursalConsumoSearch] = useState('');
+  const [heladeroEventSearch, setHeladeroEventSearch] = useState('');
+  const [showSupplierForm, setShowSupplierForm] = useState(false);
+  const [newSupplierName, setNewSupplierName] = useState('');
+  const isCategoryVisibleToRole = (category, role) => {
+    if (role === 'heladero') return category === 'helados';
+    if (role === 'pastelero') return category === 'pasteleria' || category === 'sembrados' || category === 'pasteleria_helada';
+    return false;
+  };
+  const getTiposPorCategoria = (categoria, allProds = []) => {
+    switch (categoria) {
+      case 'helados':
+        return [{
+          value: 'vasqueta_5_6k',
+          label: 'Vasqueta'
+        }, {
+          value: 'balde_4k',
+          label: 'Balde 5L'
+        }, {
+          value: 'balde_8k',
+          label: 'Balde 10L'
+        }];
+      case 'pasteleria_helada':
+        return [{
+          value: 'cubanitos',
+          label: 'Cubanitos'
+        }, {
+          value: 'buche_oreo',
+          label: 'Buche Oreo'
+        }, {
+          value: 'buche_tiramisu',
+          label: 'Buche Tiramisú'
+        }, {
+          value: 'paleta',
+          label: 'Paleta'
+        }, {
+          value: 'mini_paleta',
+          label: 'Mini Paleta'
+        }, {
+          value: 'lingote',
+          label: 'Lingote'
+        }, {
+          value: 'mini_cake',
+          label: 'Mini Cake'
+        }, {
+          value: 'sanguche_miga',
+          label: 'Sánguches de Miga'
+        }];
+      case 'pasteleria':
+        return [{
+          value: 'Chocolates, macaron y postres',
+          label: 'Chocolates, macaron y postres'
+        }, {
+          value: 'Festivos',
+          label: 'Festivos'
+        }, {
+          value: 'Viennoiserie y escones',
+          label: 'Viennoiserie y escones'
+        }, {
+          value: 'Sanguches',
+          label: 'Sanguches'
+        }, {
+          value: 'Tortas',
+          label: 'Tortas'
+        }, {
+          value: 'Alfajores',
+          label: 'Alfajores'
+        }];
+      case 'sembrados': {
+        const unwanted = ['brownie', 'croissant', 'roll', 'roll de canela', 'danesas', 'viennoiserie otra', 'prueba de sembrado', 'medialuna', 'medialunas'];
+        const existing = allProds
+          .filter(p => p.categoria === 'sembrados' && p.tipo)
+          .map(p => p.tipo)
+          .filter(t => !unwanted.includes(t.toLowerCase()));
+        const unique = [...new Set(existing)];
+        return unique.map(t => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1).replace(/_/g, ' ') }));
+      }
+      case 'sin_tacc': {
+        const existing = allProds
+          .filter(p => p.categoria === 'sin_tacc' && p.tipo)
+          .map(p => p.tipo);
+        const unique = [...new Set(existing)];
+        return unique.map(t => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1).replace(/_/g, ' ') }));
+      }
+      case 'termicos':
+        return [{
+          value: 'vaso_1_bocha',
+          label: 'Vaso 1 bocha'
+        }, {
+          value: 'vaso_2_bochas',
+          label: 'Vaso 2 bochas'
+        }, {
+          value: 'termico_1_4',
+          label: 'Térmico 1/4 kg'
+        }, {
+          value: 'termico_1_2',
+          label: 'Térmico 1/2 kg'
+        }, {
+          value: 'termico_3_4',
+          label: 'Térmico 3/4 kg'
+        }, {
+          value: 'termico_1k',
+          label: 'Térmico 1 kg'
+        }, {
+          value: 'termico_buche',
+          label: 'Térmico de Buche'
+        }];
+      case 'otros':
+        return [{
+          value: 'packaging',
+          label: 'Packaging'
+        }, {
+          value: 'insumo',
+          label: 'Insumo'
+        }];
+      default:
+        return [];
+    }
+  };
+  const getTareByTipo = tipo => {
+    switch (tipo) {
+      case 'vasqueta_5_6k':
+        return 0.630;
+      case 'balde_4k':
+        return 0.190;
+      case 'balde_8k':
+        return 0.270;
+      default:
+        return 0.0;
+    }
+  };
+  const isProductVisibleToRole = (p, role) => {
+    if (!role) return true;
+    if (role === 'heladero') {
+      return p.categoria === 'helados';
+    }
+    if (role === 'pastelero') {
+      return p.categoria === 'pasteleria' || p.categoria === 'panaderia' || p.categoria === 'pasteleria_helada' || p.categoria === 'sembrados';
+    }
+    return true;
+  };
+
+  const getProductOptionLabel = p => {
+    const formatted = formatTipo(p.tipo);
+    if (!formatted) return p.nombre;
+    const normNombre = p.nombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const normTipo = formatted.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (normNombre.includes(normTipo) || normTipo.includes(normNombre)) {
       return p.nombre;
     }
-  }
-  return `${p.nombre} (${formatted})`;
-};
-const getFlavorGroup = fullName => {
-  const flavor = getFlavorName(fullName);
-  for (const [group, flavorsList] of Object.entries(flavorGroups)) {
-    if (flavorsList.includes(flavor)) {
-      return group;
+    const typeWords = normTipo.split(' ');
+    if (typeWords.length > 0 && typeWords[0].length > 3) {
+      const firstWordStem = typeWords[0].slice(0, 5);
+      if (normNombre.includes(firstWordStem)) {
+        return p.nombre;
+      }
     }
-  }
-  if (flavor.includes('Tramontana') || flavor.includes('Crema') || flavor.includes('Oreo') || flavor.includes('Bosque')) return 'Cremas';
-  if (flavor.includes('Chocolate')) return 'Chocolate';
-  if (flavor.includes('Dulce de Leche')) return 'Dulces de leche';
-  if (flavor.includes('Limón') || flavor.includes('Limonada') || flavor.includes('Frutilla') || flavor.includes('kiwi') || flavor.includes('frutal')) return 'Frutales al agua';
-  return 'Otros';
-};
-const getProductNetWeight = (prodId, tipo) => {
-  const productLotes = recentLotes.filter(l => l.producto_id === prodId && l.pesos && l.pesos.length > 0);
-  const tare = getTareByTipo(tipo);
-  if (productLotes.length > 0) {
-    let totalNet = 0;
-    let count = 0;
-    productLotes.forEach(l => {
-      l.pesos.forEach(w => {
-        totalNet += Math.max(0, parseFloat(w) - tare);
-        count++;
+    return `${p.nombre} (${formatted})`;
+  };
+  const getFlavorGroup = fullName => {
+    const flavor = getFlavorName(fullName);
+    for (const [group, flavorsList] of Object.entries(flavorGroups)) {
+      if (flavorsList.includes(flavor)) {
+        return group;
+      }
+    }
+    if (flavor.includes('Tramontana') || flavor.includes('Crema') || flavor.includes('Oreo') || flavor.includes('Bosque')) return 'Cremas';
+    if (flavor.includes('Chocolate')) return 'Chocolate';
+    if (flavor.includes('Dulce de Leche')) return 'Dulces de leche';
+    if (flavor.includes('Limón') || flavor.includes('Limonada') || flavor.includes('Frutilla') || flavor.includes('kiwi') || flavor.includes('frutal')) return 'Frutales al agua';
+    return 'Otros';
+  };
+  const getProductNetWeight = (prodId, tipo) => {
+    const productLotes = recentLotes.filter(l => l.producto_id === prodId && l.pesos && l.pesos.length > 0);
+    const tare = getTareByTipo(tipo);
+    if (productLotes.length > 0) {
+      let totalNet = 0;
+      let count = 0;
+      productLotes.forEach(l => {
+        l.pesos.forEach(w => {
+          totalNet += Math.max(0, parseFloat(w) - tare);
+          count++;
+        });
       });
+      if (count > 0) {
+        return totalNet / count;
+      }
+    }
+    switch (tipo) {
+      case 'vasqueta_5_6k':
+        return 5.5;
+      case 'balde_4k':
+        return 4.0;
+      case 'balde_8k':
+        return 8.0;
+      default:
+        return 0.0;
+    }
+  };
+  const getGroupedStock = (forEvent = false) => {
+    const iceCreams = productos.filter(p => p.categoria === 'helados');
+    const grouped = {};
+    iceCreams.forEach(p => {
+      const flavor = getFlavorName(p.nombre);
+      const group = p.clasificacion_sabor || getFlavorGroup(p.nombre);
+      if (!grouped[flavor]) {
+        grouped[flavor] = {
+          flavor,
+          group,
+          vasqueta_qty: 0,
+          balde_4k_qty: 0,
+          balde_8k_qty: 0,
+          vasqueta_id: null,
+          balde_4k_id: null,
+          balde_8k_id: null
+        };
+      }
+      const sData = stockData.find(st => st.producto_id === p.id && st.sucursal_id === 1 && st.es_evento === forEvent);
+      const cantidad = sData ? sData.cantidad : 0;
+      if (p.tipo === 'vasqueta_5_6k') {
+        grouped[flavor].vasqueta_qty += cantidad;
+        grouped[flavor].vasqueta_id = p.id;
+      } else if (p.tipo === 'balde_4k') {
+        grouped[flavor].balde_4k_qty += cantidad;
+        grouped[flavor].balde_4k_id = p.id;
+      } else if (p.tipo === 'balde_8k') {
+        grouped[flavor].balde_8k_qty += cantidad;
+        grouped[flavor].balde_8k_id = p.id;
+      }
     });
-    if (count > 0) {
-      return totalNet / count;
-    }
-  }
-  switch (tipo) {
-    case 'vasqueta_5_6k':
-      return 5.5;
-    case 'balde_4k':
-      return 4.0;
-    case 'balde_8k':
-      return 8.0;
-    default:
-      return 0.0;
-  }
-};
-const getGroupedStock = (forEvent = false) => {
-  const iceCreams = productos.filter(p => p.categoria === 'helados');
-  const grouped = {};
-  iceCreams.forEach(p => {
-    const flavor = getFlavorName(p.nombre);
-    const group = p.clasificacion_sabor || getFlavorGroup(p.nombre);
-    if (!grouped[flavor]) {
-      grouped[flavor] = {
-        flavor,
-        group,
-        vasqueta_qty: 0,
-        balde_4k_qty: 0,
-        balde_8k_qty: 0,
-        vasqueta_id: null,
-        balde_4k_id: null,
-        balde_8k_id: null
-      };
-    }
-    const sData = stockData.find(st => st.producto_id === p.id && st.sucursal_id === 1 && st.es_evento === forEvent);
-    const cantidad = sData ? sData.cantidad : 0;
-    if (p.tipo === 'vasqueta_5_6k') {
-      grouped[flavor].vasqueta_qty += cantidad;
-      grouped[flavor].vasqueta_id = p.id;
-    } else if (p.tipo === 'balde_4k') {
-      grouped[flavor].balde_4k_qty += cantidad;
-      grouped[flavor].balde_4k_id = p.id;
-    } else if (p.tipo === 'balde_8k') {
-      grouped[flavor].balde_8k_qty += cantidad;
-      grouped[flavor].balde_8k_id = p.id;
-    }
-  });
-  return Object.values(grouped);
-};
-const handleCategoriaChange = cat => {
-  const tipos = getTiposPorCategoria(cat, allProducts);
-  setNewProductForm({
-    ...newProductForm,
-    categoria: cat,
-    tipo: ''
-  });
-};
+    return Object.values(grouped);
+  };
+  const handleCategoriaChange = cat => {
+    const tipos = getTiposPorCategoria(cat, allProducts);
+    setNewProductForm({
+      ...newProductForm,
+      categoria: cat,
+      tipo: ''
+    });
+  };
   const fetchVersionRef = React.useRef(0);
   const sucursalesRef = React.useRef(sucursales);
   const productosRef = React.useRef(productos);
@@ -691,7 +692,7 @@ const handleCategoriaChange = cat => {
               productos ( nombre, categoria ),
               usuarios ( nombre )
             )
-          `).order('created_at', { ascending: false });
+          `).order('created_at', { ascending: false }).limit(300);
       if (user.rol === 'sucursal' && user.sucursal_id) {
         pedidosQuery = pedidosQuery.eq('sucursal_destino_id', user.sucursal_id);
       }
@@ -719,7 +720,14 @@ const handleCategoriaChange = cat => {
 
       if (user.rol === 'admin') {
         const counts = {};
-        ordersD.forEach(o => { counts[o.estado] = (counts[o.estado] || 0) + 1; });
+        const flujoMap = {};
+        ordersD.forEach(o => {
+          counts[o.estado] = (counts[o.estado] || 0) + 1;
+          if (!flujoMap[o.estado]) flujoMap[o.estado] = { estado: o.estado, total_pedidos: 0, eventos: 0 };
+          flujoMap[o.estado].total_pedidos += 1;
+          if (o.es_evento) flujoMap[o.estado].eventos += 1;
+        });
+        setFlujoPedidosStats(Object.values(flujoMap));
         const activeOrders = Object.entries(counts).map(([estado, count]) => ({ estado, count }));
         setDashboardStats(prev => prev ? { ...prev, activeOrders } : null);
       }
@@ -747,7 +755,7 @@ const handleCategoriaChange = cat => {
               cantidad_producida,
               productos ( nombre, categoria, tipo, unidad_medida )
             )
-          `).order('created_at', { ascending: false });
+          `).order('created_at', { ascending: false }).limit(100);
       if (pOrdersErr) throw pOrdersErr;
       setProductionOrders(pOrdersData || []);
     } catch (err) {
@@ -780,97 +788,92 @@ const handleCategoriaChange = cat => {
     if (!user) return;
     const version = ++fetchVersionRef.current;
     try {
-    let pData = [];
-    let {
-      data: pDataJoin,
-      error: pErrJoin
-    } = await supabase.from('productos').select('*, proveedores(nombre)');
-    if (pErrJoin) {
-      const {
-        data: pDataSimple,
-        error: pErrSimple
-      } = await supabase.from('productos').select('*');
-      if (pErrSimple) throw pErrSimple;
-      pData = (pDataSimple || []).filter(p => p.activo == 1 || p.activo === true || p.activo === 'true' || p.activo === '1');
-    } else {
-      pData = (pDataJoin || []).filter(p => p.activo == 1 || p.activo === true || p.activo === 'true' || p.activo === '1').map(p => ({
-        ...p,
-        proveedor_nombre: p.proveedores?.nombre
-      }));
-    }
+      let pData = [];
+      let {
+        data: pDataJoin,
+        error: pErrJoin
+      } = await supabase.from('productos').select('*, proveedores(nombre)');
+      if (pErrJoin) {
+        const {
+          data: pDataSimple,
+          error: pErrSimple
+        } = await supabase.from('productos').select('*');
+        if (pErrSimple) throw pErrSimple;
+        pData = (pDataSimple || []).filter(p => p.activo == 1 || p.activo === true || p.activo === 'true' || p.activo === '1');
+      } else {
+        pData = (pDataJoin || []).filter(p => p.activo == 1 || p.activo === true || p.activo === 'true' || p.activo === '1').map(p => ({
+          ...p,
+          proveedor_nombre: p.proveedores?.nombre
+        }));
+      }
 
-    setAllProducts(pData);
+      setAllProducts(pData);
 
-    // Filtrar productos que son solo para fábrica si el usuario es de sucursal
-    if (user && user.rol === 'sucursal') {
-      pData = pData.filter(p => {
-        const n = p.nombre.toLowerCase();
-        
-        if (p.categoria === 'sembrados') {
-          return n.includes('frutos rojos') || 
-                 n.includes('maracuya') || 
-                 n.includes('maracuyá') || 
-                 n.includes('gel de brillo') || 
-                 n.includes('crema pastelera');
-        }
-        
-        if (p.categoria === 'otros') {
-          const toRemove = ['harina 0000', 'harina 000', 'harina de almendras', 'mayonesa natura', 'pan de miga', 'vino marsala'];
-          if (toRemove.some(item => n.includes(item))) return false;
-          if ((n.includes('azucar') || n.includes('azúcar')) && !n.includes('impalpable')) return false;
-        }
-        
-        return true;
-      });
-    }
+      // Filtrar productos que son solo para fábrica si el usuario es de sucursal
+      if (user && user.rol === 'sucursal') {
+        pData = pData.filter(p => {
+          const n = p.nombre.toLowerCase();
 
-    pData.sort(sortProductsLogic);
+          if (p.categoria === 'sembrados') {
+            return n.includes('frutos rojos') ||
+              n.includes('maracuya') ||
+              n.includes('maracuyá') ||
+              n.includes('gel de brillo') ||
+              n.includes('crema pastelera');
+          }
 
-    if (version !== fetchVersionRef.current) return;
-    setProductos(pData);
-    const {
-      data: sData,
-      error: sErr
-    } = await supabase.from('sucursales').select('*');
-    if (sErr) throw sErr;
-    if (version !== fetchVersionRef.current) return;
-    setSucursales(sData || []);
-    const {
-      data: provData,
-      error: provErr
-    } = await supabase.from('proveedores').select('*').order('nombre');
-    if (version !== fetchVersionRef.current) return;
-    if (!provErr) {
-      setProveedores(provData || []);
-    }
-    if (user.rol === 'admin') {
-      const { data: flujoData, error: flujoErr } = await supabase.from('v_flujo_pedidos_stats').select('*');
+          if (p.categoria === 'otros') {
+            const toRemove = ['harina 0000', 'harina 000', 'harina de almendras', 'mayonesa natura', 'pan de miga', 'vino marsala'];
+            if (toRemove.some(item => n.includes(item))) return false;
+            if ((n.includes('azucar') || n.includes('azúcar')) && !n.includes('impalpable')) return false;
+          }
+
+          return true;
+        });
+      }
+
+      pData.sort(sortProductsLogic);
+
       if (version !== fetchVersionRef.current) return;
-      if (!flujoErr) setFlujoPedidosStats(flujoData || []);
-    }
-    if (['admin', 'heladero', 'pastelero'].includes(user.rol)) {
+      setProductos(pData);
       const {
-        data: lotesRaw,
-        error: lotesErr
-      } = await supabase.from('lotes_produccion').select(`
+        data: sData,
+        error: sErr
+      } = await supabase.from('sucursales').select('*');
+      if (sErr) throw sErr;
+      if (version !== fetchVersionRef.current) return;
+      setSucursales(sData || []);
+      const {
+        data: provData,
+        error: provErr
+      } = await supabase.from('proveedores').select('*').order('nombre');
+      if (version !== fetchVersionRef.current) return;
+      if (!provErr) {
+        setProveedores(provData || []);
+      }
+      if (['admin', 'heladero', 'pastelero'].includes(user.rol)) {
+        const {
+          data: lotesRaw,
+          error: lotesErr
+        } = await supabase.from('lotes_produccion').select(`
             *,
             productos ( nombre, tipo, categoria, unidad_medida ),
             lote_pesos ( peso_bruto, peso_neto )
           `).order('id', {
-        ascending: false
-      }).limit(250);
-      if (version !== fetchVersionRef.current) return;
-      if (!lotesErr) {
-        const mappedLotes = (lotesRaw || []).map(lote => ({
-          ...lote,
-          pesos: lote.lote_pesos ? lote.lote_pesos.map(p => p.peso_bruto) : []
-        }));
-        setRecentLotes(mappedLotes);
+          ascending: false
+        }).limit(250);
+        if (version !== fetchVersionRef.current) return;
+        if (!lotesErr) {
+          const mappedLotes = (lotesRaw || []).map(lote => ({
+            ...lote,
+            pesos: lote.lote_pesos ? lote.lote_pesos.map(p => p.peso_bruto) : []
+          }));
+          setRecentLotes(mappedLotes);
+        }
       }
-    }
-    let rawStock = [];
-    let stockD = [];
-    let stockQuery = supabase.from('stock_sucursales').select(`
+      let rawStock = [];
+      let stockD = [];
+      let stockQuery = supabase.from('stock_sucursales').select(`
           sucursal_id,
           sucursales ( nombre ),
           producto_id,
@@ -878,36 +881,36 @@ const handleCategoriaChange = cat => {
           cantidad,
           es_evento
         `);
-    if (user.rol !== 'admin') {
-      if (user.rol === 'transportista') {
-        stockQuery = stockQuery.in('sucursal_id', [1, user.sucursal_id || 5]);
-      } else {
-        stockQuery = stockQuery.in('sucursal_id', [1, user.sucursal_id || 1]);
+      if (user.rol !== 'admin') {
+        if (user.rol === 'transportista') {
+          stockQuery = stockQuery.in('sucursal_id', [1, user.sucursal_id || 5]);
+        } else {
+          stockQuery = stockQuery.in('sucursal_id', [1, user.sucursal_id || 1]);
+        }
       }
-    }
-    const {
-      data: stockRawData,
-      error: stockErr
-    } = await stockQuery;
-    if (version !== fetchVersionRef.current) return;
-    if (!stockErr) {
-      rawStock = stockRawData || [];
-      stockD = rawStock.filter(s => s.productos && (s.productos.activo == 1 || s.productos.activo === true || s.productos.activo === 'true' || s.productos.activo === '1')).map(s => ({
-        sucursal_id: s.sucursal_id,
-        sucursal_nombre: s.sucursales?.nombre,
-        producto_id: s.producto_id,
-        producto_nombre: s.productos?.nombre,
-        tipo: s.productos?.tipo,
-        categoria: s.productos?.categoria,
-        unidad_medida: s.productos?.unidad_medida,
-        proveedor_id: s.productos?.proveedor_id,
-        proveedor_nombre: s.productos?.proveedores?.nombre,
-        cantidad: s.cantidad,
-        es_evento: s.es_evento
-      }));
-      setStockData(stockD);
-    }
-    let pedidosQuery = supabase.from('pedidos').select(`
+      const {
+        data: stockRawData,
+        error: stockErr
+      } = await stockQuery;
+      if (version !== fetchVersionRef.current) return;
+      if (!stockErr) {
+        rawStock = stockRawData || [];
+        stockD = rawStock.filter(s => s.productos && (s.productos.activo == 1 || s.productos.activo === true || s.productos.activo === 'true' || s.productos.activo === '1')).map(s => ({
+          sucursal_id: s.sucursal_id,
+          sucursal_nombre: s.sucursales?.nombre,
+          producto_id: s.producto_id,
+          producto_nombre: s.productos?.nombre,
+          tipo: s.productos?.tipo,
+          categoria: s.productos?.categoria,
+          unidad_medida: s.productos?.unidad_medida,
+          proveedor_id: s.productos?.proveedor_id,
+          proveedor_nombre: s.productos?.proveedores?.nombre,
+          cantidad: s.cantidad,
+          es_evento: s.es_evento
+        }));
+        setStockData(stockD);
+      }
+      let pedidosQuery = supabase.from('pedidos').select(`
           *,
           sucursales!pedidos_sucursal_destino_id_fkey ( nombre ),
           u_trans: transportista_id ( nombre ),
@@ -929,43 +932,43 @@ const handleCategoriaChange = cat => {
             usuarios ( nombre )
           )
         `).order('created_at', {
-      ascending: false
-    });
-    if (user.rol === 'sucursal' && user.sucursal_id) {
-      pedidosQuery = pedidosQuery.eq('sucursal_destino_id', user.sucursal_id);
-    }
-    const {
-      data: pedidosData,
-      error: pedidosErr
-    } = await pedidosQuery;
-    if (version !== fetchVersionRef.current) return;
-    let ordersD = [];
-    if (!pedidosErr) {
-      ordersD = (pedidosData || []).map(o => ({
-        ...o,
-        sucursal_nombre: o.sucursales?.nombre,
-        transportista_nombre: o.u_trans?.nombre,
-        recibido_por_nombre: o.u_recib?.nombre,
-        discrepancias_mapped: (o.discrepancias || []).map(d => ({
-          ...d,
-          producto_nombre: d.productos?.nombre,
-          producto_categoria: d.productos?.categoria,
-          reportado_por_nombre: d.usuarios?.nombre
-        }))
-      }));
-      const branchCounters = {};
-      for (let i = ordersD.length - 1; i >= 0; i--) {
-        const destId = ordersD[i].sucursal_destino_id;
-        if (!branchCounters[destId]) branchCounters[destId] = 1;
-        ordersD[i].branch_local_id = branchCounters[destId]++;
+        ascending: false
+      }).limit(300);
+      if (user.rol === 'sucursal' && user.sucursal_id) {
+        pedidosQuery = pedidosQuery.eq('sucursal_destino_id', user.sucursal_id);
       }
-      setOrders(ordersD);
-    }
-    if (['admin', 'heladero', 'pastelero'].includes(user.rol)) {
       const {
-        data: pOrdersData,
-        error: pOrdersErr
-      } = await supabase.from('ordenes_produccion').select(`
+        data: pedidosData,
+        error: pedidosErr
+      } = await pedidosQuery;
+      if (version !== fetchVersionRef.current) return;
+      let ordersD = [];
+      if (!pedidosErr) {
+        ordersD = (pedidosData || []).map(o => ({
+          ...o,
+          sucursal_nombre: o.sucursales?.nombre,
+          transportista_nombre: o.u_trans?.nombre,
+          recibido_por_nombre: o.u_recib?.nombre,
+          discrepancias_mapped: (o.discrepancias || []).map(d => ({
+            ...d,
+            producto_nombre: d.productos?.nombre,
+            producto_categoria: d.productos?.categoria,
+            reportado_por_nombre: d.usuarios?.nombre
+          }))
+        }));
+        const branchCounters = {};
+        for (let i = ordersD.length - 1; i >= 0; i--) {
+          const destId = ordersD[i].sucursal_destino_id;
+          if (!branchCounters[destId]) branchCounters[destId] = 1;
+          ordersD[i].branch_local_id = branchCounters[destId]++;
+        }
+        setOrders(ordersD);
+      }
+      if (['admin', 'heladero', 'pastelero'].includes(user.rol)) {
+        const {
+          data: pOrdersData,
+          error: pOrdersErr
+        } = await supabase.from('ordenes_produccion').select(`
             id,
             estado,
             notas,
@@ -982,28 +985,33 @@ const handleCategoriaChange = cat => {
               productos ( nombre, categoria, tipo, unidad_medida )
             )
           `).order('created_at', { ascending: false });
-      if (version !== fetchVersionRef.current) return;
-      if (!pOrdersErr) {
-        setProductionOrders(pOrdersData || []);
+        if (version !== fetchVersionRef.current) return;
+        if (!pOrdersErr) {
+          setProductionOrders(pOrdersData || []);
+        }
       }
-    }
-    if (user.rol === 'admin') {
-      // Reutilizar stockD y ordersD ya descargados sin volver a consultar las tablas
-      const stockAll = stockD;
-      setAdminStockMatriz(buildAdminStockMatriz(stockAll, sData || [], pData || []));
+      if (user.rol === 'admin') {
+        // Reutilizar stockD y ordersD ya descargados sin volver a consultar las tablas
+        const stockAll = stockD;
+        setAdminStockMatriz(buildAdminStockMatriz(stockAll, sData || [], pData || []));
 
-      const counts = {};
-      ordersD.forEach(o => {
-        counts[o.estado] = (counts[o.estado] || 0) + 1;
-      });
-      const activeOrders = Object.entries(counts).map(([estado, count]) => ({
-        estado,
-        count
-      }));
-      const {
-        data: rawDiscrepancies,
-        error: discErr
-      } = await supabase.from('discrepancias').select(`
+        const counts = {};
+        const flujoMap = {};
+        ordersD.forEach(o => {
+          counts[o.estado] = (counts[o.estado] || 0) + 1;
+          if (!flujoMap[o.estado]) flujoMap[o.estado] = { estado: o.estado, total_pedidos: 0, eventos: 0 };
+          flujoMap[o.estado].total_pedidos += 1;
+          if (o.es_evento) flujoMap[o.estado].eventos += 1;
+        });
+        setFlujoPedidosStats(Object.values(flujoMap));
+        const activeOrders = Object.entries(counts).map(([estado, count]) => ({
+          estado,
+          count
+        }));
+        const {
+          data: rawDiscrepancies,
+          error: discErr
+        } = await supabase.from('discrepancias').select(`
             *,
             productos ( nombre ),
             pedidos (
@@ -1012,48 +1020,48 @@ const handleCategoriaChange = cat => {
             ),
             usuarios ( nombre )
           `).order('fecha', {
-        ascending: false
-      }).limit(10);
-      if (discErr) throw discErr;
-      const discrepancies = (rawDiscrepancies || []).map(d => ({
-        ...d,
-        producto_nombre: d.productos?.nombre,
-        sucursal_nombre: d.pedidos?.s_dest?.nombre,
-        reportado_por_nombre: d.usuarios?.nombre
-      }));
+          ascending: false
+        }).limit(10);
+        if (discErr) throw discErr;
+        const discrepancies = (rawDiscrepancies || []).map(d => ({
+          ...d,
+          producto_nombre: d.productos?.nombre,
+          sucursal_nombre: d.pedidos?.s_dest?.nombre,
+          reportado_por_nombre: d.usuarios?.nombre
+        }));
 
-      const groupedNeeded = {};
-      ordersD.filter(o => o.estado === 'solicitado').forEach(o => {
-        (o.pedido_detalles || []).forEach(d => {
-          const prodId = d.producto_id;
-          if (!groupedNeeded[prodId]) {
-            groupedNeeded[prodId] = {
-              producto_id: prodId,
-              producto_nombre: d.productos?.nombre,
-              tipo: d.productos?.tipo,
-              categoria: d.productos?.categoria,
-              unidad_medida: d.productos?.unidad_medida,
-              cantidad_pendiente: 0
-            };
-          }
-          groupedNeeded[prodId].cantidad_pendiente += d.cantidad_solicitada - d.cantidad_preparada;
+        const groupedNeeded = {};
+        ordersD.filter(o => o.estado === 'solicitado').forEach(o => {
+          (o.pedido_detalles || []).forEach(d => {
+            const prodId = d.producto_id;
+            if (!groupedNeeded[prodId]) {
+              groupedNeeded[prodId] = {
+                producto_id: prodId,
+                producto_nombre: d.productos?.nombre,
+                tipo: d.productos?.tipo,
+                categoria: d.productos?.categoria,
+                unidad_medida: d.productos?.unidad_medida,
+                cantidad_pendiente: 0
+              };
+            }
+            groupedNeeded[prodId].cantidad_pendiente += d.cantidad_solicitada - d.cantidad_preparada;
+          });
         });
-      });
-      const stockFabrica = stockAll.filter(s => s.sucursal_id === 1 && !s.es_evento);
-      const stockFabMap = {};
-      stockFabrica.forEach(s => stockFabMap[s.producto_id] = s.cantidad);
-      const productionNeeded = Object.values(groupedNeeded).map(p => ({
-        ...p,
-        stock_fabrica: stockFabMap[p.producto_id] || 0
-      })).filter(p => p.cantidad_pendiente > p.stock_fabrica);
-      if (version !== fetchVersionRef.current) return;
-      setDashboardStats({
-        stock: stockAll,
-        activeOrders,
-        discrepancies,
-        productionNeeded
-      });
-    }
+        const stockFabrica = stockAll.filter(s => s.sucursal_id === 1 && !s.es_evento);
+        const stockFabMap = {};
+        stockFabrica.forEach(s => stockFabMap[s.producto_id] = s.cantidad);
+        const productionNeeded = Object.values(groupedNeeded).map(p => ({
+          ...p,
+          stock_fabrica: stockFabMap[p.producto_id] || 0
+        })).filter(p => p.cantidad_pendiente > p.stock_fabrica);
+        if (version !== fetchVersionRef.current) return;
+        setDashboardStats({
+          stock: stockAll,
+          activeOrders,
+          discrepancies,
+          productionNeeded
+        });
+      }
     } catch (err) {
       console.error('Error fetching data:', err);
     }
@@ -1152,947 +1160,895 @@ const handleCategoriaChange = cat => {
   useEffect(() => {
     fetchBranchOrderData();
   }, [fetchBranchOrderData]);
-// ─── Initial load + Supabase Realtime subscriptions (with Debounce) ─────────
-useEffect(() => {
-  if (!user) return;
+  // ─── Initial load + Supabase Realtime subscriptions (with Debounce) ─────────
+  useEffect(() => {
+    if (!user) return;
 
-  // 1. Initial full data load
-  fetchData();
+    // 1. Initial full data load
+    fetchData();
 
-  const timers = {};
-  const debounceRealtime = (key, fn, delay = 600) => {
-    if (timers[key]) clearTimeout(timers[key]);
-    timers[key] = setTimeout(() => {
-      delete timers[key];
-      fn();
-    }, delay);
-  };
+    const timers = {};
+    const debounceRealtime = (key, fn, delay = 600) => {
+      if (timers[key]) clearTimeout(timers[key]);
+      timers[key] = setTimeout(() => {
+        delete timers[key];
+        fn();
+      }, delay);
+    };
 
-  const channels = [];
+    const channels = [];
 
-  // 2. stock_sucursales → refresh stock & stock matrix
-  const stockChannel = supabase
-    .channel('realtime-stock')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_sucursales' }, () => {
-      debounceRealtime('stock', refreshStock);
-    })
-    .subscribe();
-  channels.push(stockChannel);
-
-  // 3. pedidos + pedido_detalles + discrepancias → refresh orders
-  const pedidosChannel = supabase
-    .channel('realtime-pedidos')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, () => {
-      debounceRealtime('orders', refreshOrders);
-    })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'pedido_detalles' }, () => {
-      debounceRealtime('orders', refreshOrders);
-    })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'discrepancias' }, () => {
-      debounceRealtime('orders', refreshOrders);
-    })
-    .subscribe();
-  channels.push(pedidosChannel);
-
-  // 4 & 5. ordenes_produccion & lotes_produccion → solo para roles de fábrica y admin
-  if (['admin', 'heladero', 'pastelero'].includes(user.rol)) {
-    const prodOrdersChannel = supabase
-      .channel('realtime-ordenes-produccion')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'ordenes_produccion' }, () => {
-        debounceRealtime('prodOrders', refreshProductionOrders);
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orden_produccion_detalles' }, () => {
-        debounceRealtime('prodOrders', refreshProductionOrders);
+    // 2. stock_sucursales → refresh stock & stock matrix (filtrado por sucursal relevante)
+    const stockChannel = supabase
+      .channel('realtime-stock')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_sucursales' }, (payload) => {
+        if (user.rol !== 'admin') {
+          const sid = payload?.new?.sucursal_id ?? payload?.old?.sucursal_id;
+          const targetBranch = user.rol === 'transportista' ? (user.sucursal_id || 5) : (user.sucursal_id || 1);
+          if (sid && sid !== 1 && sid !== targetBranch) return;
+        }
+        debounceRealtime('stock', refreshStock);
       })
       .subscribe();
-    channels.push(prodOrdersChannel);
+    channels.push(stockChannel);
 
-    const lotesChannel = supabase
-      .channel('realtime-lotes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'lotes_produccion' }, () => {
-        debounceRealtime('lotes', refreshLotes);
+    // 3. pedidos + pedido_detalles + discrepancias → refresh orders (filtrado por destino para sucursal)
+    const pedidosChannel = supabase
+      .channel('realtime-pedidos')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, (payload) => {
+        if (user.rol === 'sucursal' && user.sucursal_id) {
+          const destId = payload?.new?.sucursal_destino_id ?? payload?.old?.sucursal_destino_id;
+          if (destId && destId !== user.sucursal_id) return;
+        }
+        debounceRealtime('orders', refreshOrders);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pedido_detalles' }, () => {
+        debounceRealtime('orders', refreshOrders);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'discrepancias' }, () => {
+        debounceRealtime('orders', refreshOrders);
       })
       .subscribe();
-    channels.push(lotesChannel);
-  }
+    channels.push(pedidosChannel);
 
-  return () => {
-    Object.values(timers).forEach(clearTimeout);
-    channels.forEach(ch => supabase.removeChannel(ch));
-  };
-}, [user?.id, user?.rol, fetchData, refreshStock, refreshOrders, refreshProductionOrders, refreshLotes]);
-// ─────────────────────────────────────────────────────────────────────────────
-const fetchMaquinasYMantenimientos = useCallback(async () => {
-  if (!user || user.rol !== 'admin') return;
-  try {
-    const {
-      data: maqData,
-      error: maqErr
-    } = await supabase.from('maquinas').select(`
+    // 4 & 5. ordenes_produccion & lotes_produccion → solo para roles de fábrica y admin
+    if (['admin', 'heladero', 'pastelero'].includes(user.rol)) {
+      const prodOrdersChannel = supabase
+        .channel('realtime-ordenes-produccion')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'ordenes_produccion' }, () => {
+          debounceRealtime('prodOrders', refreshProductionOrders);
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orden_produccion_detalles' }, () => {
+          debounceRealtime('prodOrders', refreshProductionOrders);
+        })
+        .subscribe();
+      channels.push(prodOrdersChannel);
+
+      const lotesChannel = supabase
+        .channel('realtime-lotes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'lotes_produccion' }, () => {
+          debounceRealtime('lotes', refreshLotes);
+        })
+        .subscribe();
+      channels.push(lotesChannel);
+    }
+
+    return () => {
+      Object.values(timers).forEach(clearTimeout);
+      channels.forEach(ch => supabase.removeChannel(ch));
+    };
+  }, [user?.id, user?.rol, fetchData, refreshStock, refreshOrders, refreshProductionOrders, refreshLotes]);
+  // ─────────────────────────────────────────────────────────────────────────────
+  const fetchMaquinasYMantenimientos = useCallback(async () => {
+    if (!user || user.rol !== 'admin') return;
+    try {
+      const {
+        data: maqData,
+        error: maqErr
+      } = await supabase.from('maquinas').select(`
           *,
           sucursales ( nombre )
         `).order('nombre');
-    if (maqErr) throw maqErr;
-    const mappedMaq = (maqData || []).map(m => ({
-      ...m,
-      sucursal_nombre: m.sucursales?.nombre || 'Sin Sucursal'
-    }));
-    setMaquinas(mappedMaq);
-    const {
-      data: mantData,
-      error: mantErr
-    } = await supabase.from('mantenimientos').select('*').order('fecha', {
-      ascending: false
-    });
-    if (mantErr) throw mantErr;
-    const mappedMant = (mantData || []).map(m => {
-      const maq = mappedMaq.find(mq => mq.id === m.maquina_id);
-      return {
+      if (maqErr) throw maqErr;
+      const mappedMaq = (maqData || []).map(m => ({
         ...m,
-        maquina_nombre: maq?.nombre || 'Máquina Eliminada',
-        maquina_marca: maq?.marca || '',
-        maquina_modelo: maq?.modelo || '',
-        maquina_tipo_equipo: maq?.tipo_equipo || ''
-      };
-    });
-    setMantenimientos(mappedMant);
-  } catch (err) {
-    console.error('Error fetching machines/maintenance:', err);
-    showToast('Error al cargar mantenimientos: ' + err.message, 'error');
-  }
-}, [user]);
-useEffect(() => {
-  if (activeTab === 'maquinas') {
-    fetchMaquinasYMantenimientos();
-  }
-}, [activeTab, fetchMaquinasYMantenimientos]);
-const fetchAuditoriaData = useCallback(async () => {
-  if (!user || user.rol !== 'admin') return;
-  try {
-    setLoading(true);
-    let query = supabase.from('v_auditoria_consumo').select('*');
-    if (auditoriaFilterSucursal) {
-      query = query.eq('sucursal_id', auditoriaFilterSucursal);
-    }
-    if (auditoriaFilterDays) {
-      const pastDate = new Date();
-      pastDate.setDate(pastDate.getDate() - parseInt(auditoriaFilterDays));
-      query = query.gte('fecha', pastDate.toISOString());
-    }
-    const {
-      data,
-      error
-    } = await query.order('fecha', {
-      ascending: false
-    });
-    if (error) throw error;
-    
-    const mappedData = (data || []).map(row => {
-      const prod = allProducts.find(p => p.id === row.producto_id);
-      return {
-        ...row,
-        unidad_medida: prod ? prod.unidad_medida : 'unidades'
-      };
-    });
-    
-    setAuditoriaData(mappedData);
-  } catch (err) {
-    showToast('Error al cargar auditoría: ' + err.message, 'error');
-  } finally {
-    setLoading(false);
-  }
-}, [user, auditoriaFilterSucursal, auditoriaFilterDays, allProducts]);
-useEffect(() => {
-  if (activeTab === 'auditoria_consumo') {
-    fetchAuditoriaData();
-  }
-}, [activeTab, fetchAuditoriaData]);
-const handleDownloadAuditoriaCSV = () => {
-  if (auditoriaData.length === 0) return;
-  let csvContent = "data:text/csv;charset=utf-8,";
-  csvContent += "Fecha,Sucursal,Producto,Cantidad,Unidad,Registrado Por\n";
-  auditoriaData.forEach(row => {
-    const isWeight = row.unidad_medida === 'peso' || row.categoria === 'helados' || row.categoria?.toLowerCase().includes('fruta') || row.categoria?.toLowerCase().includes('verdura') || row.producto_nombre?.toLowerCase().includes('fruta') || row.producto_nombre?.toLowerCase().includes('verdura');
-    const qty = isWeight ? parseFloat(row.cantidad).toFixed(3) : row.cantidad;
-    const unit = isWeight ? "kg" : "unidades";
-    const pName = (row.producto_nombre || "Desconocido").replace(/,/g, '');
-    const sName = (row.sucursal_nombre || "Desconocido").replace(/,/g, '');
-    const fDate = formatDate(row.fecha).replace(/,/g, '');
-    const uName = (row.usuario_nombre || "").replace(/,/g, '');
-    csvContent += `${fDate},${sName},${pName},${qty},${unit},${uName}\n`;
-  });
-  const encodedUri = encodeURI(csvContent);
-  const link = document.createElement("a");
-  link.setAttribute("href", encodedUri);
-  link.setAttribute("download", `auditoria_consumo_${new Date().toISOString().slice(0, 10)}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-};
-const handleProductionSubmit = async e => {
-  e.preventDefault();
-  if (!prodForm.producto_id || !prodForm.cantidad) return;
-  setLoading(true);
-  try {
-    const pId = parseInt(prodForm.producto_id);
-    const qty = parseFloat(prodForm.cantidad);
-    let pDate = new Date();
-    if (prodForm.fecha) {
-      const [year, month, day] = prodForm.fecha.split('-');
-      if (year && month && day) {
-        pDate.setFullYear(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
-      }
-    }
-    const dateStr = pDate.toISOString().slice(0, 10).replace(/-/g, '');
-    const rand = Math.floor(1000 + Math.random() * 9000);
-    const codigo_lote = `L-${dateStr}-${rand}`;
-    const selectedProd = productos.find(p => p.id === pId);
-    let pesosArray = [];
-    let netKilos = qty; // Default to qty for non-ice cream
-
-    if (selectedProd && selectedProd.categoria === 'helados') {
-      pesosArray = prodWeights.map(w => normalizeWeight(w));
-      if (pesosArray.length !== qty || pesosArray.some(w => w <= 0)) {
-        throw new Error('Por favor, ingresa un peso válido mayor a 0 para cada unidad.');
-      }
-      
-      const tare = getTareByTipo(selectedProd.tipo);
-      netKilos = pesosArray.reduce((acc, curr) => acc + Math.max(0, curr - tare), 0);
-      netKilos = Number(netKilos.toFixed(3));
-      
-      if (netKilos <= 0) {
-        throw new Error('El peso neto total debe ser mayor a 0.');
-      }
-    }
-    const isEvent = selectedProd && selectedProd.categoria === 'helados' && selectedProd.tipo === 'vasqueta_5_6k' ? false : prodForm.es_evento || false;
-    const {
-      error: rpcErr
-    } = await supabase.rpc('registrar_produccion', {
-      p_codigo_lote: codigo_lote,
-      p_producto_id: pId,
-      p_cantidad: netKilos,
-      p_pesos: pesosArray,
-      p_fecha_produccion: pDate.toISOString(),
-      p_creado_por: user.id,
-      p_es_evento: isEvent
-    });
-    if (rpcErr) throw rpcErr;
-
-    if (isEvent) {
-      let remainingQty = qty;
-      const pendingOrders = productionOrders.filter(o => o.estado === 'pendiente' || o.estado === 'en_proceso');
-      for (const order of pendingOrders) {
-        if (remainingQty <= 0) break;
-        const detail = order.orden_produccion_detalles?.find(d => d.producto_id === pId && d.cantidad_producida < d.cantidad_solicitada);
-        if (detail) {
-          const needed = detail.cantidad_solicitada - detail.cantidad_producida;
-          const toAdd = Math.min(needed, remainingQty);
-          
-          await supabase.from('orden_produccion_detalles')
-            .update({ cantidad_producida: detail.cantidad_producida + toAdd })
-            .eq('id', detail.id);
-            
-          remainingQty -= toAdd;
-          
-          if (order.estado === 'pendiente') {
-            await supabase.from('ordenes_produccion').update({ estado: 'en_proceso' }).eq('id', order.id);
-          }
-        }
-      }
-    }
-
-    showToast(`Producción registrada con Lote ${codigo_lote}. Stock de fábrica actualizado.`);
-    setProdForm({
-      producto_id: '',
-      cantidad: '',
-      fecha: getLocalDateString(),
-      es_evento: false
-    });
-    setProdWeights([]);
-    await Promise.all([refreshStock(), refreshLotes(), isEvent ? refreshProductionOrders() : Promise.resolve()]);
-  } catch (err) {
-    showToast(err.message, 'error');
-  } finally {
-    setLoading(false);
-  }
-};
-
-const handleAssignEventStock = async (detailId, productId, qtyToAdd) => {
-  try {
-    setLoading(true);
-    const detailRes = await supabase.from('orden_produccion_detalles').select('cantidad_producida, cantidad_solicitada, orden_id').eq('id', detailId).single();
-    if (detailRes.error) throw detailRes.error;
-    
-    const newQty = detailRes.data.cantidad_producida + qtyToAdd;
-    if (newQty > detailRes.data.cantidad_solicitada) {
-      throw new Error('La cantidad asignada supera la solicitada.');
-    }
-
-    const { error } = await supabase.from('orden_produccion_detalles')
-      .update({ cantidad_producida: newQty })
-      .eq('id', detailId);
-    if (error) throw error;
-    
-    await supabase.from('ordenes_produccion').update({ estado: 'en_proceso' }).eq('id', detailRes.data.orden_id);
-
-    showToast('Stock asignado correctamente a la orden.');
-    await refreshProductionOrders();
-  } catch (err) {
-    showToast(err.message, 'error');
-  } finally {
-    setLoading(false);
-  }
-};
-
-const handleCompleteEventOrder = async (order) => {
-  try {
-    setLoading(true);
-    const detailsToDeduct = (order.orden_produccion_detalles || []).filter(d => d.cantidad_producida > 0);
-    if (detailsToDeduct.length > 0) {
-      const prodIds = detailsToDeduct.map(d => d.producto_id);
-      const { data: currentEventStocks, error: stockErr } = await supabase
-        .from('stock_sucursales')
-        .select('producto_id, cantidad')
-        .eq('sucursal_id', 1)
-        .eq('es_evento', true)
-        .in('producto_id', prodIds);
-
-      if (!stockErr && currentEventStocks && currentEventStocks.length > 0) {
-        const stockMap = {};
-        currentEventStocks.forEach(s => { stockMap[s.producto_id] = s.cantidad; });
-        const upserts = [];
-        detailsToDeduct.forEach(d => {
-          if (stockMap[d.producto_id] !== undefined) {
-            upserts.push({
-              sucursal_id: 1,
-              producto_id: d.producto_id,
-              es_evento: true,
-              cantidad: Math.max(0, stockMap[d.producto_id] - d.cantidad_producida)
-            });
-          }
-        });
-        if (upserts.length > 0) {
-          const { error: upsertErr } = await supabase
-            .from('stock_sucursales')
-            .upsert(upserts, { onConflict: 'sucursal_id,producto_id,es_evento' });
-          if (upsertErr) throw upsertErr;
-        }
-      }
-    }
-
-    const { error } = await supabase.from('ordenes_produccion')
-      .update({ estado: 'completada' })
-      .eq('id', order.id);
-    if (error) throw error;
-
-    showToast('Orden completada y stock descontado exitosamente.', 'success');
-    await Promise.all([refreshStock(), refreshProductionOrders()]);
-  } catch (err) {
-    showToast(err.message, 'error');
-  } finally {
-    setLoading(false);
-  }
-};
-
-const handleAdminHistSubmit = async e => {
-  e.preventDefault();
-  if (!adminHistForm.producto_id || !adminHistForm.cantidad || !adminHistForm.fecha) return;
-  setLoading(true);
-  try {
-    const pId = parseInt(adminHistForm.producto_id);
-    const qty = parseInt(adminHistForm.cantidad);
-    const pDate = new Date(adminHistForm.fecha);
-    const dateStr = pDate.toISOString().slice(0, 10).replace(/-/g, '');
-    const rand = Math.floor(1000 + Math.random() * 9000);
-    const codigo_lote = `L-${dateStr}-${rand}`;
-    const selectedProd = productos.find(p => p.id === pId);
-    let pesosArray = [];
-    let netKilos = qty; // Default to qty for non-ice cream
-
-    if (selectedProd && selectedProd.categoria === 'helados') {
-      pesosArray = adminHistWeights.map(w => normalizeWeight(w));
-      if (pesosArray.length !== qty || pesosArray.some(w => w <= 0)) {
-        throw new Error('Por favor, ingresa un peso válido mayor a 0 para cada unidad.');
-      }
-      
-      const tare = getTareByTipo(selectedProd.tipo);
-      netKilos = pesosArray.reduce((acc, curr) => acc + Math.max(0, curr - tare), 0);
-      
-      if (netKilos <= 0) {
-        throw new Error('El peso neto total debe ser mayor a 0.');
-      }
-    }
-    const isEvent = selectedProd && selectedProd.categoria === 'helados' && selectedProd.tipo === 'vasqueta_5_6k' ? false : adminHistForm.es_evento || false;
-    const {
-      error: rpcErr
-    } = await supabase.rpc('registrar_produccion', {
-      p_codigo_lote: codigo_lote,
-      p_producto_id: pId,
-      p_cantidad: netKilos,
-      p_pesos: pesosArray,
-      p_fecha_produccion: pDate.toISOString(),
-      p_creado_por: user.id,
-      p_es_evento: isEvent
-    });
-    if (rpcErr) throw rpcErr;
-    showToast(`Producción histórica registrada con Lote ${codigo_lote}. Stock de fábrica actualizado.`);
-    setAdminHistForm({
-      producto_id: '',
-      cantidad: '',
-      fecha: getLocalDateString(),
-      es_evento: false
-    });
-    setAdminHistWeights([]);
-    setAdminHistDefaultWeight('');
-    setAdminHistSearch('');
-    await Promise.all([refreshStock(), refreshLotes()]);
-  } catch (err) {
-    showToast(err.message, 'error');
-  } finally {
-    setLoading(false);
-  }
-};
-const handleTranspCargaSubmit = async e => {
-  e.preventDefault();
-  if (!transpCargaForm.producto_id || !transpCargaForm.cantidad || !transpCargaForm.fecha) return;
-  setLoading(true);
-  try {
-    const pId = parseInt(transpCargaForm.producto_id);
-    const inputQty = parseFloat(transpCargaForm.cantidad);
-    const pDate = new Date(transpCargaForm.fecha);
-    const selectedProd = productos.find(p => p.id === pId);
-    const isWeight = selectedProd?.unidad_medida === 'peso' || selectedProd?.categoria === 'helados' || selectedProd?.categoria?.toLowerCase().includes('fruta') || selectedProd?.categoria?.toLowerCase().includes('verdura') || selectedProd?.nombre?.toLowerCase().includes('fruta') || selectedProd?.nombre?.toLowerCase().includes('verdura');
-    const finalQty = isWeight ? parseFloat(inputQty) : inputQty;
-    const dateStr = pDate.toISOString().slice(0, 10).replace(/-/g, '');
-    const rand = Math.floor(1000 + Math.random() * 9000);
-    const codigo_lote = `C-${dateStr}-${rand}`; 
-    const {
-      error: rpcErr
-    } = await supabase.rpc('registrar_produccion', {
-      p_codigo_lote: codigo_lote,
-      p_producto_id: pId,
-      p_cantidad: finalQty,
-      p_pesos: [],
-      p_fecha_produccion: pDate.toISOString(),
-      p_creado_por: user.id,
-      p_es_evento: false
-    });
-    if (rpcErr) throw rpcErr;
-    showToast(`Ingreso de mercadería registrado (Ref: ${codigo_lote}). Stock de fábrica actualizado.`);
-    setTranspCargaForm({
-      producto_id: '',
-      proveedor_id: '',
-      categoria_id: '',
-      cantidad: '',
-      fecha: getLocalDateString()
-    });
-    await Promise.all([refreshStock(), refreshLotes()]);
-  } catch (err) {
-    console.error(err);
-    showToast('Error al registrar la carga: ' + err.message, 'error');
-  } finally {
-    setLoading(false);
-  }
-};
-const handleProvSubmit = async e => {
-  e.preventDefault();
-  if (!provForm.nombre.trim()) return;
-  setLoading(true);
-  try {
-    const payload = {
-      nombre: provForm.nombre.trim(),
-      cuit: provForm.cuit?.trim() || null,
-      telefono: provForm.telefono?.trim() || null,
-      direccion: provForm.direccion?.trim() || null,
-      email: provForm.email?.trim() || null
-    };
-    if (editingProv) {
+        sucursal_nombre: m.sucursales?.nombre || 'Sin Sucursal'
+      }));
+      setMaquinas(mappedMaq);
       const {
-        error
-      } = await supabase.from('proveedores').update(payload).eq('id', editingProv.id);
-      if (error) throw error;
-      showToast('Proveedor actualizado con éxito.');
-    } else {
-      const {
-        error
-      } = await supabase.from('proveedores').insert(payload);
-      if (error) throw error;
-      showToast('Proveedor creado con éxito.');
-    }
-    setShowProvModal(false);
-    setEditingProv(null);
-    setProvForm({
-      nombre: '',
-      cuit: '',
-      telefono: '',
-      direccion: '',
-      email: ''
-    });
-    fetchData();
-  } catch (err) {
-    showToast(err.message, 'error');
-  } finally {
-    setLoading(false);
-  }
-};
-const handleProvDelete = async (id, nombre) => {
-  if (!window.confirm(`¿Estás seguro de eliminar el proveedor "${nombre}"?\nEsto fallará si existen productos asociados a él.`)) return;
-  setLoading(true);
-  try {
-    const {
-      error
-    } = await supabase.from('proveedores').delete().eq('id', id);
-    if (error) throw error;
-    showToast('Proveedor eliminado con éxito.');
-    fetchData();
-  } catch (err) {
-    if (err.message.includes('violates foreign key constraint') || err.code === '23503') {
-      showToast('No se puede eliminar el proveedor porque tiene productos asociados.', 'error');
-    } else {
-      showToast(err.message, 'error');
-    }
-  } finally {
-    setLoading(false);
-  }
-};
-const handleDownloadHistTemplate = () => {
-  const prods = productos.filter(p => p.categoria === histBulkCategory && p.activo === 1);
-  const headers = ['ID_Producto', 'Nombre', 'Formato', 'Cantidad', 'Peso_Bruto_Unitario_Opcional', 'Fecha_Opcional', 'Destinar_A_Eventos_SI_NO'];
-  let csvContent = '\uFEFF' + headers.join(';') + '\n';
-  prods.forEach(p => {
-    let suggestedWeight = '';
-    if (p.categoria === 'helados') {
-      if (p.tipo === 'vasqueta_5_6k') suggestedWeight = '6.120';else if (p.tipo === 'balde_4k') suggestedWeight = '4.190';else if (p.tipo === 'balde_8k') suggestedWeight = '8.270';
-    }
-    const row = [p.id, p.nombre.replace(/;/g, ','),
-    formatTipo(p.tipo) || '', '0', suggestedWeight, getLocalDateString(), 'NO'];
-    csvContent += row.join(';') + '\n';
-  });
-  const blob = new Blob([csvContent], {
-    type: 'text/csv;charset=utf-8;'
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.setAttribute('href', url);
-  link.setAttribute('download', `plantilla_carga_historica_${histBulkCategory}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  showToast(`Plantilla descargada para la categoría ${categories.find(c => c.id === histBulkCategory)?.name}.`);
-};
-const handleUploadHistTemplate = async e => {
-  const file = e.target.files[0];
-  if (!file) return;
-  setLoading(true);
-  const reader = new FileReader();
-  reader.onload = async event => {
-    try {
-      const text = event.target.result;
-      const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
-      if (lines.length <= 1) {
-        throw new Error('El archivo está vacío o solo contiene la cabecera.');
-      }
-      const firstLine = lines[0];
-      let delimiter = ';';
-      if (firstLine.includes(';')) {
-        delimiter = ';';
-      } else if (firstLine.includes(',')) {
-        delimiter = ',';
-      }
-      const rowsToProcess = [];
-      let skippedCount = 0;
-      for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(delimiter).map(c => c.trim().replace(/^["']|["']$/g, ''));
-        if (cols.length < 4) continue;
-        const pId = parseInt(cols[0]);
-        const qty = parseInt(cols[3]);
-        if (isNaN(pId) || isNaN(qty) || qty <= 0) {
-          skippedCount++;
-          continue;
-        }
-        const product = productos.find(p => p.id === pId);
-        if (!product) {
-          throw new Error(`Línea ${i + 1}: El producto con ID ${pId} no se encuentra en el sistema.`);
-        }
-        const rawWeights = cols[4] || '';
-        const dateVal = cols[5] ? new Date(cols[5]) : new Date();
-        const esEventoVal = cols[6] && (cols[6].toUpperCase() === 'SI' || cols[6].toUpperCase() === 'TRUE');
-        rowsToProcess.push({
-          product,
-          qty,
-          rawWeights,
-          dateVal: isNaN(dateVal.getTime()) ? new Date() : dateVal,
-          esEventoVal
-        });
-      }
-      if (rowsToProcess.length === 0) {
-        throw new Error('No se encontraron filas con "Cantidad" mayor a 0 para procesar.');
-      }
-      let successCount = 0;
-      let failCount = 0;
-      let lastErrorMsg = '';
-      for (const row of rowsToProcess) {
-        try {
-          const {
-            product,
-            qty,
-            rawWeights,
-            dateVal,
-            esEventoVal
-          } = row;
-          const dateStr = dateVal.toISOString().slice(0, 10).replace(/-/g, '');
-          const rand = Math.floor(1000 + Math.random() * 9000);
-          const codigo_lote = `L-${dateStr}-${rand}`;
-          let pesosArray = [];
-          if (product.categoria === 'helados') {
-            const tare = getTareByTipo(product.tipo);
-            const fallbackGross = tare + getProductNetWeight(product.id, product.tipo);
-            if (rawWeights) {
-              const weightStrings = rawWeights.split(/[;/|\s]+/).filter(w => w.trim() !== '');
-              if (weightStrings.length > 1) {
-                pesosArray = weightStrings.map(w => {
-                  const cleaned = w.replace(',', '.');
-                  return parseFloat(cleaned) || fallbackGross;
-                });
-                while (pesosArray.length < qty) {
-                  pesosArray.push(pesosArray[pesosArray.length - 1] || fallbackGross);
-                }
-                if (pesosArray.length > qty) {
-                  pesosArray = pesosArray.slice(0, qty);
-                }
-              } else {
-                const cleaned = rawWeights.replace(',', '.');
-                const gross = parseFloat(cleaned) || fallbackGross;
-                pesosArray = Array(qty).fill(gross);
-              }
-            } else {
-              pesosArray = Array(qty).fill(fallbackGross);
-            }
-            if (pesosArray.some(w => w <= 0)) {
-              throw new Error(`Pesos brutos inválidos calculados para el helado ${product.nombre}`);
-            }
-          }
-          const isEvent = product.categoria === 'helados' && product.tipo === 'vasqueta_5_6k' ? false : esEventoVal;
-          const {
-            error: rpcErr
-          } = await supabase.rpc('registrar_produccion', {
-            p_codigo_lote: codigo_lote,
-            p_producto_id: product.id,
-            p_cantidad: qty,
-            p_pesos: pesosArray,
-            p_fecha_produccion: dateVal.toISOString(),
-            p_creado_por: user.id,
-            p_es_evento: isEvent
-          });
-          if (rpcErr) throw rpcErr;
-          successCount++;
-        } catch (err) {
-          failCount++;
-          lastErrorMsg = err.message || String(err);
-        }
-      }
-      showToast(`Carga masiva finalizada. Éxito: ${successCount} productos. Fallidos: ${failCount}.${failCount > 0 ? ` Último error: ${lastErrorMsg}` : ''}`, failCount > 0 ? 'error' : 'success');
-      await Promise.all([refreshStock(), refreshLotes()]);
-      e.target.value = '';
+        data: mantData,
+        error: mantErr
+      } = await supabase.from('mantenimientos').select('*').order('fecha', {
+        ascending: false
+      });
+      if (mantErr) throw mantErr;
+      const mappedMant = (mantData || []).map(m => {
+        const maq = mappedMaq.find(mq => mq.id === m.maquina_id);
+        return {
+          ...m,
+          maquina_nombre: maq?.nombre || 'Máquina Eliminada',
+          maquina_marca: maq?.marca || '',
+          maquina_modelo: maq?.modelo || '',
+          maquina_tipo_equipo: maq?.tipo_equipo || ''
+        };
+      });
+      setMantenimientos(mappedMant);
     } catch (err) {
-      showToast(err.message || 'Error al procesar la planilla.', 'error');
-      e.target.value = '';
+      console.error('Error fetching machines/maintenance:', err);
+      showToast('Error al cargar mantenimientos: ' + err.message, 'error');
+    }
+  }, [user]);
+  useEffect(() => {
+    if (activeTab === 'maquinas') {
+      fetchMaquinasYMantenimientos();
+    }
+  }, [activeTab, fetchMaquinasYMantenimientos]);
+  const fetchAuditoriaData = useCallback(async () => {
+    if (!user || user.rol !== 'admin') return;
+    try {
+      setLoading(true);
+      let query = supabase.from('v_auditoria_consumo').select('*');
+      if (auditoriaFilterSucursal) {
+        query = query.eq('sucursal_id', auditoriaFilterSucursal);
+      }
+      if (auditoriaFilterDays) {
+        const pastDate = new Date();
+        pastDate.setDate(pastDate.getDate() - parseInt(auditoriaFilterDays));
+        query = query.gte('fecha', pastDate.toISOString());
+      }
+      const {
+        data,
+        error
+      } = await query.order('fecha', {
+        ascending: false
+      });
+      if (error) throw error;
+
+      const mappedData = (data || []).map(row => {
+        const prod = allProducts.find(p => p.id === row.producto_id);
+        return {
+          ...row,
+          unidad_medida: prod ? prod.unidad_medida : 'unidades'
+        };
+      });
+
+      setAuditoriaData(mappedData);
+    } catch (err) {
+      showToast('Error al cargar auditoría: ' + err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [user, auditoriaFilterSucursal, auditoriaFilterDays, allProducts]);
+  useEffect(() => {
+    if (activeTab === 'auditoria_consumo') {
+      fetchAuditoriaData();
+    }
+  }, [activeTab, fetchAuditoriaData]);
+  const handleDownloadAuditoriaCSV = () => {
+    if (auditoriaData.length === 0) return;
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += "Fecha,Sucursal,Producto,Cantidad,Unidad,Registrado Por\n";
+    auditoriaData.forEach(row => {
+      const isWeight = row.unidad_medida === 'peso' || row.categoria === 'helados' || row.categoria?.toLowerCase().includes('fruta') || row.categoria?.toLowerCase().includes('verdura') || row.producto_nombre?.toLowerCase().includes('fruta') || row.producto_nombre?.toLowerCase().includes('verdura');
+      const qty = isWeight ? parseFloat(row.cantidad).toFixed(3) : row.cantidad;
+      const unit = isWeight ? "kg" : "unidades";
+      const pName = (row.producto_nombre || "Desconocido").replace(/,/g, '');
+      const sName = (row.sucursal_nombre || "Desconocido").replace(/,/g, '');
+      const fDate = formatDate(row.fecha).replace(/,/g, '');
+      const uName = (row.usuario_nombre || "").replace(/,/g, '');
+      csvContent += `${fDate},${sName},${pName},${qty},${unit},${uName}\n`;
+    });
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `auditoria_consumo_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+  const handleProductionSubmit = async e => {
+    e.preventDefault();
+    if (!prodForm.producto_id || !prodForm.cantidad) return;
+    setLoading(true);
+    try {
+      const pId = parseInt(prodForm.producto_id);
+      const qty = parseFloat(prodForm.cantidad);
+      let pDate = new Date();
+      if (prodForm.fecha) {
+        const [year, month, day] = prodForm.fecha.split('-');
+        if (year && month && day) {
+          pDate.setFullYear(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
+        }
+      }
+      const dateStr = pDate.toISOString().slice(0, 10).replace(/-/g, '');
+      const rand = Math.floor(1000 + Math.random() * 9000);
+      const codigo_lote = `L-${dateStr}-${rand}`;
+      const selectedProd = productos.find(p => p.id === pId);
+      let pesosArray = [];
+      let netKilos = qty; // Default to qty for non-ice cream
+
+      if (selectedProd && selectedProd.categoria === 'helados') {
+        pesosArray = prodWeights.map(w => normalizeWeight(w));
+        if (pesosArray.length !== qty || pesosArray.some(w => w <= 0)) {
+          throw new Error('Por favor, ingresa un peso válido mayor a 0 para cada unidad.');
+        }
+
+        const tare = getTareByTipo(selectedProd.tipo);
+        netKilos = pesosArray.reduce((acc, curr) => acc + Math.max(0, curr - tare), 0);
+        netKilos = Number(netKilos.toFixed(3));
+
+        if (netKilos <= 0) {
+          throw new Error('El peso neto total debe ser mayor a 0.');
+        }
+      }
+      const isEvent = selectedProd && selectedProd.categoria === 'helados' && selectedProd.tipo === 'vasqueta_5_6k' ? false : prodForm.es_evento || false;
+      const {
+        error: rpcErr
+      } = await supabase.rpc('registrar_produccion', {
+        p_codigo_lote: codigo_lote,
+        p_producto_id: pId,
+        p_cantidad: netKilos,
+        p_pesos: pesosArray,
+        p_fecha_produccion: pDate.toISOString(),
+        p_creado_por: user.id,
+        p_es_evento: isEvent
+      });
+      if (rpcErr) throw rpcErr;
+
+      if (isEvent) {
+        let remainingQty = qty;
+        const pendingOrders = productionOrders.filter(o => o.estado === 'pendiente' || o.estado === 'en_proceso');
+        for (const order of pendingOrders) {
+          if (remainingQty <= 0) break;
+          const detail = order.orden_produccion_detalles?.find(d => d.producto_id === pId && d.cantidad_producida < d.cantidad_solicitada);
+          if (detail) {
+            const needed = detail.cantidad_solicitada - detail.cantidad_producida;
+            const toAdd = Math.min(needed, remainingQty);
+
+            await supabase.from('orden_produccion_detalles')
+              .update({ cantidad_producida: detail.cantidad_producida + toAdd })
+              .eq('id', detail.id);
+
+            remainingQty -= toAdd;
+
+            if (order.estado === 'pendiente') {
+              await supabase.from('ordenes_produccion').update({ estado: 'en_proceso' }).eq('id', order.id);
+            }
+          }
+        }
+      }
+
+      showToast(`Producción registrada con Lote ${codigo_lote}. Stock de fábrica actualizado.`);
+      setProdForm({
+        producto_id: '',
+        cantidad: '',
+        fecha: getLocalDateString(),
+        es_evento: false
+      });
+      setProdWeights([]);
+      await Promise.all([refreshStock(), refreshLotes(), isEvent ? refreshProductionOrders() : Promise.resolve()]);
+    } catch (err) {
+      showToast(err.message, 'error');
     } finally {
       setLoading(false);
     }
   };
-  reader.onerror = () => {
-    showToast('Error al leer el archivo.', 'error');
-    setLoading(false);
-    e.target.value = '';
-  };
-  reader.readAsText(file);
-};
-const handleConsumoSubmit = async e => {
-  e.preventDefault();
-  if (!consumoForm.producto_id || !consumoForm.cantidad) return;
-  setLoading(true);
-  try {
-    const pId = parseInt(consumoForm.producto_id);
-    const selectedProd = productos.find(p => p.id === pId);
-    const isWeight = selectedProd?.unidad_medida === 'peso' || selectedProd?.categoria === 'helados' || selectedProd?.categoria?.toLowerCase().includes('fruta') || selectedProd?.categoria?.toLowerCase().includes('verdura') || selectedProd?.nombre?.toLowerCase().includes('fruta') || selectedProd?.nombre?.toLowerCase().includes('verdura');
-    const qty = isWeight ? normalizeWeight(consumoForm.cantidad) : (parseInt(consumoForm.cantidad) || 0);
-    const isEvent = consumoForm.es_evento || false;
-    const {
-      error: rpcErr
-    } = await supabase.rpc('registrar_consumo', {
-      p_sucursal_id: user.sucursal_id,
-      p_producto_id: pId,
-      p_cantidad: qty,
-      p_es_evento: isEvent,
-      p_creado_por: user.id
-    });
-    if (rpcErr) throw rpcErr;
 
-    // Registrar en auditoria historial_movimientos
-    const { data: sStock } = await supabase.from('stock_sucursales')
-      .select('cantidad')
-      .eq('sucursal_id', user.sucursal_id)
-      .eq('producto_id', pId)
-      .eq('es_evento', isEvent)
-      .single();
+  const handleAssignEventStock = async (detailId, productId, qtyToAdd) => {
+    try {
+      setLoading(true);
+      const detailRes = await supabase.from('orden_produccion_detalles').select('cantidad_producida, cantidad_solicitada, orden_id').eq('id', detailId).single();
+      if (detailRes.error) throw detailRes.error;
 
-    await supabase.from('historial_movimientos').insert({
-      sucursal_id: user.sucursal_id,
-      producto_id: pId,
-      usuario_id: user?.auth_id || null,
-      tipo_movimiento: 'consumo_diario',
-      cantidad: -qty,
-      stock_resultante: sStock ? sStock.cantidad : 0,
-      es_evento: isEvent,
-      detalle: 'Consumo diario registrado por sucursal'
-    });
-
-    showToast('Consumo registrado exitosamente.');
-    setConsumoForm({
-      producto_id: '',
-      cantidad: '',
-      es_evento: false
-    });
-    await refreshStock();
-  } catch (err) {
-    showToast(err.message, 'error');
-  } finally {
-    setLoading(false);
-  }
-};
-
-const handleDeleteLote = async (lote) => {
-  if (!window.confirm(`¿Estás seguro de que deseas eliminar el lote ${lote.codigo_lote}? Esto restará el stock automáticamente.`)) return;
-  setLoading(true);
-  try {
-    const isEvent = lote.es_evento || false;
-    
-    // Fetch current stock to subtract
-    const { data: currentStock, error: stockFetchErr } = await supabase
-      .from('stock_sucursales')
-      .select('cantidad, id')
-      .eq('producto_id', lote.producto_id)
-      .eq('sucursal_id', 1)
-      .eq('es_evento', isEvent)
-      .single();
-      
-    if (!stockFetchErr && currentStock) {
-      const newQty = Math.max(0, parseFloat(currentStock.cantidad) - parseFloat(lote.cantidad));
-      const { error: stockUpdateErr } = await supabase
-        .from('stock_sucursales')
-        .update({ cantidad: newQty })
-        .eq('id', currentStock.id);
-        
-      if (stockUpdateErr) throw stockUpdateErr;
-      
-      // Register Audit Log
-      const { error: auditErr } = await supabase.from('historial_movimientos').insert({
-        sucursal_id: 1,
-        producto_id: lote.producto_id,
-        tipo_movimiento: 'ajuste_inventario',
-        cantidad: -parseFloat(lote.cantidad),
-        stock_resultante: newQty,
-        detalle: `Eliminación de carga/lote: ${lote.codigo_lote}`
-      });
-      if (auditErr) console.error("Error registrando auditoría:", auditErr);
-    }
-    
-    // Now delete the lote
-    const { error: delErr } = await supabase
-      .from('lotes_produccion')
-      .delete()
-      .eq('id', lote.id);
-      
-    if (delErr) throw delErr;
-    
-    showToast(`Lote ${lote.codigo_lote} eliminado correctamente.`, 'success');
-    await Promise.all([refreshStock(), refreshLotes()]);
-  } catch (err) {
-    showToast('Error al eliminar el lote: ' + err.message, 'error');
-  } finally {
-    setLoading(false);
-  }
-};
-
-const handleEditLote = async (lote, newQty, newWeights = null) => {
-  if (isNaN(newQty) || newQty < 0) {
-    showToast('Cantidad inválida. Debe ser un número mayor o igual a 0.', 'error');
-    return;
-  }
-  
-  let diff = 0;
-  let oldNetWeight = 0;
-  let newNetWeight = 0;
-  const isEvent = lote.es_evento || false;
-  const tareVal = lote.productos ? getTareByTipo(lote.productos.tipo) : 0;
-  
-  if (newWeights !== null) {
-    // Ice cream - compute by net weight
-    oldNetWeight = (lote.pesos || []).reduce((acc, curr) => acc + Math.max(0, parseFloat(curr) - tareVal), 0);
-    newNetWeight = newWeights.reduce((acc, curr) => acc + Math.max(0, parseFloat(curr) - tareVal), 0);
-    diff = newNetWeight - oldNetWeight;
-  } else {
-    // Regular product - compute by quantity
-    diff = newQty - parseFloat(lote.cantidad);
-  }
-  
-  if (diff === 0 && (newWeights === null || JSON.stringify(newWeights) === JSON.stringify(lote.pesos))) return;
-  
-  setLoading(true);
-  try {
-    // Update lote quantity
-    const { error: loteUpdateErr } = await supabase
-      .from('lotes_produccion')
-      .update({ cantidad: newQty })
-      .eq('id', lote.id);
-      
-    if (loteUpdateErr) throw loteUpdateErr;
-    
-    // If we have weights, update lote_pesos
-    if (newWeights !== null) {
-      await supabase.from('lote_pesos').delete().eq('lote_id', lote.id);
-      if (newWeights.length > 0) {
-        const pesosToInsert = newWeights.map(w => ({
-          lote_id: lote.id,
-          peso_bruto: parseFloat(w),
-          peso_neto: Math.max(0, parseFloat(w) - tareVal)
-        }));
-        await supabase.from('lote_pesos').insert(pesosToInsert);
+      const newQty = detailRes.data.cantidad_producida + qtyToAdd;
+      if (newQty > detailRes.data.cantidad_solicitada) {
+        throw new Error('La cantidad asignada supera la solicitada.');
       }
-    }
 
-    // Update stock
-    const { data: currentStock, error: stockFetchErr } = await supabase
-      .from('stock_sucursales')
-      .select('cantidad, id')
-      .eq('producto_id', lote.producto_id)
-      .eq('sucursal_id', 1)
-      .eq('es_evento', isEvent)
-      .single();
-      
-    if (!stockFetchErr && currentStock) {
-      const updatedStockQty = Math.max(0, parseFloat(currentStock.cantidad) + diff);
-      const { error: stockUpdateErr } = await supabase
-        .from('stock_sucursales')
-        .update({ cantidad: updatedStockQty })
-        .eq('id', currentStock.id);
-        
-      if (stockUpdateErr) throw stockUpdateErr;
-      
-      // Register Audit Log
-      const { error: auditErr } = await supabase.from('historial_movimientos').insert({
-        sucursal_id: 1,
-        producto_id: lote.producto_id,
-        tipo_movimiento: 'ajuste_inventario',
-        cantidad: diff,
-        stock_resultante: updatedStockQty,
-        detalle: `Edición de carga/lote: ${lote.codigo_lote}`
+      const { error } = await supabase.from('orden_produccion_detalles')
+        .update({ cantidad_producida: newQty })
+        .eq('id', detailId);
+      if (error) throw error;
+
+      await supabase.from('ordenes_produccion').update({ estado: 'en_proceso' }).eq('id', detailRes.data.orden_id);
+
+      showToast('Stock asignado correctamente a la orden.');
+      await refreshProductionOrders();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCompleteEventOrder = async (order) => {
+    try {
+      setLoading(true);
+      const detailsToDeduct = (order.orden_produccion_detalles || []).filter(d => d.cantidad_producida > 0);
+      if (detailsToDeduct.length > 0) {
+        const prodIds = detailsToDeduct.map(d => d.producto_id);
+        const { data: currentEventStocks, error: stockErr } = await supabase
+          .from('stock_sucursales')
+          .select('producto_id, cantidad')
+          .eq('sucursal_id', 1)
+          .eq('es_evento', true)
+          .in('producto_id', prodIds);
+
+        if (!stockErr && currentEventStocks && currentEventStocks.length > 0) {
+          const stockMap = {};
+          currentEventStocks.forEach(s => { stockMap[s.producto_id] = s.cantidad; });
+          const upserts = [];
+          detailsToDeduct.forEach(d => {
+            if (stockMap[d.producto_id] !== undefined) {
+              upserts.push({
+                sucursal_id: 1,
+                producto_id: d.producto_id,
+                es_evento: true,
+                cantidad: Math.max(0, stockMap[d.producto_id] - d.cantidad_producida)
+              });
+            }
+          });
+          if (upserts.length > 0) {
+            const { error: upsertErr } = await supabase
+              .from('stock_sucursales')
+              .upsert(upserts, { onConflict: 'sucursal_id,producto_id,es_evento' });
+            if (upsertErr) throw upsertErr;
+          }
+        }
+      }
+
+      const { error } = await supabase.from('ordenes_produccion')
+        .update({ estado: 'completada' })
+        .eq('id', order.id);
+      if (error) throw error;
+
+      showToast('Orden completada y stock descontado exitosamente.', 'success');
+      await Promise.all([refreshStock(), refreshProductionOrders()]);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAdminHistSubmit = async e => {
+    e.preventDefault();
+    if (!adminHistForm.producto_id || !adminHistForm.cantidad || !adminHistForm.fecha) return;
+    setLoading(true);
+    try {
+      const pId = parseInt(adminHistForm.producto_id);
+      const qty = parseInt(adminHistForm.cantidad);
+      const pDate = new Date(adminHistForm.fecha);
+      const dateStr = pDate.toISOString().slice(0, 10).replace(/-/g, '');
+      const rand = Math.floor(1000 + Math.random() * 9000);
+      const codigo_lote = `L-${dateStr}-${rand}`;
+      const selectedProd = productos.find(p => p.id === pId);
+      let pesosArray = [];
+      let netKilos = qty; // Default to qty for non-ice cream
+
+      if (selectedProd && selectedProd.categoria === 'helados') {
+        pesosArray = adminHistWeights.map(w => normalizeWeight(w));
+        if (pesosArray.length !== qty || pesosArray.some(w => w <= 0)) {
+          throw new Error('Por favor, ingresa un peso válido mayor a 0 para cada unidad.');
+        }
+
+        const tare = getTareByTipo(selectedProd.tipo);
+        netKilos = pesosArray.reduce((acc, curr) => acc + Math.max(0, curr - tare), 0);
+
+        if (netKilos <= 0) {
+          throw new Error('El peso neto total debe ser mayor a 0.');
+        }
+      }
+      const isEvent = selectedProd && selectedProd.categoria === 'helados' && selectedProd.tipo === 'vasqueta_5_6k' ? false : adminHistForm.es_evento || false;
+      const {
+        error: rpcErr
+      } = await supabase.rpc('registrar_produccion', {
+        p_codigo_lote: codigo_lote,
+        p_producto_id: pId,
+        p_cantidad: netKilos,
+        p_pesos: pesosArray,
+        p_fecha_produccion: pDate.toISOString(),
+        p_creado_por: user.id,
+        p_es_evento: isEvent
       });
-      if (auditErr) console.error("Error registrando auditoría:", auditErr);
+      if (rpcErr) throw rpcErr;
+      showToast(`Producción histórica registrada con Lote ${codigo_lote}. Stock de fábrica actualizado.`);
+      setAdminHistForm({
+        producto_id: '',
+        cantidad: '',
+        fecha: getLocalDateString(),
+        es_evento: false
+      });
+      setAdminHistWeights([]);
+      setAdminHistDefaultWeight('');
+      setAdminHistSearch('');
+      await Promise.all([refreshStock(), refreshLotes()]);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
     }
-    
-    showToast(`Lote ${lote.codigo_lote} actualizado correctamente.`, 'success');
-    await Promise.all([refreshStock(), refreshLotes()]);
-  } catch (err) {
-    showToast('Error al actualizar el lote: ' + err.message, 'error');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
+  const handleTranspCargaSubmit = async e => {
+    e.preventDefault();
+    if (!transpCargaForm.producto_id || !transpCargaForm.cantidad || !transpCargaForm.fecha) return;
+    setLoading(true);
+    try {
+      const pId = parseInt(transpCargaForm.producto_id);
+      const inputQty = parseFloat(transpCargaForm.cantidad);
+      const pDate = new Date(transpCargaForm.fecha);
+      const selectedProd = productos.find(p => p.id === pId);
+      const isWeight = selectedProd?.unidad_medida === 'peso' || selectedProd?.categoria === 'helados' || selectedProd?.categoria?.toLowerCase().includes('fruta') || selectedProd?.categoria?.toLowerCase().includes('verdura') || selectedProd?.nombre?.toLowerCase().includes('fruta') || selectedProd?.nombre?.toLowerCase().includes('verdura');
+      const finalQty = isWeight ? parseFloat(inputQty) : inputQty;
+      const dateStr = pDate.toISOString().slice(0, 10).replace(/-/g, '');
+      const rand = Math.floor(1000 + Math.random() * 9000);
+      const codigo_lote = `C-${dateStr}-${rand}`;
+      const {
+        error: rpcErr
+      } = await supabase.rpc('registrar_produccion', {
+        p_codigo_lote: codigo_lote,
+        p_producto_id: pId,
+        p_cantidad: finalQty,
+        p_pesos: [],
+        p_fecha_produccion: pDate.toISOString(),
+        p_creado_por: user.id,
+        p_es_evento: false
+      });
+      if (rpcErr) throw rpcErr;
+      showToast(`Ingreso de mercadería registrado (Ref: ${codigo_lote}). Stock de fábrica actualizado.`);
+      setTranspCargaForm({
+        producto_id: '',
+        proveedor_id: '',
+        categoria_id: '',
+        cantidad: '',
+        fecha: getLocalDateString()
+      });
+      await Promise.all([refreshStock(), refreshLotes()]);
+    } catch (err) {
+      console.error(err);
+      showToast('Error al registrar la carga: ' + err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleProvSubmit = async e => {
+    e.preventDefault();
+    if (!provForm.nombre.trim()) return;
+    setLoading(true);
+    try {
+      const payload = {
+        nombre: provForm.nombre.trim(),
+        cuit: provForm.cuit?.trim() || null,
+        telefono: provForm.telefono?.trim() || null,
+        direccion: provForm.direccion?.trim() || null,
+        email: provForm.email?.trim() || null
+      };
+      if (editingProv) {
+        const {
+          error
+        } = await supabase.from('proveedores').update(payload).eq('id', editingProv.id);
+        if (error) throw error;
+        showToast('Proveedor actualizado con éxito.');
+      } else {
+        const {
+          error
+        } = await supabase.from('proveedores').insert(payload);
+        if (error) throw error;
+        showToast('Proveedor creado con éxito.');
+      }
+      setShowProvModal(false);
+      setEditingProv(null);
+      setProvForm({
+        nombre: '',
+        cuit: '',
+        telefono: '',
+        direccion: '',
+        email: ''
+      });
+      fetchData();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleProvDelete = async (id, nombre) => {
+    if (!window.confirm(`¿Estás seguro de eliminar el proveedor "${nombre}"?\nEsto fallará si existen productos asociados a él.`)) return;
+    setLoading(true);
+    try {
+      const {
+        error
+      } = await supabase.from('proveedores').delete().eq('id', id);
+      if (error) throw error;
+      showToast('Proveedor eliminado con éxito.');
+      fetchData();
+    } catch (err) {
+      if (err.message.includes('violates foreign key constraint') || err.code === '23503') {
+        showToast('No se puede eliminar el proveedor porque tiene productos asociados.', 'error');
+      } else {
+        showToast(err.message, 'error');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleDownloadHistTemplate = () => {
+    const prods = productos.filter(p => p.categoria === histBulkCategory && p.activo === 1);
+    const headers = ['ID_Producto', 'Nombre', 'Formato', 'Cantidad', 'Peso_Bruto_Unitario_Opcional', 'Fecha_Opcional', 'Destinar_A_Eventos_SI_NO'];
+    let csvContent = '\uFEFF' + headers.join(';') + '\n';
+    prods.forEach(p => {
+      let suggestedWeight = '';
+      if (p.categoria === 'helados') {
+        if (p.tipo === 'vasqueta_5_6k') suggestedWeight = '6.120'; else if (p.tipo === 'balde_4k') suggestedWeight = '4.190'; else if (p.tipo === 'balde_8k') suggestedWeight = '8.270';
+      }
+      const row = [p.id, p.nombre.replace(/;/g, ','),
+      formatTipo(p.tipo) || '', '0', suggestedWeight, getLocalDateString(), 'NO'];
+      csvContent += row.join(';') + '\n';
+    });
+    const blob = new Blob([csvContent], {
+      type: 'text/csv;charset=utf-8;'
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `plantilla_carga_historica_${histBulkCategory}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast(`Plantilla descargada para la categoría ${categories.find(c => c.id === histBulkCategory)?.name}.`);
+  };
+  const handleUploadHistTemplate = async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setLoading(true);
+    const reader = new FileReader();
+    reader.onload = async event => {
+      try {
+        const text = event.target.result;
+        const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
+        if (lines.length <= 1) {
+          throw new Error('El archivo está vacío o solo contiene la cabecera.');
+        }
+        const firstLine = lines[0];
+        let delimiter = ';';
+        if (firstLine.includes(';')) {
+          delimiter = ';';
+        } else if (firstLine.includes(',')) {
+          delimiter = ',';
+        }
+        const rowsToProcess = [];
+        let skippedCount = 0;
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(delimiter).map(c => c.trim().replace(/^["']|["']$/g, ''));
+          if (cols.length < 4) continue;
+          const pId = parseInt(cols[0]);
+          const qty = parseInt(cols[3]);
+          if (isNaN(pId) || isNaN(qty) || qty <= 0) {
+            skippedCount++;
+            continue;
+          }
+          const product = productos.find(p => p.id === pId);
+          if (!product) {
+            throw new Error(`Línea ${i + 1}: El producto con ID ${pId} no se encuentra en el sistema.`);
+          }
+          const rawWeights = cols[4] || '';
+          const dateVal = cols[5] ? new Date(cols[5]) : new Date();
+          const esEventoVal = cols[6] && (cols[6].toUpperCase() === 'SI' || cols[6].toUpperCase() === 'TRUE');
+          rowsToProcess.push({
+            product,
+            qty,
+            rawWeights,
+            dateVal: isNaN(dateVal.getTime()) ? new Date() : dateVal,
+            esEventoVal
+          });
+        }
+        if (rowsToProcess.length === 0) {
+          throw new Error('No se encontraron filas con "Cantidad" mayor a 0 para procesar.');
+        }
+        let successCount = 0;
+        let failCount = 0;
+        let lastErrorMsg = '';
+        for (const row of rowsToProcess) {
+          try {
+            const {
+              product,
+              qty,
+              rawWeights,
+              dateVal,
+              esEventoVal
+            } = row;
+            const dateStr = dateVal.toISOString().slice(0, 10).replace(/-/g, '');
+            const rand = Math.floor(1000 + Math.random() * 9000);
+            const codigo_lote = `L-${dateStr}-${rand}`;
+            let pesosArray = [];
+            if (product.categoria === 'helados') {
+              const tare = getTareByTipo(product.tipo);
+              const fallbackGross = tare + getProductNetWeight(product.id, product.tipo);
+              if (rawWeights) {
+                const weightStrings = rawWeights.split(/[;/|\s]+/).filter(w => w.trim() !== '');
+                if (weightStrings.length > 1) {
+                  pesosArray = weightStrings.map(w => {
+                    const cleaned = w.replace(',', '.');
+                    return parseFloat(cleaned) || fallbackGross;
+                  });
+                  while (pesosArray.length < qty) {
+                    pesosArray.push(pesosArray[pesosArray.length - 1] || fallbackGross);
+                  }
+                  if (pesosArray.length > qty) {
+                    pesosArray = pesosArray.slice(0, qty);
+                  }
+                } else {
+                  const cleaned = rawWeights.replace(',', '.');
+                  const gross = parseFloat(cleaned) || fallbackGross;
+                  pesosArray = Array(qty).fill(gross);
+                }
+              } else {
+                pesosArray = Array(qty).fill(fallbackGross);
+              }
+              if (pesosArray.some(w => w <= 0)) {
+                throw new Error(`Pesos brutos inválidos calculados para el helado ${product.nombre}`);
+              }
+            }
+            const isEvent = product.categoria === 'helados' && product.tipo === 'vasqueta_5_6k' ? false : esEventoVal;
+            const {
+              error: rpcErr
+            } = await supabase.rpc('registrar_produccion', {
+              p_codigo_lote: codigo_lote,
+              p_producto_id: product.id,
+              p_cantidad: qty,
+              p_pesos: pesosArray,
+              p_fecha_produccion: dateVal.toISOString(),
+              p_creado_por: user.id,
+              p_es_evento: isEvent
+            });
+            if (rpcErr) throw rpcErr;
+            successCount++;
+          } catch (err) {
+            failCount++;
+            lastErrorMsg = err.message || String(err);
+          }
+        }
+        showToast(`Carga masiva finalizada. Éxito: ${successCount} productos. Fallidos: ${failCount}.${failCount > 0 ? ` Último error: ${lastErrorMsg}` : ''}`, failCount > 0 ? 'error' : 'success');
+        await Promise.all([refreshStock(), refreshLotes()]);
+        e.target.value = '';
+      } catch (err) {
+        showToast(err.message || 'Error al procesar la planilla.', 'error');
+        e.target.value = '';
+      } finally {
+        setLoading(false);
+      }
+    };
+    reader.onerror = () => {
+      showToast('Error al leer el archivo.', 'error');
+      setLoading(false);
+      e.target.value = '';
+    };
+    reader.readAsText(file);
+  };
+  const handleConsumoSubmit = async e => {
+    e.preventDefault();
+    if (!consumoForm.producto_id || !consumoForm.cantidad) return;
+    setLoading(true);
+    try {
+      const pId = parseInt(consumoForm.producto_id);
+      const selectedProd = productos.find(p => p.id === pId);
+      const isWeight = selectedProd?.unidad_medida === 'peso' || selectedProd?.categoria === 'helados' || selectedProd?.categoria?.toLowerCase().includes('fruta') || selectedProd?.categoria?.toLowerCase().includes('verdura') || selectedProd?.nombre?.toLowerCase().includes('fruta') || selectedProd?.nombre?.toLowerCase().includes('verdura');
+      const qty = isWeight ? normalizeWeight(consumoForm.cantidad) : (parseInt(consumoForm.cantidad) || 0);
+      const isEvent = consumoForm.es_evento || false;
+      const {
+        error: rpcErr
+      } = await supabase.rpc('registrar_consumo', {
+        p_sucursal_id: user.sucursal_id,
+        p_producto_id: pId,
+        p_cantidad: qty,
+        p_es_evento: isEvent,
+        p_creado_por: user.id
+      });
+      if (rpcErr) throw rpcErr;
 
-const handleCreateOrder = async () => {
-  const items = Object.entries(orderItems).map(([prodId, qty]) => ({
-    producto_id: parseInt(prodId),
-    cantidad_solicitada: parseInt(qty)
-  })).filter(item => item.cantidad_solicitada > 0);
-  if (items.length === 0) {
-    showToast('Por favor, selecciona al menos 1 producto con cantidad mayor a 0.', 'error');
-    return;
-  }
-  setLoading(true);
-  try {
-    let pedido_id;
-    
-    if (editingOrderId) {
-      pedido_id = editingOrderId;
-      const { error: delErr } = await supabase.from('pedido_detalles').delete().eq('pedido_id', pedido_id);
+      // Registrar en auditoria historial_movimientos
+      const { data: sStock } = await supabase.from('stock_sucursales')
+        .select('cantidad')
+        .eq('sucursal_id', user.sucursal_id)
+        .eq('producto_id', pId)
+        .eq('es_evento', isEvent)
+        .single();
+
+      await supabase.from('historial_movimientos').insert({
+        sucursal_id: user.sucursal_id,
+        producto_id: pId,
+        usuario_id: user?.auth_id || null,
+        tipo_movimiento: 'consumo_diario',
+        cantidad: -qty,
+        stock_resultante: sStock ? sStock.cantidad : 0,
+        es_evento: isEvent,
+        detalle: 'Consumo diario registrado por sucursal'
+      });
+
+      showToast('Consumo registrado exitosamente.');
+      setConsumoForm({
+        producto_id: '',
+        cantidad: '',
+        es_evento: false
+      });
+      await refreshStock();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteLote = async (lote) => {
+    if (!window.confirm(`¿Estás seguro de que deseas eliminar el lote ${lote.codigo_lote}? Esto restará el stock automáticamente.`)) return;
+    setLoading(true);
+    try {
+      const isEvent = lote.es_evento || false;
+
+      // Fetch current stock to subtract
+      const { data: currentStock, error: stockFetchErr } = await supabase
+        .from('stock_sucursales')
+        .select('cantidad, id')
+        .eq('producto_id', lote.producto_id)
+        .eq('sucursal_id', 1)
+        .eq('es_evento', isEvent)
+        .single();
+
+      if (!stockFetchErr && currentStock) {
+        const newQty = Math.max(0, parseFloat(currentStock.cantidad) - parseFloat(lote.cantidad));
+        const { error: stockUpdateErr } = await supabase
+          .from('stock_sucursales')
+          .update({ cantidad: newQty })
+          .eq('id', currentStock.id);
+
+        if (stockUpdateErr) throw stockUpdateErr;
+
+        // Register Audit Log
+        const { error: auditErr } = await supabase.from('historial_movimientos').insert({
+          sucursal_id: 1,
+          producto_id: lote.producto_id,
+          tipo_movimiento: 'ajuste_inventario',
+          cantidad: -parseFloat(lote.cantidad),
+          stock_resultante: newQty,
+          detalle: `Eliminación de carga/lote: ${lote.codigo_lote}`
+        });
+        if (auditErr) console.error("Error registrando auditoría:", auditErr);
+      }
+
+      // Now delete the lote
+      const { error: delErr } = await supabase
+        .from('lotes_produccion')
+        .delete()
+        .eq('id', lote.id);
+
       if (delErr) throw delErr;
-    } else {
-      const {
-        data: newPedido,
-        error: insErr
-      } = await supabase.from('pedidos').insert({
-        sucursal_destino_id: user.sucursal_id,
-        creado_por_id: user.id,
-        es_evento: user.rol === 'admin' || user.rol === 'heladero' ? orderIsEvent : false,
-        estado: 'solicitado'
-      }).select('id').single();
-      if (insErr) throw insErr;
-      pedido_id = newPedido.id;
+
+      showToast(`Lote ${lote.codigo_lote} eliminado correctamente.`, 'success');
+      await Promise.all([refreshStock(), refreshLotes()]);
+    } catch (err) {
+      showToast('Error al eliminar el lote: ' + err.message, 'error');
+    } finally {
+      setLoading(false);
     }
-    
-    const details = items.map(item => ({
-      pedido_id,
-      producto_id: item.producto_id,
-      cantidad_solicitada: item.cantidad_solicitada,
-      cantidad_preparada: 0
-    }));
-    const {
-      error: detErr
-    } = await supabase.from('pedido_detalles').insert(details);
-    if (detErr) throw detErr;
-    const orderedProdIds = items.map(item => item.producto_id);
-    const {
-      error: delPendErr
-    } = await supabase.from('items_pendientes').delete().eq('sucursal_id', user.sucursal_id).eq('es_evento', orderIsEvent).in('producto_id', orderedProdIds);
-    if (delPendErr) throw delPendErr;
-    
-    if (editingOrderId) {
-      showToast('Pedido modificado exitosamente.');
-    } else {
-      showToast('Pedido solicitado a Fábrica.');
+  };
+
+  const handleEditLote = async (lote, newQty, newWeights = null) => {
+    if (isNaN(newQty) || newQty < 0) {
+      showToast('Cantidad inválida. Debe ser un número mayor o igual a 0.', 'error');
+      return;
     }
 
-    setOrderIsEvent(false);
-    setEditingOrderId(null);
-    setOrderItems({});
-    setActiveTab('pedidos_lista');
-    await Promise.all([refreshOrders(), refreshStock()]);
-  } catch (err) {
-    showToast(err.message, 'error');
-  } finally {
-    setLoading(false);
-  }
-};
-const handleAdminCreateOrder = async () => {
-  const items = Object.entries(adminOrderItems).map(([prodId, qty]) => ({
-    producto_id: parseInt(prodId),
-    cantidad_solicitada: parseInt(qty),
-    cantidad: parseInt(qty)
-  })).filter(item => item.cantidad_solicitada > 0);
-  if (!adminOrderDestination) {
-    showToast('Por favor, selecciona una sucursal o depósito de destino.', 'error');
-    return;
-  }
-  if (items.length === 0) {
-    showToast('Por favor, selecciona al menos 1 producto con cantidad mayor a 0.', 'error');
-    return;
-  }
-  setLoading(true);
-  try {
-    if (adminOrderIsEvent && adminOrderSolicitFabrication) {
-      const {
-        data: newPedido,
-        error: insErr
-      } = await supabase.from('pedidos').insert({
-        sucursal_destino_id: parseInt(adminOrderDestination),
-        creado_por_id: user.id,
-        es_evento: true,
-        estado: 'solicitado'
-      }).select('id').single();
-      if (insErr) throw insErr;
-      const pedido_id = newPedido.id;
+    let diff = 0;
+    let oldNetWeight = 0;
+    let newNetWeight = 0;
+    const isEvent = lote.es_evento || false;
+    const tareVal = lote.productos ? getTareByTipo(lote.productos.tipo) : 0;
+
+    if (newWeights !== null) {
+      // Ice cream - compute by net weight
+      oldNetWeight = (lote.pesos || []).reduce((acc, curr) => acc + Math.max(0, parseFloat(curr) - tareVal), 0);
+      newNetWeight = newWeights.reduce((acc, curr) => acc + Math.max(0, parseFloat(curr) - tareVal), 0);
+      diff = newNetWeight - oldNetWeight;
+    } else {
+      // Regular product - compute by quantity
+      diff = newQty - parseFloat(lote.cantidad);
+    }
+
+    if (diff === 0 && (newWeights === null || JSON.stringify(newWeights) === JSON.stringify(lote.pesos))) return;
+
+    setLoading(true);
+    try {
+      // Update lote quantity
+      const { error: loteUpdateErr } = await supabase
+        .from('lotes_produccion')
+        .update({ cantidad: newQty })
+        .eq('id', lote.id);
+
+      if (loteUpdateErr) throw loteUpdateErr;
+
+      // If we have weights, update lote_pesos
+      if (newWeights !== null) {
+        await supabase.from('lote_pesos').delete().eq('lote_id', lote.id);
+        if (newWeights.length > 0) {
+          const pesosToInsert = newWeights.map(w => ({
+            lote_id: lote.id,
+            peso_bruto: parseFloat(w),
+            peso_neto: Math.max(0, parseFloat(w) - tareVal)
+          }));
+          await supabase.from('lote_pesos').insert(pesosToInsert);
+        }
+      }
+
+      // Update stock
+      const { data: currentStock, error: stockFetchErr } = await supabase
+        .from('stock_sucursales')
+        .select('cantidad, id')
+        .eq('producto_id', lote.producto_id)
+        .eq('sucursal_id', 1)
+        .eq('es_evento', isEvent)
+        .single();
+
+      if (!stockFetchErr && currentStock) {
+        const updatedStockQty = Math.max(0, parseFloat(currentStock.cantidad) + diff);
+        const { error: stockUpdateErr } = await supabase
+          .from('stock_sucursales')
+          .update({ cantidad: updatedStockQty })
+          .eq('id', currentStock.id);
+
+        if (stockUpdateErr) throw stockUpdateErr;
+
+        // Register Audit Log
+        const { error: auditErr } = await supabase.from('historial_movimientos').insert({
+          sucursal_id: 1,
+          producto_id: lote.producto_id,
+          tipo_movimiento: 'ajuste_inventario',
+          cantidad: diff,
+          stock_resultante: updatedStockQty,
+          detalle: `Edición de carga/lote: ${lote.codigo_lote}`
+        });
+        if (auditErr) console.error("Error registrando auditoría:", auditErr);
+      }
+
+      showToast(`Lote ${lote.codigo_lote} actualizado correctamente.`, 'success');
+      await Promise.all([refreshStock(), refreshLotes()]);
+    } catch (err) {
+      showToast('Error al actualizar el lote: ' + err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateOrder = async () => {
+    const items = Object.entries(orderItems).map(([prodId, qty]) => ({
+      producto_id: parseInt(prodId),
+      cantidad_solicitada: parseInt(qty)
+    })).filter(item => item.cantidad_solicitada > 0);
+    if (items.length === 0) {
+      showToast('Por favor, selecciona al menos 1 producto con cantidad mayor a 0.', 'error');
+      return;
+    }
+    setLoading(true);
+    try {
+      let pedido_id;
+
+      if (editingOrderId) {
+        pedido_id = editingOrderId;
+        const { error: delErr } = await supabase.from('pedido_detalles').delete().eq('pedido_id', pedido_id);
+        if (delErr) throw delErr;
+      } else {
+        const {
+          data: newPedido,
+          error: insErr
+        } = await supabase.from('pedidos').insert({
+          sucursal_destino_id: user.sucursal_id,
+          creado_por_id: user.id,
+          es_evento: user.rol === 'admin' || user.rol === 'heladero' ? orderIsEvent : false,
+          estado: 'solicitado'
+        }).select('id').single();
+        if (insErr) throw insErr;
+        pedido_id = newPedido.id;
+      }
+
       const details = items.map(item => ({
         pedido_id,
         producto_id: item.producto_id,
@@ -2103,1194 +2059,1255 @@ const handleAdminCreateOrder = async () => {
         error: detErr
       } = await supabase.from('pedido_detalles').insert(details);
       if (detErr) throw detErr;
-      showToast(`Pedido de Fabricación #${pedido_id} enviado al heladero con éxito.`);
-    } else {
+      const orderedProdIds = items.map(item => item.producto_id);
+      const {
+        error: delPendErr
+      } = await supabase.from('items_pendientes').delete().eq('sucursal_id', user.sucursal_id).eq('es_evento', orderIsEvent).in('producto_id', orderedProdIds);
+      if (delPendErr) throw delPendErr;
+
+      if (editingOrderId) {
+        showToast('Pedido modificado exitosamente.');
+      } else {
+        showToast('Pedido solicitado a Fábrica.');
+      }
+
+      setOrderIsEvent(false);
+      setEditingOrderId(null);
+      setOrderItems({});
+      setActiveTab('pedidos_lista');
+      await Promise.all([refreshOrders(), refreshStock()]);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleAdminCreateOrder = async () => {
+    const items = Object.entries(adminOrderItems).map(([prodId, qty]) => ({
+      producto_id: parseInt(prodId),
+      cantidad_solicitada: parseInt(qty),
+      cantidad: parseInt(qty)
+    })).filter(item => item.cantidad_solicitada > 0);
+    if (!adminOrderDestination) {
+      showToast('Por favor, selecciona una sucursal o depósito de destino.', 'error');
+      return;
+    }
+    if (items.length === 0) {
+      showToast('Por favor, selecciona al menos 1 producto con cantidad mayor a 0.', 'error');
+      return;
+    }
+    setLoading(true);
+    try {
+      if (adminOrderIsEvent && adminOrderSolicitFabrication) {
+        const {
+          data: newPedido,
+          error: insErr
+        } = await supabase.from('pedidos').insert({
+          sucursal_destino_id: parseInt(adminOrderDestination),
+          creado_por_id: user.id,
+          es_evento: true,
+          estado: 'solicitado'
+        }).select('id').single();
+        if (insErr) throw insErr;
+        const pedido_id = newPedido.id;
+        const details = items.map(item => ({
+          pedido_id,
+          producto_id: item.producto_id,
+          cantidad_solicitada: item.cantidad_solicitada,
+          cantidad_preparada: 0
+        }));
+        const {
+          error: detErr
+        } = await supabase.from('pedido_detalles').insert(details);
+        if (detErr) throw detErr;
+        showToast(`Pedido de Fabricación #${pedido_id} enviado al heladero con éxito.`);
+      } else {
+        const {
+          data: pedido_id,
+          error: rpcErr
+        } = await supabase.rpc('crear_y_preparar_pedido_admin', {
+          p_sucursal_destino_id: parseInt(adminOrderDestination),
+          p_creado_por_id: user.id,
+          p_es_evento: adminOrderIsEvent,
+          p_items: items
+        });
+        if (rpcErr) throw rpcErr;
+        showToast(`Pedido #${pedido_id} creado y preparado con éxito.`);
+      }
+      setAdminOrderItems({});
+      setAdminOrderDestination('');
+      setAdminOrderIsEvent(false);
+      setAdminOrderSolicitFabrication(false);
+      setActiveTab('flujo');
+      await Promise.all([refreshOrders(), refreshStock()]);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+  const applyAllSuggestions = () => {
+    const items = {};
+    suggestions.forEach(s => {
+      items[s.producto_id] = s.cantidad_sugerida;
+    });
+    setOrderItems(items);
+    showToast('Sugerencias aplicadas. Revisa las cantidades antes de enviar.');
+  };
+  const handleRetiroInternoSubmit = async e => {
+    e.preventDefault();
+    const itemsList = Object.entries(retiroItems).filter(([_, qty]) => qty > 0).map(([pId, qty]) => ({
+      producto_id: parseInt(pId),
+      cantidad: qty
+    }));
+    if (itemsList.length === 0) {
+      showToast('No has seleccionado ningún producto.', 'warning');
+      return;
+    }
+    setLoading(true);
+    try {
       const {
         data: pedido_id,
         error: rpcErr
       } = await supabase.rpc('crear_y_preparar_pedido_admin', {
-        p_sucursal_destino_id: parseInt(adminOrderDestination),
+        p_sucursal_destino_id: user.sucursal_id,
         p_creado_por_id: user.id,
-        p_es_evento: adminOrderIsEvent,
-        p_items: items
+        p_es_evento: false,
+        p_items: itemsList
       });
       if (rpcErr) throw rpcErr;
-      showToast(`Pedido #${pedido_id} creado y preparado con éxito.`);
+      const receivePayload = itemsList.map(it => ({
+        producto_id: it.producto_id,
+        cantidad_recibida: it.cantidad,
+        motivo_discrepancia: null
+      }));
+      const {
+        error: recErr
+      } = await supabase.rpc('recibir_pedido', {
+        p_pedido_id: pedido_id,
+        p_recibido_por_id: user.id,
+        p_items: receivePayload
+      });
+      if (recErr) throw recErr;
+      showToast(`Retiro interno registrado exitosamente (Ref: #${pedido_id}).`);
+      setRetiroItems({});
+      await Promise.all([refreshOrders(), refreshStock()]);
+    } catch (err) {
+      showToast('Error en retiro interno: ' + err.message, 'error');
+    } finally {
+      setLoading(false);
     }
-    setAdminOrderItems({});
-    setAdminOrderDestination('');
-    setAdminOrderIsEvent(false);
-    setAdminOrderSolicitFabrication(false);
-    setActiveTab('flujo'); 
-    await Promise.all([refreshOrders(), refreshStock()]);
-  } catch (err) {
-    showToast(err.message, 'error');
-  } finally {
-    setLoading(false);
-  }
-};
-const applyAllSuggestions = () => {
-  const items = {};
-  suggestions.forEach(s => {
-    items[s.producto_id] = s.cantidad_sugerida;
-  });
-  setOrderItems(items);
-  showToast('Sugerencias aplicadas. Revisa las cantidades antes de enviar.');
-};
-const handleRetiroInternoSubmit = async e => {
-  e.preventDefault();
-  const itemsList = Object.entries(retiroItems).filter(([_, qty]) => qty > 0).map(([pId, qty]) => ({
-    producto_id: parseInt(pId),
-    cantidad: qty
-  }));
-  if (itemsList.length === 0) {
-    showToast('No has seleccionado ningún producto.', 'warning');
-    return;
-  }
-  setLoading(true);
-  try {
-    const {
-      data: pedido_id,
-      error: rpcErr
-    } = await supabase.rpc('crear_y_preparar_pedido_admin', {
-      p_sucursal_destino_id: user.sucursal_id,
-      p_creado_por_id: user.id,
-      p_es_evento: false,
-      p_items: itemsList
-    });
-    if (rpcErr) throw rpcErr;
-    const receivePayload = itemsList.map(it => ({
-      producto_id: it.producto_id,
-      cantidad_recibida: it.cantidad,
-      motivo_discrepancia: null
-    }));
-    const {
-      error: recErr
-    } = await supabase.rpc('recibir_pedido', {
-      p_pedido_id: pedido_id,
-      p_recibido_por_id: user.id,
-      p_items: receivePayload
-    });
-    if (recErr) throw recErr;
-    showToast(`Retiro interno registrado exitosamente (Ref: #${pedido_id}).`);
-    setRetiroItems({});
-    await Promise.all([refreshOrders(), refreshStock()]);
-  } catch (err) {
-    showToast('Error en retiro interno: ' + err.message, 'error');
-  } finally {
-    setLoading(false);
-  }
-};
-const viewOrderDetail = async pedidoId => {
-  try {
-    const {
-      data: order,
-      error: oErr
-    } = await supabase.from('pedidos').select(`
+  };
+  const viewOrderDetail = async pedidoId => {
+    try {
+      const {
+        data: order,
+        error: oErr
+      } = await supabase.from('pedidos').select(`
           *,
           s_orig:sucursal_origen_id ( nombre ),
           s_dest:sucursal_destino_id ( nombre )
         `).eq('id', pedidoId).single();
-    if (oErr) throw oErr;
-    if (!order) throw new Error('Pedido no encontrado.');
-    const {
-      data: items,
-      error: iErr
-    } = await supabase.from('pedido_detalles').select(`
+      if (oErr) throw oErr;
+      if (!order) throw new Error('Pedido no encontrado.');
+      const {
+        data: items,
+        error: iErr
+      } = await supabase.from('pedido_detalles').select(`
           *,
           productos ( nombre, tipo, categoria )
         `).eq('pedido_id', pedidoId);
-    if (iErr) throw iErr;
-    const {
-      data: allFactoryStock,
-      error: fsErr
-    } = await supabase.from('stock_sucursales').select('producto_id, cantidad, es_evento').eq('sucursal_id', 1);
-    if (fsErr) throw fsErr;
-    const eventStockMap = {};
-    const commonStockMap = {};
-    (allFactoryStock || []).forEach(s => {
-      if (s.es_evento) {
-        eventStockMap[s.producto_id] = s.cantidad;
-      } else {
-        commonStockMap[s.producto_id] = s.cantidad;
-      }
-    });
-    let defaultSource = 'evento';
-    if (order.es_evento) {
-      let totalQtyInEvent = 0;
-      let totalQtyInCommon = 0;
-      (items || []).forEach(it => {
-        const qtyEvent = eventStockMap[it.producto_id] || 0;
-        const qtyCommon = commonStockMap[it.producto_id] || 0;
-        totalQtyInEvent += Math.min(it.cantidad_solicitada, qtyEvent);
-        totalQtyInCommon += Math.min(it.cantidad_solicitada, qtyCommon);
+      if (iErr) throw iErr;
+      const {
+        data: allFactoryStock,
+        error: fsErr
+      } = await supabase.from('stock_sucursales').select('producto_id, cantidad, es_evento').eq('sucursal_id', 1);
+      if (fsErr) throw fsErr;
+      const eventStockMap = {};
+      const commonStockMap = {};
+      (allFactoryStock || []).forEach(s => {
+        if (s.es_evento) {
+          eventStockMap[s.producto_id] = s.cantidad;
+        } else {
+          commonStockMap[s.producto_id] = s.cantidad;
+        }
       });
-      if (totalQtyInCommon > totalQtyInEvent) {
-        defaultSource = 'comun';
+      let defaultSource = 'evento';
+      if (order.es_evento) {
+        let totalQtyInEvent = 0;
+        let totalQtyInCommon = 0;
+        (items || []).forEach(it => {
+          const qtyEvent = eventStockMap[it.producto_id] || 0;
+          const qtyCommon = commonStockMap[it.producto_id] || 0;
+          totalQtyInEvent += Math.min(it.cantidad_solicitada, qtyEvent);
+          totalQtyInCommon += Math.min(it.cantidad_solicitada, qtyCommon);
+        });
+        if (totalQtyInCommon > totalQtyInEvent) {
+          defaultSource = 'comun';
+        }
       }
-    }
-    setPrepareStockSource(defaultSource);
-    const activeStockMap = defaultSource === 'evento' ? eventStockMap : commonStockMap;
-    const itemsMapped = (items || []).map(it => ({
-      ...it,
-      producto_name: it.productos?.nombre,
-      producto_nombre: it.productos?.nombre,
-      tipo: it.productos?.tipo,
-      categoria: it.productos?.categoria,
-      stock_fabrica: activeStockMap[it.producto_id] || 0
-    }));
-    const {
-      data: discrepanciasData
-    } = await supabase.from('discrepancias').select(`
+      setPrepareStockSource(defaultSource);
+      const activeStockMap = defaultSource === 'evento' ? eventStockMap : commonStockMap;
+      const itemsMapped = (items || []).map(it => ({
+        ...it,
+        producto_name: it.productos?.nombre,
+        producto_nombre: it.productos?.nombre,
+        tipo: it.productos?.tipo,
+        categoria: it.productos?.categoria,
+        stock_fabrica: activeStockMap[it.producto_id] || 0
+      }));
+      const {
+        data: discrepanciasData
+      } = await supabase.from('discrepancias').select(`
       *,
       productos ( nombre, tipo, categoria ),
       usuarios ( nombre )
     `).eq('pedido_id', pedidoId);
-    
-    const discrepanciasMapped = (discrepanciasData || []).map(d => ({
-      ...d,
-      producto_nombre: d.productos?.nombre,
-      reportado_por_nombre: d.usuarios?.nombre
-    }));
 
-    const orderData = {
-      ...order,
-      origen_nombre: order.s_orig?.nombre,
-      destino_nombre: order.s_dest?.nombre,
-      items: itemsMapped,
-      discrepancias: discrepanciasMapped
-    };
-    setSelectedPedido(orderData);
-    const loads = {};
-    itemsMapped.forEach(it => {
-      loads[it.producto_id] = it.cantidad_preparada;
-    });
-    setLoadItems(loads);
-    const recs = {};
-    const reasons = {};
-    itemsMapped.forEach(it => {
-      let val = it.cantidad_cargada > 0 ? it.cantidad_cargada : it.cantidad_preparada;
-      if (it.categoria === 'helados' && val === 0) {
-        val = '';
-      }
-      recs[it.producto_id] = val;
-      reasons[it.producto_id] = '';
-    });
-    setReceiveItems(recs);
-    setReceiveReasons(reasons);
-  } catch (err) {
-    showToast(err.message || 'Error al cargar detalle del pedido.', 'error');
-  }
-};
-const handlePrepareOrder = async () => {
-  if (!selectedPedido) return;
-  setLoading(true);
-  try {
-    const originalIsEvent = selectedPedido.es_evento;
-    const targetEsEvento = prepareStockSource === 'evento'; 
-    const {
-      data: allStock,
-      error: stockFetchErr
-    } = await supabase.from('stock_sucursales').select('producto_id, cantidad, es_evento').eq('sucursal_id', 1);
-    if (stockFetchErr) throw stockFetchErr;
-    const eventStockMap = {};
-    const commonStockMap = {};
-    allStock.forEach(s => {
-      if (s.es_evento) {
-        eventStockMap[s.producto_id] = s.cantidad;
-      } else {
-        commonStockMap[s.producto_id] = s.cantidad;
-      }
-    });
-    const stockUpserts = [];
-    for (const item of selectedPedido.items) {
-      const pId = item.producto_id;
-      const prod = productos.find(p => p.id === pId);
-      
-      // No descontar/ajustar stock de fabrica al preparar si es helado,
-      // porque el helado se descuenta en kilos reales cuando la sucursal confirma la recepcion.
-      if (prod && prod.categoria === 'helados') {
-        continue;
-      }
+      const discrepanciasMapped = (discrepanciasData || []).map(d => ({
+        ...d,
+        producto_nombre: d.productos?.nombre,
+        reportado_por_nombre: d.usuarios?.nombre
+      }));
 
-      const requestedQty = item.cantidad_solicitada;
-      const qtyPrimary = (targetEsEvento ? eventStockMap[pId] : commonStockMap[pId]) ?? 0;
-      const qtySecondary = (targetEsEvento ? commonStockMap[pId] : eventStockMap[pId]) ?? 0;
-      if (qtyPrimary >= requestedQty) {
-        continue;
-      }
-      const diff = requestedQty - qtyPrimary;
-      const takeFromSecondary = Math.min(diff, qtySecondary);
-      let finalPrimaryQty = qtyPrimary;
-      if (takeFromSecondary > 0) {
-        const newQtySecondary = qtySecondary - takeFromSecondary;
+      const orderData = {
+        ...order,
+        origen_nombre: order.s_orig?.nombre,
+        destino_nombre: order.s_dest?.nombre,
+        items: itemsMapped,
+        discrepancias: discrepanciasMapped
+      };
+      setSelectedPedido(orderData);
+      const loads = {};
+      itemsMapped.forEach(it => {
+        loads[it.producto_id] = it.cantidad_preparada;
+      });
+      setLoadItems(loads);
+      const recs = {};
+      const reasons = {};
+      itemsMapped.forEach(it => {
+        let val = it.cantidad_cargada > 0 ? it.cantidad_cargada : it.cantidad_preparada;
+        if (it.categoria === 'helados' && val === 0) {
+          val = '';
+        }
+        recs[it.producto_id] = val;
+        reasons[it.producto_id] = '';
+      });
+      setReceiveItems(recs);
+      setReceiveReasons(reasons);
+    } catch (err) {
+      showToast(err.message || 'Error al cargar detalle del pedido.', 'error');
+    }
+  };
+  const handlePrepareOrder = async () => {
+    if (!selectedPedido) return;
+    setLoading(true);
+    try {
+      const originalIsEvent = selectedPedido.es_evento;
+      const targetEsEvento = prepareStockSource === 'evento';
+      const {
+        data: allStock,
+        error: stockFetchErr
+      } = await supabase.from('stock_sucursales').select('producto_id, cantidad, es_evento').eq('sucursal_id', 1);
+      if (stockFetchErr) throw stockFetchErr;
+      const eventStockMap = {};
+      const commonStockMap = {};
+      allStock.forEach(s => {
+        if (s.es_evento) {
+          eventStockMap[s.producto_id] = s.cantidad;
+        } else {
+          commonStockMap[s.producto_id] = s.cantidad;
+        }
+      });
+      const stockUpserts = [];
+      for (const item of selectedPedido.items) {
+        const pId = item.producto_id;
+        const prod = productos.find(p => p.id === pId);
+
+        // No descontar/ajustar stock de fabrica al preparar si es helado,
+        // porque el helado se descuenta en kilos reales cuando la sucursal confirma la recepcion.
+        if (prod && prod.categoria === 'helados') {
+          continue;
+        }
+
+        const requestedQty = item.cantidad_solicitada;
+        const qtyPrimary = (targetEsEvento ? eventStockMap[pId] : commonStockMap[pId]) ?? 0;
+        const qtySecondary = (targetEsEvento ? commonStockMap[pId] : eventStockMap[pId]) ?? 0;
+        if (qtyPrimary >= requestedQty) {
+          continue;
+        }
+        const diff = requestedQty - qtyPrimary;
+        const takeFromSecondary = Math.min(diff, qtySecondary);
+        let finalPrimaryQty = qtyPrimary;
+        if (takeFromSecondary > 0) {
+          const newQtySecondary = qtySecondary - takeFromSecondary;
+          stockUpserts.push({
+            sucursal_id: 1,
+            producto_id: pId,
+            cantidad: newQtySecondary,
+            es_evento: !targetEsEvento
+          });
+          finalPrimaryQty += takeFromSecondary;
+        }
+        if (finalPrimaryQty < requestedQty) {
+          finalPrimaryQty = requestedQty;
+        }
         stockUpserts.push({
           sucursal_id: 1,
           producto_id: pId,
-          cantidad: newQtySecondary,
-          es_evento: !targetEsEvento
-        });
-        finalPrimaryQty += takeFromSecondary;
-      }
-      if (finalPrimaryQty < requestedQty) {
-        finalPrimaryQty = requestedQty;
-      }
-      stockUpserts.push({
-        sucursal_id: 1,
-        producto_id: pId,
-        cantidad: finalPrimaryQty,
-        es_evento: targetEsEvento
-      });
-    }
-    if (stockUpserts.length > 0) {
-      const { error: upsertStockErr } = await supabase
-        .from('stock_sucursales')
-        .upsert(stockUpserts, { onConflict: 'sucursal_id,producto_id,es_evento' });
-      if (upsertStockErr) throw upsertStockErr;
-    }
-    const {
-      error: updErr
-    } = await supabase.from('pedidos').update({
-      es_evento: targetEsEvento
-    }).eq('id', selectedPedido.id);
-    if (updErr) throw updErr;
-    const {
-      error: rpcErr
-    } = await supabase.rpc('preparar_pedido', {
-      p_pedido_id: selectedPedido.id,
-      p_preparado_por_id: user.id,
-      p_items: selectedPedido.items.map(it => ({
-        producto_id: it.producto_id,
-        cantidad_preparada: it.cantidad_solicitada
-      }))
-    });
-    if (rpcErr) {
-      await supabase.from('pedidos').update({
-        es_evento: originalIsEvent
-      }).eq('id', selectedPedido.id);
-      throw rpcErr;
-    }
-    if (originalIsEvent !== targetEsEvento) {
-      const {
-        error: restoreErr
-      } = await supabase.from('pedidos').update({
-        es_evento: originalIsEvent
-      }).eq('id', selectedPedido.id);
-      if (restoreErr) throw restoreErr;
-    }
-    showToast('Pedido preparado y stock de fábrica reservado.');
-    setSelectedPedido(null);
-    setPrepareStockSource('evento');
-    await Promise.all([refreshOrders(), refreshStock()]);
-  } catch (err) {
-    showToast(err.message, 'error');
-  } finally {
-    setLoading(false);
-  }
-};
-const handleConfirmLoad = async () => {
-  if (!selectedPedido) return;
-  const items = Object.entries(loadItems).map(([prodId, qty]) => ({
-    producto_id: parseInt(prodId),
-    cantidad_cargada: parseInt(qty)
-  }));
-  setLoading(true);
-  try {
-    const {
-      error: rpcErr
-    } = await supabase.rpc('confirmar_carga_pedido', {
-      p_pedido_id: selectedPedido.id,
-      p_transportista_id: user.id,
-      p_items: items
-    });
-    if (rpcErr) throw rpcErr;
-    showToast('Pedido cargado en camión. Estado cambiado a En Tránsito.');
-    setSelectedPedido(null);
-    await refreshOrders();
-  } catch (err) {
-    showToast(err.message, 'error');
-  } finally {
-    setLoading(false);
-  }
-};
-const handleReportLoss = async e => {
-  e.preventDefault();
-  if (!transitLoss.producto_id || !transitLoss.cantidad_perdida) return;
-  setLoading(true);
-  try {
-    const pId = parseInt(transitLoss.producto_id);
-    const qtyLost = parseInt(transitLoss.cantidad_perdida);
-    const motivo = transitLoss.motivo || 'Rotura en viaje';
-    const itemDetail = selectedPedido.items.find(it => it.producto_id === pId);
-    const currentCargado = itemDetail ? itemDetail.cantidad_cargada : 0;
-    const {
-      error: updDetErr
-    } = await supabase.from('pedido_detalles').update({
-      cantidad_cargada: Math.max(0, currentCargado - qtyLost)
-    }).eq('pedido_id', selectedPedido.id).eq('producto_id', pId);
-    if (updDetErr) throw updDetErr;
-    const {
-      error: discErr
-    } = await supabase.from('discrepancias').insert({
-      pedido_id: selectedPedido.id,
-      producto_id: pId,
-      tipo: 'transito',
-      cantidad_perdida: qtyLost,
-      motivo,
-      reportado_por_id: user.id,
-      es_evento: selectedPedido.es_evento || false
-    });
-    if (discErr) throw discErr;
-    showToast('Merma en tránsito registrada exitosamente.');
-    setShowLossModal(false);
-    setLoadItems(prev => ({
-      ...prev,
-      [pId]: Math.max(0, (prev[pId] || 0) - qtyLost)
-    }));
-    viewOrderDetail(selectedPedido.id);
-    setTransitLoss({
-      producto_id: '',
-      cantidad_perdida: '',
-      motivo: ''
-    });
-  } catch (err) {
-    showToast(err.message, 'error');
-  } finally {
-    setLoading(false);
-  }
-};
-const handleMarkDelivered = async () => {
-  if (!selectedPedido) return;
-  setLoading(true);
-  try {
-    const {
-      error: updOrderErr
-    } = await supabase.from('pedidos').update({
-      fecha_entrega: new Date().toISOString()
-    }).eq('id', selectedPedido.id);
-    if (updOrderErr) throw updOrderErr;
-    showToast('Pedido marcado como entregado físicamente. Pendiente confirmación de sucursal.');
-    setSelectedPedido(null);
-    await refreshOrders();
-  } catch (err) {
-    showToast(err.message, 'error');
-  } finally {
-    setLoading(false);
-  }
-};
-const handleConfirmReceive = async () => {
-  if (!selectedPedido) return;
-  const items = Object.entries(receiveItems).map(([prodId, qty]) => ({
-    producto_id: parseInt(prodId),
-    cantidad_recibida: parseFloat(qty) || 0,
-    motivo_diferencia: receiveReasons[prodId] || ''
-  }));
-  setLoading(true);
-  try {
-    const {
-      error: rpcErr
-    } = await supabase.rpc('recibir_pedido', {
-      p_pedido_id: selectedPedido.id,
-      p_recibido_por_id: user.id,
-      p_items: items
-    });
-    if (rpcErr) throw rpcErr;
-    
-    // Habilitar inventario para la sucursal de destino luego de recibir un pedido
-    await supabase.from('sucursales').update({ inventario_habilitado: true }).eq('id', selectedPedido.sucursal_destino_id);
-
-    const itemProdIds = items.map(it => it.producto_id);
-    const { data: relevantStocks } = await supabase
-      .from('stock_sucursales')
-      .select('sucursal_id, producto_id, cantidad')
-      .in('sucursal_id', [1, selectedPedido.sucursal_destino_id])
-      .eq('es_evento', selectedPedido.es_evento || false)
-      .in('producto_id', itemProdIds);
-
-    const destStockMap = {};
-    const factoryStockMap = {};
-    (relevantStocks || []).forEach(s => {
-      if (s.sucursal_id === selectedPedido.sucursal_destino_id) {
-        destStockMap[s.producto_id] = s.cantidad;
-      }
-      if (s.sucursal_id === 1) {
-        factoryStockMap[s.producto_id] = s.cantidad;
-      }
-    });
-
-    const auditInserts = [];
-    const factoryStockUpserts = [];
-    let hasDiscrepancies = false;
-    for (let item of items) {
-      const origDetail = selectedPedido.items.find(it => it.producto_id === item.producto_id);
-      const prod = productos.find(p => p.id === item.producto_id);
-      const isHelado = prod && prod.categoria === 'helados';
-      
-      const loadedQty = selectedPedido.estado === 'solicitado' ? item.cantidad_recibida : origDetail ? origDetail.cantidad_cargada > 0 ? origDetail.cantidad_cargada : origDetail.cantidad_preparada : 0;
-      
-      if (!isHelado && loadedQty - item.cantidad_recibida !== 0) {
-        hasDiscrepancies = true;
-      }
-
-      // Registrar auditoría de recepción en la sucursal de destino
-      if (item.cantidad_recibida > 0) {
-        const pId = prod?.id || item.producto_id;
-        auditInserts.push({
-          sucursal_id: selectedPedido.sucursal_destino_id,
-          producto_id: pId,
-          usuario_id: user?.auth_id || null,
-          tipo_movimiento: 'recepcion',
-          cantidad: item.cantidad_recibida,
-          stock_resultante: destStockMap[pId] !== undefined ? destStockMap[pId] : item.cantidad_recibida,
-          es_evento: selectedPedido.es_evento || false,
-          detalle: `Recepción de Pedido #${selectedPedido.id}`
+          cantidad: finalPrimaryQty,
+          es_evento: targetEsEvento
         });
       }
-
-      // Restar kilos reales de helado del stock de la fábrica
-      if (isHelado) {
-        const kilosARestar = item.cantidad_recibida;
-        if (kilosARestar > 0 && factoryStockMap[prod.id] !== undefined) {
-          const nuevoStockFabrica = Number(factoryStockMap[prod.id]) - Number(kilosARestar);
-          factoryStockMap[prod.id] = nuevoStockFabrica;
-          factoryStockUpserts.push({
-            sucursal_id: 1,
-            producto_id: prod.id,
-            cantidad: nuevoStockFabrica,
-            es_evento: selectedPedido.es_evento || false
-          });
-          auditInserts.push({
-            sucursal_id: 1,
-            producto_id: prod.id,
-            usuario_id: user?.auth_id || null,
-            tipo_movimiento: 'envio_sucursal',
-            cantidad: -kilosARestar,
-            stock_resultante: nuevoStockFabrica,
-            es_evento: selectedPedido.es_evento || false,
-            detalle: `Envío a sucursal por Pedido #${selectedPedido.id}`
-          });
-        }
+      if (stockUpserts.length > 0) {
+        const { error: upsertStockErr } = await supabase
+          .from('stock_sucursales')
+          .upsert(stockUpserts, { onConflict: 'sucursal_id,producto_id,es_evento' });
+        if (upsertStockErr) throw upsertStockErr;
       }
-    }
-    if (factoryStockUpserts.length > 0) {
-      await supabase.from('stock_sucursales').upsert(factoryStockUpserts, { onConflict: 'sucursal_id,producto_id,es_evento' });
-    }
-    if (auditInserts.length > 0) {
-      await supabase.from('historial_movimientos').insert(auditInserts);
-    }
-    const finalEstado = hasDiscrepancies ? 'con_discrepancia' : 'entregado';
-    showToast(`Pedido recibido. Estado final: ${finalEstado === 'entregado' ? 'Entregado OK' : 'Entregado con Discrepancias'}.`);
-    setSelectedPedido(null);
-    await Promise.all([refreshOrders(), refreshStock()]);
-  } catch (err) {
-    showToast(err.message, 'error');
-  } finally {
-    setLoading(false);
-  }
-};
-const handleCreateSupplier = async () => {
-  if (!newSupplierName.trim()) return;
-  setLoading(true);
-  try {
-    const {
-      data: newProv,
-      error: insErr
-    } = await supabase.from('proveedores').insert({
-      nombre: newSupplierName.trim()
-    }).select('*').single();
-    if (insErr) throw insErr;
-    showToast(`Proveedor "${newProv.nombre}" creado con éxito.`);
-    setNewSupplierName('');
-    setShowSupplierForm(false);
-    setProveedores(prev => [...prev, newProv].sort((a, b) => a.nombre.localeCompare(b.nombre)));
-    setNewProductForm(prev => ({
-      ...prev,
-      proveedor_id: newProv.id
-    }));
-  } catch (err) {
-    showToast(err.message, 'error');
-  } finally {
-    setLoading(false);
-  }
-};
-const handleNewProductSubmit = async e => {
-  e.preventDefault();
-  if (!newProductForm.nombre) return;
-  setLoading(true);
-  try {
-    const {
-      data: newProd,
-      error: insErr
-    } = await supabase.from('productos').insert({
-      nombre: newProductForm.nombre,
-      categoria: newProductForm.categoria,
-      tipo: newProductForm.tipo,
-      clasificacion_sabor: newProductForm.clasificacion_sabor || null,
-      proveedor_id: newProductForm.proveedor_id ? parseInt(newProductForm.proveedor_id) : null,
-      unidad_medida: newProductForm.unidad_medida,
-      cant_por_caja: newProductForm.cant_por_caja ? parseInt(newProductForm.cant_por_caja) : 24,
-      cant_por_pack: newProductForm.cant_por_pack ? parseInt(newProductForm.cant_por_pack) : null
-    }).select('id').single();
-    if (insErr) throw insErr;
-    const newProductId = newProd.id;
-    const {
-      data: branches,
-      error: bErr
-    } = await supabase.from('sucursales').select('id');
-    if (bErr) throw bErr;
-    const stockInserts = (branches || []).map(b => ({
-      sucursal_id: b.id,
-      producto_id: newProductId,
-      cantidad: 0
-    }));
-    const {
-      error: sErr
-    } = await supabase.from('stock_sucursales').insert(stockInserts);
-    if (sErr) throw sErr;
-    showToast('Producto creado exitosamente.');
-    setNewProductForm({
-      nombre: '',
-      categoria: 'helados',
-      tipo: 'vasqueta_5_6k',
-      clasificacion_sabor: '',
-      proveedor_id: '',
-      unidad_medida: 'unidad',
-      cant_por_caja: 24,
-      cant_por_pack: ''
-    });
-    setShowProductModal(false);
-    fetchData();
-  } catch (err) {
-    showToast(err.message, 'error');
-  } finally {
-    setLoading(false);
-  }
-};
-const handleUpdateProduct = async () => {
-  if (!newProductForm.nombre || !editingProduct) return;
-  setLoading(true);
-  try {
-    const {
-      error: updErr
-    } = await supabase.from('productos').update({
-      nombre: newProductForm.nombre,
-      categoria: newProductForm.categoria,
-      tipo: newProductForm.tipo,
-      clasificacion_sabor: newProductForm.clasificacion_sabor || null,
-      proveedor_id: newProductForm.proveedor_id ? parseInt(newProductForm.proveedor_id) : null,
-      unidad_medida: newProductForm.unidad_medida,
-      cant_por_caja: newProductForm.cant_por_caja ? parseInt(newProductForm.cant_por_caja) : 24,
-      cant_por_pack: newProductForm.cant_por_pack ? parseInt(newProductForm.cant_por_pack) : null
-    }).eq('id', editingProduct.id);
-    if (updErr) throw updErr;
-    showToast('Producto actualizado exitosamente.');
-    setNewProductForm({
-      nombre: '',
-      categoria: 'helados',
-      tipo: 'vasqueta_5_6k',
-      clasificacion_sabor: '',
-      proveedor_id: '',
-      unidad_medida: 'unidad',
-      cant_por_caja: 24,
-      cant_por_pack: ''
-    });
-    setEditingProduct(null);
-    setShowProductModal(false);
-    fetchData();
-  } catch (err) {
-    showToast(err.message, 'error');
-  } finally {
-    setLoading(false);
-  }
-};
-const handleProductFormSubmit = e => {
-  e.preventDefault();
-  if (editingProduct) {
-    handleUpdateProduct();
-  } else {
-    handleNewProductSubmit(e);
-  }
-};
-const startEditingProduct = p => {
-  setEditingProduct(p);
-  let resolvedTipo = p.tipo;
-  const tiposCat = getTiposPorCategoria(p.categoria, allProducts);
-  if (p.categoria !== 'sembrados') {
-    if (!tiposCat.find(t => t.value === p.tipo)) {
-      resolvedTipo = '';
-    }
-  }
-
-  setNewProductForm({
-    nombre: p.nombre,
-    categoria: p.categoria,
-    tipo: resolvedTipo,
-    clasificacion_sabor: p.clasificacion_sabor || '',
-    proveedor_id: p.proveedor_id ? String(p.proveedor_id) : '',
-    unidad_medida: p.unidad_medida || 'unidad',
-    cant_por_caja: p.cant_por_caja !== undefined && p.cant_por_caja !== null ? p.cant_por_caja : 24,
-    cant_por_pack: p.cant_por_pack !== undefined && p.cant_por_pack !== null ? String(p.cant_por_pack) : ''
-  });
-  setShowProductModal(true);
-};
-const cancelEditingProduct = () => {
-  setEditingProduct(null);
-  setNewProductForm({
-    nombre: '',
-    categoria: 'helados',
-    tipo: 'vasqueta_5_6k',
-    clasificacion_sabor: '',
-    proveedor_id: '',
-    unidad_medida: 'unidad',
-    cant_por_caja: 24,
-    cant_por_pack: ''
-  });
-  setShowProductModal(false);
-};
-const handleToggleProductActive = async (prodId, currentActive) => {
-  setLoading(true);
-  try {
-    const nextActive = currentActive === 1 ? 0 : 1;
-    const {
-      error: updErr
-    } = await supabase.from('productos').update({
-      activo: nextActive
-    }).eq('id', prodId);
-    if (updErr) throw updErr;
-    showToast(nextActive === 1 ? 'Producto reactivado.' : 'Producto desactivado / eliminado.');
-    if (editingProduct && editingProduct.id === prodId) {
-      cancelEditingProduct();
-    }
-    fetchData();
-  } catch (err) {
-    showToast(err.message, 'error');
-  } finally {
-    setLoading(false);
-  }
-};
-const handleBranchCreateOtrosProduct = async e => {
-  e.preventDefault();
-  if (!branchOtrosForm.nombre) return;
-  setLoading(true);
-  try {
-    const {
-      data: newProd,
-      error: insErr
-    } = await supabase.from('productos').insert({
-      nombre: branchOtrosForm.nombre,
-      categoria: 'otros',
-      tipo: branchOtrosForm.tipo
-    }).select('id').single();
-    if (insErr) throw insErr;
-    const newProductId = newProd.id;
-    const {
-      data: branches,
-      error: bErr
-    } = await supabase.from('sucursales').select('id');
-    if (bErr) throw bErr;
-    const stockInserts = (branches || []).map(b => ({
-      sucursal_id: b.id,
-      producto_id: newProductId,
-      cantidad: 0
-    }));
-    const {
-      error: sErr
-    } = await supabase.from('stock_sucursales').insert(stockInserts);
-    if (sErr) throw sErr;
-    showToast('Producto personalizado creado en Otros.');
-    setBranchOtrosForm({
-      nombre: '',
-      tipo: 'packaging'
-    });
-    await fetchData();
-  } catch (err) {
-    showToast(err.message, 'error');
-  } finally {
-    setLoading(false);
-  }
-};
-const getBadgeClass = state => {
-  return `badge badge-${state}`;
-};
-const translateState = state => {
-  const trans = {
-    solicitado: 'Solicitado',
-    preparado: 'Preparado',
-    en_transito: 'En viaje',
-    entregado: 'Entregado OK',
-    con_discrepancia: 'Diferencias'
-  };
-  return trans[state] || state;
-};
-const getMaintenanceOptionsForMachine = maquinaId => {
-  const maquina = maquinas.find(m => m.id === parseInt(maquinaId));
-  if (!maquina) return [{
-    value: 'otro',
-    label: 'Otro'
-  }];
-  switch (maquina.tipo_equipo) {
-    case 'maquina_helado':
-      return [{
-        value: 'limpieza_circuito',
-        label: 'Limpieza de circuito'
-      }, {
-        value: 'revision_tecnica',
-        label: 'Revisión técnica por mal funcionamiento'
-      }, {
-        value: 'otro',
-        label: 'Otro'
-      }];
-    case 'frio_abatidor_heladera_camara':
-      return [{
-        value: 'limpieza_motor',
-        label: 'Mantenimiento / Limpieza del motor'
-      }, {
-        value: 'revision_tecnica',
-        label: 'Revisión técnica por mal funcionamiento'
-      }, {
-        value: 'otro',
-        label: 'Otro'
-      }];
-    case 'aire_acondicionado':
-      return [{
-        value: 'limpieza_filtros',
-        label: 'Limpieza de filtros'
-      }, {
-        value: 'revision_tecnica',
-        label: 'Revisión técnica por mal funcionamiento'
-      }, {
-        value: 'otro',
-        label: 'Otro'
-      }];
-    case 'licuadora_horno_batidora_micro':
-      return [{
-        value: 'revision_tecnica',
-        label: 'Revisión técnica por mal funcionamiento'
-      }, {
-        value: 'otro',
-        label: 'Otro'
-      }];
-    default:
-      return [{
-        value: 'limpieza_circuito',
-        label: 'Limpieza de circuito'
-      }, {
-        value: 'limpieza_motor',
-        label: 'Mantenimiento / Limpieza del motor'
-      }, {
-        value: 'limpieza_filtros',
-        label: 'Limpieza de filtros'
-      }, {
-        value: 'revision_tecnica',
-        label: 'Revisión técnica por mal funcionamiento'
-      }, {
-        value: 'otro',
-        label: 'Otro'
-      }];
-  }
-};
-const getEquipoIcon = type => {
-  switch (type) {
-    case 'licuadora_horno_batidora_micro':
-      return '🌪️';
-    case 'maquina_helado':
-      return '🍦';
-    case 'frio_abatidor_heladera_camara':
-      return '❄️';
-    case 'aire_acondicionado':
-      return '💨';
-    default:
-      return '⚙️';
-  }
-};
-const getEquipoTypeLabel = type => {
-  const labels = {
-    licuadora_horno_batidora_micro: 'Licuadora / Horno / Batidora / Microondas',
-    maquina_helado: 'Máquina de Helado',
-    frio_abatidor_heladera_camara: 'Abatidor / Heladera / Cámara (Frío)',
-    aire_acondicionado: 'Aire Acondicionado',
-    otro: 'Otro Equipo'
-  };
-  return labels[type] || type;
-};
-const getMaintenanceTypeLabel = type => {
-  const labels = {
-    limpieza_circuito: 'Limpieza de circuito',
-    limpieza_motor: 'Mantenimiento / Limpieza del motor',
-    limpieza_filtros: 'Limpieza de filtros',
-    revision_tecnica: 'Revisión técnica por mal funcionamiento',
-    otro: 'Otro Mantenimiento'
-  };
-  return labels[type] || type;
-};
-const getMaintenanceAlerts = () => {
-  const todayStr = getLocalDateString();
-  const today = new Date(todayStr);
-  const alerts = [];
-  const latestScheduled = {};
-  mantenimientos.forEach(m => {
-    if (!m.proxima_fecha) return;
-    const key = `${m.maquina_id}-${m.tipo}`;
-    const current = latestScheduled[key];
-    if (!current || new Date(m.fecha) > new Date(current.fecha)) {
-      latestScheduled[key] = m;
-    }
-  });
-  Object.values(latestScheduled).forEach(m => {
-    const proxDate = new Date(m.proxima_fecha);
-    const diffTime = proxDate - today;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    const maquina = maquinas.find(maq => maq.id === m.maquina_id);
-    if (!maquina || maquina.estado === 'de_baja') return; 
-    if (diffDays < 0) {
-      alerts.push({
-        id: m.id,
-        maquina,
-        tipo_mantenimiento: m.tipo,
-        proxima_fecha: m.proxima_fecha,
-        dias: Math.abs(diffDays),
-        estado: 'vencido'
-      });
-    } else if (diffDays <= 30) {
-      alerts.push({
-        id: m.id,
-        maquina,
-        tipo_mantenimiento: m.tipo,
-        proxima_fecha: m.proxima_fecha,
-        dias: diffDays,
-        estado: 'proximo'
-      });
-    }
-  });
-  return alerts.sort((a, b) => new Date(a.proxima_fecha) - new Date(b.proxima_fecha));
-};
-const handleSaveMaquina = async e => {
-  e.preventDefault();
-  if (!maquinaForm.nombre || !maquinaForm.tipo_equipo || !maquinaForm.sucursal_id) {
-    showToast('Por favor, completa los campos requeridos.', 'error');
-    return;
-  }
-  setLoading(true);
-  try {
-    const dataToSave = {
-      nombre: maquinaForm.nombre,
-      tipo_equipo: maquinaForm.tipo_equipo,
-      sucursal_id: parseInt(maquinaForm.sucursal_id),
-      marca: maquinaForm.marca || null,
-      modelo: maquinaForm.modelo || null,
-      numero_serie: maquinaForm.numero_serie || null,
-      fecha_adquisicion: maquinaForm.fecha_adquisicion || null,
-      estado: maquinaForm.estado,
-      descripcion: maquinaForm.descripcion || null
-    };
-    if (editingMaquina) {
-      const {
-        error
-      } = await supabase.from('maquinas').update(dataToSave).eq('id', editingMaquina.id);
-      if (error) throw error;
-      showToast('Máquina actualizada con éxito.');
-    } else {
-      const {
-        error
-      } = await supabase.from('maquinas').insert(dataToSave);
-      if (error) throw error;
-      showToast('Máquina creada con éxito.');
-    }
-    setShowMaquinaModal(false);
-    setEditingMaquina(null);
-    setMaquinaForm({
-      nombre: '',
-      tipo_equipo: 'licuadora_horno_batidora_micro',
-      sucursal_id: '',
-      marca: '',
-      modelo: '',
-      numero_serie: '',
-      fecha_adquisicion: '',
-      estado: 'activo',
-      descripcion: ''
-    });
-    fetchMaquinasYMantenimientos();
-  } catch (err) {
-    showToast(err.message, 'error');
-  } finally {
-    setLoading(false);
-  }
-};
-const handleSaveStockAdmin = async (formDataOrEvent) => {
-  if (formDataOrEvent && formDataOrEvent.preventDefault) {
-    formDataOrEvent.preventDefault();
-  }
-  setLoading(true);
-  try {
-    const formData = (formDataOrEvent && formDataOrEvent.producto_id) ? formDataOrEvent : editStockForm;
-    const {
-      producto_id,
-      sucursal_id,
-      es_evento,
-      cantidad
-    } = formData;
-
-    const prod = productos.find(p => p.id === producto_id);
-    const isWeight = prod?.unidad_medida === 'peso' || prod?.categoria === 'helados' || prod?.categoria?.toLowerCase().includes('fruta') || prod?.categoria?.toLowerCase().includes('verdura') || prod?.nombre?.toLowerCase().includes('fruta') || prod?.nombre?.toLowerCase().includes('verdura');
-    const numCant = isWeight ? normalizeWeight(cantidad) : (parseInt(cantidad) || 0);
-
-    if (isNaN(numCant) || numCant < 0) throw new Error("La cantidad debe ser un número válido mayor o igual a cero.");
-    const {
-      data: existing,
-      error: eErr
-    } = await supabase.from('stock_sucursales').select('*').eq('producto_id', producto_id).eq('sucursal_id', sucursal_id).eq('es_evento', es_evento);
-    if (eErr) throw eErr;
-    if (existing && existing.length > 0) {
-      const oldCant = parseFloat(existing[0].cantidad) || 0;
-      const diff = Number((numCant - oldCant).toFixed(3));
       const {
         error: updErr
-      } = await supabase.from('stock_sucursales').update({
-        cantidad: numCant
-      }).eq('producto_id', producto_id).eq('sucursal_id', sucursal_id).eq('es_evento', es_evento);
+      } = await supabase.from('pedidos').update({
+        es_evento: targetEsEvento
+      }).eq('id', selectedPedido.id);
       if (updErr) throw updErr;
-
-      try {
-        await supabase.from('historial_movimientos').insert({
-          sucursal_id,
-          producto_id,
-          usuario_id: user?.auth_id || null,
-          tipo_movimiento: 'ajuste_manual',
-          cantidad: diff,
-          stock_resultante: numCant,
-          es_evento,
-          detalle: 'Ajuste manual de stock por Admin (Anterior: ' + oldCant + ')'
-        });
-      } catch (aErr) {
-        console.error('Error registrando auditoría:', aErr);
-      }
-    } else {
       const {
+        error: rpcErr
+      } = await supabase.rpc('preparar_pedido', {
+        p_pedido_id: selectedPedido.id,
+        p_preparado_por_id: user.id,
+        p_items: selectedPedido.items.map(it => ({
+          producto_id: it.producto_id,
+          cantidad_preparada: it.cantidad_solicitada
+        }))
+      });
+      if (rpcErr) {
+        await supabase.from('pedidos').update({
+          es_evento: originalIsEvent
+        }).eq('id', selectedPedido.id);
+        throw rpcErr;
+      }
+      if (originalIsEvent !== targetEsEvento) {
+        const {
+          error: restoreErr
+        } = await supabase.from('pedidos').update({
+          es_evento: originalIsEvent
+        }).eq('id', selectedPedido.id);
+        if (restoreErr) throw restoreErr;
+      }
+      showToast('Pedido preparado y stock de fábrica reservado.');
+      setSelectedPedido(null);
+      setPrepareStockSource('evento');
+      await Promise.all([refreshOrders(), refreshStock()]);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleConfirmLoad = async () => {
+    if (!selectedPedido) return;
+    const items = Object.entries(loadItems).map(([prodId, qty]) => ({
+      producto_id: parseInt(prodId),
+      cantidad_cargada: parseInt(qty)
+    }));
+    setLoading(true);
+    try {
+      const {
+        error: rpcErr
+      } = await supabase.rpc('confirmar_carga_pedido', {
+        p_pedido_id: selectedPedido.id,
+        p_transportista_id: user.id,
+        p_items: items
+      });
+      if (rpcErr) throw rpcErr;
+      showToast('Pedido cargado en camión. Estado cambiado a En Tránsito.');
+      setSelectedPedido(null);
+      await refreshOrders();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleReportLoss = async e => {
+    e.preventDefault();
+    if (!transitLoss.producto_id || !transitLoss.cantidad_perdida) return;
+    setLoading(true);
+    try {
+      const pId = parseInt(transitLoss.producto_id);
+      const qtyLost = parseInt(transitLoss.cantidad_perdida);
+      const motivo = transitLoss.motivo || 'Rotura en viaje';
+      const itemDetail = selectedPedido.items.find(it => it.producto_id === pId);
+      const currentCargado = itemDetail ? itemDetail.cantidad_cargada : 0;
+      const {
+        error: updDetErr
+      } = await supabase.from('pedido_detalles').update({
+        cantidad_cargada: Math.max(0, currentCargado - qtyLost)
+      }).eq('pedido_id', selectedPedido.id).eq('producto_id', pId);
+      if (updDetErr) throw updDetErr;
+      const {
+        error: discErr
+      } = await supabase.from('discrepancias').insert({
+        pedido_id: selectedPedido.id,
+        producto_id: pId,
+        tipo: 'transito',
+        cantidad_perdida: qtyLost,
+        motivo,
+        reportado_por_id: user.id,
+        es_evento: selectedPedido.es_evento || false
+      });
+      if (discErr) throw discErr;
+      showToast('Merma en tránsito registrada exitosamente.');
+      setShowLossModal(false);
+      setLoadItems(prev => ({
+        ...prev,
+        [pId]: Math.max(0, (prev[pId] || 0) - qtyLost)
+      }));
+      viewOrderDetail(selectedPedido.id);
+      setTransitLoss({
+        producto_id: '',
+        cantidad_perdida: '',
+        motivo: ''
+      });
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleMarkDelivered = async () => {
+    if (!selectedPedido) return;
+    setLoading(true);
+    try {
+      const {
+        error: updOrderErr
+      } = await supabase.from('pedidos').update({
+        fecha_entrega: new Date().toISOString()
+      }).eq('id', selectedPedido.id);
+      if (updOrderErr) throw updOrderErr;
+      showToast('Pedido marcado como entregado físicamente. Pendiente confirmación de sucursal.');
+      setSelectedPedido(null);
+      await refreshOrders();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleConfirmReceive = async () => {
+    if (!selectedPedido) return;
+    const items = Object.entries(receiveItems).map(([prodId, qty]) => ({
+      producto_id: parseInt(prodId),
+      cantidad_recibida: parseFloat(qty) || 0,
+      motivo_diferencia: receiveReasons[prodId] || ''
+    }));
+    setLoading(true);
+    try {
+      const {
+        error: rpcErr
+      } = await supabase.rpc('recibir_pedido', {
+        p_pedido_id: selectedPedido.id,
+        p_recibido_por_id: user.id,
+        p_items: items
+      });
+      if (rpcErr) throw rpcErr;
+
+      // Habilitar inventario para la sucursal de destino luego de recibir un pedido
+      await supabase.from('sucursales').update({ inventario_habilitado: true }).eq('id', selectedPedido.sucursal_destino_id);
+
+      const itemProdIds = items.map(it => it.producto_id);
+      const { data: relevantStocks } = await supabase
+        .from('stock_sucursales')
+        .select('sucursal_id, producto_id, cantidad')
+        .in('sucursal_id', [1, selectedPedido.sucursal_destino_id])
+        .eq('es_evento', selectedPedido.es_evento || false)
+        .in('producto_id', itemProdIds);
+
+      const destStockMap = {};
+      const factoryStockMap = {};
+      (relevantStocks || []).forEach(s => {
+        if (s.sucursal_id === selectedPedido.sucursal_destino_id) {
+          destStockMap[s.producto_id] = s.cantidad;
+        }
+        if (s.sucursal_id === 1) {
+          factoryStockMap[s.producto_id] = s.cantidad;
+        }
+      });
+
+      const auditInserts = [];
+      const factoryStockUpserts = [];
+      let hasDiscrepancies = false;
+      for (let item of items) {
+        const origDetail = selectedPedido.items.find(it => it.producto_id === item.producto_id);
+        const prod = productos.find(p => p.id === item.producto_id);
+        const isHelado = prod && prod.categoria === 'helados';
+
+        const loadedQty = selectedPedido.estado === 'solicitado' ? item.cantidad_recibida : origDetail ? origDetail.cantidad_cargada > 0 ? origDetail.cantidad_cargada : origDetail.cantidad_preparada : 0;
+
+        if (!isHelado && loadedQty - item.cantidad_recibida !== 0) {
+          hasDiscrepancies = true;
+        }
+
+        // Registrar auditoría de recepción en la sucursal de destino
+        if (item.cantidad_recibida > 0) {
+          const pId = prod?.id || item.producto_id;
+          auditInserts.push({
+            sucursal_id: selectedPedido.sucursal_destino_id,
+            producto_id: pId,
+            usuario_id: user?.auth_id || null,
+            tipo_movimiento: 'recepcion',
+            cantidad: item.cantidad_recibida,
+            stock_resultante: destStockMap[pId] !== undefined ? destStockMap[pId] : item.cantidad_recibida,
+            es_evento: selectedPedido.es_evento || false,
+            detalle: `Recepción de Pedido #${selectedPedido.id}`
+          });
+        }
+
+        // Restar kilos reales de helado del stock de la fábrica
+        if (isHelado) {
+          const kilosARestar = item.cantidad_recibida;
+          if (kilosARestar > 0 && factoryStockMap[prod.id] !== undefined) {
+            const nuevoStockFabrica = Number(factoryStockMap[prod.id]) - Number(kilosARestar);
+            factoryStockMap[prod.id] = nuevoStockFabrica;
+            factoryStockUpserts.push({
+              sucursal_id: 1,
+              producto_id: prod.id,
+              cantidad: nuevoStockFabrica,
+              es_evento: selectedPedido.es_evento || false
+            });
+            auditInserts.push({
+              sucursal_id: 1,
+              producto_id: prod.id,
+              usuario_id: user?.auth_id || null,
+              tipo_movimiento: 'envio_sucursal',
+              cantidad: -kilosARestar,
+              stock_resultante: nuevoStockFabrica,
+              es_evento: selectedPedido.es_evento || false,
+              detalle: `Envío a sucursal por Pedido #${selectedPedido.id}`
+            });
+          }
+        }
+      }
+      if (factoryStockUpserts.length > 0) {
+        await supabase.from('stock_sucursales').upsert(factoryStockUpserts, { onConflict: 'sucursal_id,producto_id,es_evento' });
+      }
+      if (auditInserts.length > 0) {
+        await supabase.from('historial_movimientos').insert(auditInserts);
+      }
+      const finalEstado = hasDiscrepancies ? 'con_discrepancia' : 'entregado';
+      showToast(`Pedido recibido. Estado final: ${finalEstado === 'entregado' ? 'Entregado OK' : 'Entregado con Discrepancias'}.`);
+      setSelectedPedido(null);
+      await Promise.all([refreshOrders(), refreshStock()]);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleCreateSupplier = async () => {
+    if (!newSupplierName.trim()) return;
+    setLoading(true);
+    try {
+      const {
+        data: newProv,
         error: insErr
-      } = await supabase.from('stock_sucursales').insert({
+      } = await supabase.from('proveedores').insert({
+        nombre: newSupplierName.trim()
+      }).select('*').single();
+      if (insErr) throw insErr;
+      showToast(`Proveedor "${newProv.nombre}" creado con éxito.`);
+      setNewSupplierName('');
+      setShowSupplierForm(false);
+      setProveedores(prev => [...prev, newProv].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+      setNewProductForm(prev => ({
+        ...prev,
+        proveedor_id: newProv.id
+      }));
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleNewProductSubmit = async e => {
+    e.preventDefault();
+    if (!newProductForm.nombre) return;
+    setLoading(true);
+    try {
+      const {
+        data: newProd,
+        error: insErr
+      } = await supabase.from('productos').insert({
+        nombre: newProductForm.nombre,
+        categoria: newProductForm.categoria,
+        tipo: newProductForm.tipo,
+        clasificacion_sabor: newProductForm.clasificacion_sabor || null,
+        proveedor_id: newProductForm.proveedor_id ? parseInt(newProductForm.proveedor_id) : null,
+        unidad_medida: newProductForm.unidad_medida,
+        cant_por_caja: newProductForm.cant_por_caja ? parseInt(newProductForm.cant_por_caja) : 24,
+        cant_por_pack: newProductForm.cant_por_pack ? parseInt(newProductForm.cant_por_pack) : null
+      }).select('id').single();
+      if (insErr) throw insErr;
+      const newProductId = newProd.id;
+      const {
+        data: branches,
+        error: bErr
+      } = await supabase.from('sucursales').select('id');
+      if (bErr) throw bErr;
+      const stockInserts = (branches || []).map(b => ({
+        sucursal_id: b.id,
+        producto_id: newProductId,
+        cantidad: 0
+      }));
+      const {
+        error: sErr
+      } = await supabase.from('stock_sucursales').insert(stockInserts);
+      if (sErr) throw sErr;
+      showToast('Producto creado exitosamente.');
+      setNewProductForm({
+        nombre: '',
+        categoria: 'helados',
+        tipo: 'vasqueta_5_6k',
+        clasificacion_sabor: '',
+        proveedor_id: '',
+        unidad_medida: 'unidad',
+        cant_por_caja: 24,
+        cant_por_pack: ''
+      });
+      setShowProductModal(false);
+      fetchData();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleUpdateProduct = async () => {
+    if (!newProductForm.nombre || !editingProduct) return;
+    setLoading(true);
+    try {
+      const {
+        error: updErr
+      } = await supabase.from('productos').update({
+        nombre: newProductForm.nombre,
+        categoria: newProductForm.categoria,
+        tipo: newProductForm.tipo,
+        clasificacion_sabor: newProductForm.clasificacion_sabor || null,
+        proveedor_id: newProductForm.proveedor_id ? parseInt(newProductForm.proveedor_id) : null,
+        unidad_medida: newProductForm.unidad_medida,
+        cant_por_caja: newProductForm.cant_por_caja ? parseInt(newProductForm.cant_por_caja) : 24,
+        cant_por_pack: newProductForm.cant_por_pack ? parseInt(newProductForm.cant_por_pack) : null
+      }).eq('id', editingProduct.id);
+      if (updErr) throw updErr;
+      showToast('Producto actualizado exitosamente.');
+      setNewProductForm({
+        nombre: '',
+        categoria: 'helados',
+        tipo: 'vasqueta_5_6k',
+        clasificacion_sabor: '',
+        proveedor_id: '',
+        unidad_medida: 'unidad',
+        cant_por_caja: 24,
+        cant_por_pack: ''
+      });
+      setEditingProduct(null);
+      setShowProductModal(false);
+      fetchData();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleProductFormSubmit = e => {
+    e.preventDefault();
+    if (editingProduct) {
+      handleUpdateProduct();
+    } else {
+      handleNewProductSubmit(e);
+    }
+  };
+  const startEditingProduct = p => {
+    setEditingProduct(p);
+    let resolvedTipo = p.tipo;
+    const tiposCat = getTiposPorCategoria(p.categoria, allProducts);
+    if (p.categoria !== 'sembrados') {
+      if (!tiposCat.find(t => t.value === p.tipo)) {
+        resolvedTipo = '';
+      }
+    }
+
+    setNewProductForm({
+      nombre: p.nombre,
+      categoria: p.categoria,
+      tipo: resolvedTipo,
+      clasificacion_sabor: p.clasificacion_sabor || '',
+      proveedor_id: p.proveedor_id ? String(p.proveedor_id) : '',
+      unidad_medida: p.unidad_medida || 'unidad',
+      cant_por_caja: p.cant_por_caja !== undefined && p.cant_por_caja !== null ? p.cant_por_caja : 24,
+      cant_por_pack: p.cant_por_pack !== undefined && p.cant_por_pack !== null ? String(p.cant_por_pack) : ''
+    });
+    setShowProductModal(true);
+  };
+  const cancelEditingProduct = () => {
+    setEditingProduct(null);
+    setNewProductForm({
+      nombre: '',
+      categoria: 'helados',
+      tipo: 'vasqueta_5_6k',
+      clasificacion_sabor: '',
+      proveedor_id: '',
+      unidad_medida: 'unidad',
+      cant_por_caja: 24,
+      cant_por_pack: ''
+    });
+    setShowProductModal(false);
+  };
+  const handleToggleProductActive = async (prodId, currentActive) => {
+    setLoading(true);
+    try {
+      const nextActive = currentActive === 1 ? 0 : 1;
+      const {
+        error: updErr
+      } = await supabase.from('productos').update({
+        activo: nextActive
+      }).eq('id', prodId);
+      if (updErr) throw updErr;
+      showToast(nextActive === 1 ? 'Producto reactivado.' : 'Producto desactivado / eliminado.');
+      if (editingProduct && editingProduct.id === prodId) {
+        cancelEditingProduct();
+      }
+      fetchData();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleBranchCreateOtrosProduct = async e => {
+    e.preventDefault();
+    if (!branchOtrosForm.nombre) return;
+    setLoading(true);
+    try {
+      const {
+        data: newProd,
+        error: insErr
+      } = await supabase.from('productos').insert({
+        nombre: branchOtrosForm.nombre,
+        categoria: 'otros',
+        tipo: branchOtrosForm.tipo
+      }).select('id').single();
+      if (insErr) throw insErr;
+      const newProductId = newProd.id;
+      const {
+        data: branches,
+        error: bErr
+      } = await supabase.from('sucursales').select('id');
+      if (bErr) throw bErr;
+      const stockInserts = (branches || []).map(b => ({
+        sucursal_id: b.id,
+        producto_id: newProductId,
+        cantidad: 0
+      }));
+      const {
+        error: sErr
+      } = await supabase.from('stock_sucursales').insert(stockInserts);
+      if (sErr) throw sErr;
+      showToast('Producto personalizado creado en Otros.');
+      setBranchOtrosForm({
+        nombre: '',
+        tipo: 'packaging'
+      });
+      await fetchData();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+  const getBadgeClass = state => {
+    return `badge badge-${state}`;
+  };
+  const translateState = state => {
+    const trans = {
+      solicitado: 'Solicitado',
+      preparado: 'Preparado',
+      en_transito: 'En viaje',
+      entregado: 'Entregado OK',
+      con_discrepancia: 'Diferencias'
+    };
+    return trans[state] || state;
+  };
+  const getMaintenanceOptionsForMachine = maquinaId => {
+    const maquina = maquinas.find(m => m.id === parseInt(maquinaId));
+    if (!maquina) return [{
+      value: 'otro',
+      label: 'Otro'
+    }];
+    switch (maquina.tipo_equipo) {
+      case 'maquina_helado':
+        return [{
+          value: 'limpieza_circuito',
+          label: 'Limpieza de circuito'
+        }, {
+          value: 'revision_tecnica',
+          label: 'Revisión técnica por mal funcionamiento'
+        }, {
+          value: 'otro',
+          label: 'Otro'
+        }];
+      case 'frio_abatidor_heladera_camara':
+        return [{
+          value: 'limpieza_motor',
+          label: 'Mantenimiento / Limpieza del motor'
+        }, {
+          value: 'revision_tecnica',
+          label: 'Revisión técnica por mal funcionamiento'
+        }, {
+          value: 'otro',
+          label: 'Otro'
+        }];
+      case 'aire_acondicionado':
+        return [{
+          value: 'limpieza_filtros',
+          label: 'Limpieza de filtros'
+        }, {
+          value: 'revision_tecnica',
+          label: 'Revisión técnica por mal funcionamiento'
+        }, {
+          value: 'otro',
+          label: 'Otro'
+        }];
+      case 'licuadora_horno_batidora_micro':
+        return [{
+          value: 'revision_tecnica',
+          label: 'Revisión técnica por mal funcionamiento'
+        }, {
+          value: 'otro',
+          label: 'Otro'
+        }];
+      default:
+        return [{
+          value: 'limpieza_circuito',
+          label: 'Limpieza de circuito'
+        }, {
+          value: 'limpieza_motor',
+          label: 'Mantenimiento / Limpieza del motor'
+        }, {
+          value: 'limpieza_filtros',
+          label: 'Limpieza de filtros'
+        }, {
+          value: 'revision_tecnica',
+          label: 'Revisión técnica por mal funcionamiento'
+        }, {
+          value: 'otro',
+          label: 'Otro'
+        }];
+    }
+  };
+  const getEquipoIcon = type => {
+    switch (type) {
+      case 'licuadora_horno_batidora_micro':
+        return '🌪️';
+      case 'maquina_helado':
+        return '🍦';
+      case 'frio_abatidor_heladera_camara':
+        return '❄️';
+      case 'aire_acondicionado':
+        return '💨';
+      default:
+        return '⚙️';
+    }
+  };
+  const getEquipoTypeLabel = type => {
+    const labels = {
+      licuadora_horno_batidora_micro: 'Licuadora / Horno / Batidora / Microondas',
+      maquina_helado: 'Máquina de Helado',
+      frio_abatidor_heladera_camara: 'Abatidor / Heladera / Cámara (Frío)',
+      aire_acondicionado: 'Aire Acondicionado',
+      otro: 'Otro Equipo'
+    };
+    return labels[type] || type;
+  };
+  const getMaintenanceTypeLabel = type => {
+    const labels = {
+      limpieza_circuito: 'Limpieza de circuito',
+      limpieza_motor: 'Mantenimiento / Limpieza del motor',
+      limpieza_filtros: 'Limpieza de filtros',
+      revision_tecnica: 'Revisión técnica por mal funcionamiento',
+      otro: 'Otro Mantenimiento'
+    };
+    return labels[type] || type;
+  };
+  const getMaintenanceAlerts = () => {
+    const todayStr = getLocalDateString();
+    const today = new Date(todayStr);
+    const alerts = [];
+    const latestScheduled = {};
+    mantenimientos.forEach(m => {
+      if (!m.proxima_fecha) return;
+      const key = `${m.maquina_id}-${m.tipo}`;
+      const current = latestScheduled[key];
+      if (!current || new Date(m.fecha) > new Date(current.fecha)) {
+        latestScheduled[key] = m;
+      }
+    });
+    Object.values(latestScheduled).forEach(m => {
+      const proxDate = new Date(m.proxima_fecha);
+      const diffTime = proxDate - today;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const maquina = maquinas.find(maq => maq.id === m.maquina_id);
+      if (!maquina || maquina.estado === 'de_baja') return;
+      if (diffDays < 0) {
+        alerts.push({
+          id: m.id,
+          maquina,
+          tipo_mantenimiento: m.tipo,
+          proxima_fecha: m.proxima_fecha,
+          dias: Math.abs(diffDays),
+          estado: 'vencido'
+        });
+      } else if (diffDays <= 30) {
+        alerts.push({
+          id: m.id,
+          maquina,
+          tipo_mantenimiento: m.tipo,
+          proxima_fecha: m.proxima_fecha,
+          dias: diffDays,
+          estado: 'proximo'
+        });
+      }
+    });
+    return alerts.sort((a, b) => new Date(a.proxima_fecha) - new Date(b.proxima_fecha));
+  };
+  const handleSaveMaquina = async e => {
+    e.preventDefault();
+    if (!maquinaForm.nombre || !maquinaForm.tipo_equipo || !maquinaForm.sucursal_id) {
+      showToast('Por favor, completa los campos requeridos.', 'error');
+      return;
+    }
+    setLoading(true);
+    try {
+      const dataToSave = {
+        nombre: maquinaForm.nombre,
+        tipo_equipo: maquinaForm.tipo_equipo,
+        sucursal_id: parseInt(maquinaForm.sucursal_id),
+        marca: maquinaForm.marca || null,
+        modelo: maquinaForm.modelo || null,
+        numero_serie: maquinaForm.numero_serie || null,
+        fecha_adquisicion: maquinaForm.fecha_adquisicion || null,
+        estado: maquinaForm.estado,
+        descripcion: maquinaForm.descripcion || null
+      };
+      if (editingMaquina) {
+        const {
+          error
+        } = await supabase.from('maquinas').update(dataToSave).eq('id', editingMaquina.id);
+        if (error) throw error;
+        showToast('Máquina actualizada con éxito.');
+      } else {
+        const {
+          error
+        } = await supabase.from('maquinas').insert(dataToSave);
+        if (error) throw error;
+        showToast('Máquina creada con éxito.');
+      }
+      setShowMaquinaModal(false);
+      setEditingMaquina(null);
+      setMaquinaForm({
+        nombre: '',
+        tipo_equipo: 'licuadora_horno_batidora_micro',
+        sucursal_id: '',
+        marca: '',
+        modelo: '',
+        numero_serie: '',
+        fecha_adquisicion: '',
+        estado: 'activo',
+        descripcion: ''
+      });
+      fetchMaquinasYMantenimientos();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleSaveStockAdmin = async (formDataOrEvent) => {
+    if (formDataOrEvent && formDataOrEvent.preventDefault) {
+      formDataOrEvent.preventDefault();
+    }
+    setLoading(true);
+    try {
+      const formData = (formDataOrEvent && formDataOrEvent.producto_id) ? formDataOrEvent : editStockForm;
+      const {
         producto_id,
         sucursal_id,
         es_evento,
-        cantidad: numCant
-      });
-      if (insErr) throw insErr;
+        cantidad
+      } = formData;
 
-      try {
-        await supabase.from('historial_movimientos').insert({
-          sucursal_id,
+      const prod = productos.find(p => p.id === producto_id);
+      const isWeight = prod?.unidad_medida === 'peso' || prod?.categoria === 'helados' || prod?.categoria?.toLowerCase().includes('fruta') || prod?.categoria?.toLowerCase().includes('verdura') || prod?.nombre?.toLowerCase().includes('fruta') || prod?.nombre?.toLowerCase().includes('verdura');
+      const numCant = isWeight ? normalizeWeight(cantidad) : (parseInt(cantidad) || 0);
+
+      if (isNaN(numCant) || numCant < 0) throw new Error("La cantidad debe ser un número válido mayor o igual a cero.");
+      const {
+        data: existing,
+        error: eErr
+      } = await supabase.from('stock_sucursales').select('*').eq('producto_id', producto_id).eq('sucursal_id', sucursal_id).eq('es_evento', es_evento);
+      if (eErr) throw eErr;
+      if (existing && existing.length > 0) {
+        const oldCant = parseFloat(existing[0].cantidad) || 0;
+        const diff = Number((numCant - oldCant).toFixed(3));
+        const {
+          error: updErr
+        } = await supabase.from('stock_sucursales').update({
+          cantidad: numCant
+        }).eq('producto_id', producto_id).eq('sucursal_id', sucursal_id).eq('es_evento', es_evento);
+        if (updErr) throw updErr;
+
+        try {
+          await supabase.from('historial_movimientos').insert({
+            sucursal_id,
+            producto_id,
+            usuario_id: user?.auth_id || null,
+            tipo_movimiento: 'ajuste_manual',
+            cantidad: diff,
+            stock_resultante: numCant,
+            es_evento,
+            detalle: 'Ajuste manual de stock por Admin (Anterior: ' + oldCant + ')'
+          });
+        } catch (aErr) {
+          console.error('Error registrando auditoría:', aErr);
+        }
+      } else {
+        const {
+          error: insErr
+        } = await supabase.from('stock_sucursales').insert({
           producto_id,
-          usuario_id: user?.auth_id || null,
-          tipo_movimiento: 'ajuste_manual',
-          cantidad: numCant,
-          stock_resultante: numCant,
+          sucursal_id,
           es_evento,
-          detalle: 'Inicialización de stock por Admin'
+          cantidad: numCant
         });
-      } catch (aErr) {
-        console.error('Error registrando auditoría:', aErr);
+        if (insErr) throw insErr;
+
+        try {
+          await supabase.from('historial_movimientos').insert({
+            sucursal_id,
+            producto_id,
+            usuario_id: user?.auth_id || null,
+            tipo_movimiento: 'ajuste_manual',
+            cantidad: numCant,
+            stock_resultante: numCant,
+            es_evento,
+            detalle: 'Inicialización de stock por Admin'
+          });
+        } catch (aErr) {
+          console.error('Error registrando auditoría:', aErr);
+        }
       }
+      showToast("Stock actualizado correctamente.", "success");
+      setShowEditStockModal(false);
+      await refreshStock();
+    } catch (err) {
+      console.error(err);
+      showToast(err.message || "Error al actualizar stock", "error");
+    } finally {
+      setLoading(false);
     }
-    showToast("Stock actualizado correctamente.", "success");
-    setShowEditStockModal(false);
-    await refreshStock();
-  } catch (err) {
-    console.error(err);
-    showToast(err.message || "Error al actualizar stock", "error");
-  } finally {
-    setLoading(false);
-  }
-};
-const handleEditMaquina = maq => {
-  setEditingMaquina(maq);
-  setMaquinaForm({
-    nombre: maq.nombre || '',
-    tipo_equipo: maq.tipo_equipo || 'licuadora_horno_batidora_micro',
-    sucursal_id: maq.sucursal_id || '',
-    marca: maq.marca || '',
-    modelo: maq.modelo || '',
-    numero_serie: maq.numero_serie || '',
-    fecha_adquisicion: maq.fecha_adquisicion || '',
-    estado: maq.estado || 'activo',
-    descripcion: maq.descripcion || ''
-  });
-  setShowMaquinaModal(true);
-};
-const handleDeleteMaquina = async id => {
-  if (!window.confirm('¿Estás seguro de que deseas eliminar esta máquina? Se borrará también todo su historial de mantenimiento.')) return;
-  setLoading(true);
-  try {
-    const {
-      error
-    } = await supabase.from('maquinas').delete().eq('id', id);
-    if (error) throw error;
-    showToast('Máquina eliminada con éxito.');
-    fetchMaquinasYMantenimientos();
-  } catch (err) {
-    showToast(err.message, 'error');
-  } finally {
-    setLoading(false);
-  }
-};
-const handleSaveMaintenance = async e => {
-  e.preventDefault();
-  if (!maintenanceForm.maquina_id || !maintenanceForm.fecha || !maintenanceForm.descripcion) {
-    showToast('Por favor, completa los campos requeridos.', 'error');
-    return;
-  }
-  setLoading(true);
-  try {
-    const dataToSave = {
-      maquina_id: parseInt(maintenanceForm.maquina_id),
-      fecha: maintenanceForm.fecha,
-      tipo: maintenanceForm.tipo,
-      descripcion: maintenanceForm.descripcion,
-      cambio_repuesto: maintenanceForm.cambio_repuesto,
-      repuesto_detalle: maintenanceForm.cambio_repuesto ? maintenanceForm.repuesto_detalle : null,
-      costo: maintenanceForm.costo ? parseFloat(maintenanceForm.costo) : 0,
-      realizado_por: maintenanceForm.realizado_por || null,
-      proxima_fecha: maintenanceForm.proxima_fecha || null
-    };
-    if (editingMaintenance) {
-      const {
-        error
-      } = await supabase.from('mantenimientos').update(dataToSave).eq('id', editingMaintenance.id);
-      if (error) throw error;
-      showToast('Registro de mantenimiento actualizado.');
-    } else {
-      const {
-        error
-      } = await supabase.from('mantenimientos').insert(dataToSave);
-      if (error) throw error;
-      showToast('Registro de mantenimiento creado.');
-    }
-    setShowMaintenanceModal(false);
-    setEditingMaintenance(null);
-    setMaintenanceForm({
-      maquina_id: '',
-      fecha: getLocalDateString(),
-      tipo: 'revision_tecnica',
-      descripcion: '',
-      cambio_repuesto: false,
-      repuesto_detalle: '',
-      costo: '',
-      realizado_por: '',
-      proxima_fecha: ''
+  };
+  const handleEditMaquina = maq => {
+    setEditingMaquina(maq);
+    setMaquinaForm({
+      nombre: maq.nombre || '',
+      tipo_equipo: maq.tipo_equipo || 'licuadora_horno_batidora_micro',
+      sucursal_id: maq.sucursal_id || '',
+      marca: maq.marca || '',
+      modelo: maq.modelo || '',
+      numero_serie: maq.numero_serie || '',
+      fecha_adquisicion: maq.fecha_adquisicion || '',
+      estado: maq.estado || 'activo',
+      descripcion: maq.descripcion || ''
     });
-    fetchMaquinasYMantenimientos();
-  } catch (err) {
-    showToast(err.message, 'error');
-  } finally {
-    setLoading(false);
-  }
-};
-const handleEditMaintenance = mant => {
-  setEditingMaintenance(mant);
-  setMaintenanceForm({
-    maquina_id: mant.maquina_id || '',
-    fecha: mant.fecha || getLocalDateString(),
-    tipo: mant.tipo || 'revision_tecnica',
-    descripcion: mant.descripcion || '',
-    cambio_repuesto: mant.cambio_repuesto || false,
-    repuesto_detalle: mant.repuesto_detalle || '',
-    costo: mant.costo || '',
-    realizado_por: mant.realizado_por || '',
-    proxima_fecha: mant.proxima_fecha || ''
-  });
-  setShowMaintenanceModal(true);
-};
-const handleDeleteMaintenance = async id => {
-  if (!window.confirm('¿Estás seguro de que deseas eliminar este registro de mantenimiento?')) return;
-  setLoading(true);
-  try {
-    const {
-      error
-    } = await supabase.from('mantenimientos').delete().eq('id', id);
-    if (error) throw error;
-    showToast('Registro de mantenimiento eliminado.');
-    fetchMaquinasYMantenimientos();
-  } catch (err) {
-    showToast(err.message, 'error');
-  } finally {
-    setLoading(false);
-  }
-};
-const handleClearTestData = async () => {
-  setLoading(true);
-  try {
-    const tables = [
-      'pedido_detalles', 'discrepancias', 'pedidos',
-      'orden_produccion_detalles', 'ordenes_produccion',
-      'lote_pesos', 'lotes_produccion', 'items_pendientes',
-      'consumo_diario', 'mantenimientos', 'stock_sucursales'
-    ];
-    for (const table of tables) {
-      const { error } = await supabase.from(table).delete().gt('id', 0);
+    setShowMaquinaModal(true);
+  };
+  const handleDeleteMaquina = async id => {
+    if (!window.confirm('¿Estás seguro de que deseas eliminar esta máquina? Se borrará también todo su historial de mantenimiento.')) return;
+    setLoading(true);
+    try {
+      const {
+        error
+      } = await supabase.from('maquinas').delete().eq('id', id);
       if (error) throw error;
+      showToast('Máquina eliminada con éxito.');
+      fetchMaquinasYMantenimientos();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
     }
-    showToast("Datos de prueba limpiados correctamente", "success");
-  } catch (err) {
-    showToast("Error limpiando datos: " + err.message, "error");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
+  const handleSaveMaintenance = async e => {
+    e.preventDefault();
+    if (!maintenanceForm.maquina_id || !maintenanceForm.fecha || !maintenanceForm.descripcion) {
+      showToast('Por favor, completa los campos requeridos.', 'error');
+      return;
+    }
+    setLoading(true);
+    try {
+      const dataToSave = {
+        maquina_id: parseInt(maintenanceForm.maquina_id),
+        fecha: maintenanceForm.fecha,
+        tipo: maintenanceForm.tipo,
+        descripcion: maintenanceForm.descripcion,
+        cambio_repuesto: maintenanceForm.cambio_repuesto,
+        repuesto_detalle: maintenanceForm.cambio_repuesto ? maintenanceForm.repuesto_detalle : null,
+        costo: maintenanceForm.costo ? parseFloat(maintenanceForm.costo) : 0,
+        realizado_por: maintenanceForm.realizado_por || null,
+        proxima_fecha: maintenanceForm.proxima_fecha || null
+      };
+      if (editingMaintenance) {
+        const {
+          error
+        } = await supabase.from('mantenimientos').update(dataToSave).eq('id', editingMaintenance.id);
+        if (error) throw error;
+        showToast('Registro de mantenimiento actualizado.');
+      } else {
+        const {
+          error
+        } = await supabase.from('mantenimientos').insert(dataToSave);
+        if (error) throw error;
+        showToast('Registro de mantenimiento creado.');
+      }
+      setShowMaintenanceModal(false);
+      setEditingMaintenance(null);
+      setMaintenanceForm({
+        maquina_id: '',
+        fecha: getLocalDateString(),
+        tipo: 'revision_tecnica',
+        descripcion: '',
+        cambio_repuesto: false,
+        repuesto_detalle: '',
+        costo: '',
+        realizado_por: '',
+        proxima_fecha: ''
+      });
+      fetchMaquinasYMantenimientos();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleEditMaintenance = mant => {
+    setEditingMaintenance(mant);
+    setMaintenanceForm({
+      maquina_id: mant.maquina_id || '',
+      fecha: mant.fecha || getLocalDateString(),
+      tipo: mant.tipo || 'revision_tecnica',
+      descripcion: mant.descripcion || '',
+      cambio_repuesto: mant.cambio_repuesto || false,
+      repuesto_detalle: mant.repuesto_detalle || '',
+      costo: mant.costo || '',
+      realizado_por: mant.realizado_por || '',
+      proxima_fecha: mant.proxima_fecha || ''
+    });
+    setShowMaintenanceModal(true);
+  };
+  const handleDeleteMaintenance = async id => {
+    if (!window.confirm('¿Estás seguro de que deseas eliminar este registro de mantenimiento?')) return;
+    setLoading(true);
+    try {
+      const {
+        error
+      } = await supabase.from('mantenimientos').delete().eq('id', id);
+      if (error) throw error;
+      showToast('Registro de mantenimiento eliminado.');
+      fetchMaquinasYMantenimientos();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleClearTestData = async () => {
+    setLoading(true);
+    try {
+      const tables = [
+        'pedido_detalles', 'discrepancias', 'pedidos',
+        'orden_produccion_detalles', 'ordenes_produccion',
+        'lote_pesos', 'lotes_produccion', 'items_pendientes',
+        'consumo_diario', 'mantenimientos', 'stock_sucursales'
+      ];
+      for (const table of tables) {
+        const { error } = await supabase.from(table).delete().gt('id', 0);
+        if (error) throw error;
+      }
+      showToast("Datos de prueba limpiados correctamente", "success");
+    } catch (err) {
+      showToast("Error limpiando datos: " + err.message, "error");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-const toggleInventoryLock = async (sucursal_id, habilitar) => {
-  setLoading(true);
-  try {
-    const { error } = await supabase.from('sucursales').update({ inventario_habilitado: habilitar }).eq('id', sucursal_id);
-    if (error) throw error;
-    showToast(`Inventario ${habilitar ? 'habilitado' : 'bloqueado'} para la sucursal.`, "success");
-    fetchData();
-  } catch (err) {
-    showToast("Error al cambiar estado de inventario: " + err.message, "error");
-  } finally {
-    setLoading(false);
-  }
-};
+  const toggleInventoryLock = async (sucursal_id, habilitar) => {
+    setLoading(true);
+    try {
+      const { error } = await supabase.from('sucursales').update({ inventario_habilitado: habilitar }).eq('id', sucursal_id);
+      if (error) throw error;
+      showToast(`Inventario ${habilitar ? 'habilitado' : 'bloqueado'} para la sucursal.`, "success");
+      fetchData();
+    } catch (err) {
+      showToast("Error al cambiar estado de inventario: " + err.message, "error");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-const handleSaveInventory = async (inventoryItems) => {
-  setLoading(true);
-  try {
-    const payload = inventoryItems.map(item => ({
-      sucursal_id: item.sucursal_id || user.sucursal_id,
-      producto_id: item.producto_id,
-      cantidad: typeof item.cantidad === 'number' ? Number(item.cantidad.toFixed(3)) : (parseFloat(item.cantidad) || 0),
-      es_evento: false
-    }));
-    
-    const { error: upsertErr } = await supabase.from('stock_sucursales').upsert(payload, { onConflict: 'sucursal_id,producto_id,es_evento' });
-    if (upsertErr) throw upsertErr;
+  const handleSaveInventory = async (inventoryItems) => {
+    setLoading(true);
+    try {
+      const payload = inventoryItems.map(item => ({
+        sucursal_id: item.sucursal_id || user.sucursal_id,
+        producto_id: item.producto_id,
+        cantidad: typeof item.cantidad === 'number' ? Number(item.cantidad.toFixed(3)) : (parseFloat(item.cantidad) || 0),
+        es_evento: false
+      }));
 
-    const auditPayload = payload.map(item => ({
-      sucursal_id: item.sucursal_id,
-      producto_id: item.producto_id,
-      usuario_id: user?.auth_id || null,
-      tipo_movimiento: 'ajuste_inventario',
-      cantidad: item.cantidad,
-      stock_resultante: item.cantidad,
-      es_evento: false,
-      detalle: 'Carga de inventario general de sucursal'
-    }));
+      const { error: upsertErr } = await supabase.from('stock_sucursales').upsert(payload, { onConflict: 'sucursal_id,producto_id,es_evento' });
+      if (upsertErr) throw upsertErr;
 
-    if (auditPayload.length > 0) {
-      const { error: auditErr } = await supabase.from('historial_movimientos').insert(auditPayload);
-      if (auditErr) {
-        console.error('Error registrando auditoría inventario:', auditErr);
-        showToast('Stock guardado, pero hubo un error al registrar en auditoría.', 'error');
+      const auditPayload = payload.map(item => ({
+        sucursal_id: item.sucursal_id,
+        producto_id: item.producto_id,
+        usuario_id: user?.auth_id || null,
+        tipo_movimiento: 'ajuste_inventario',
+        cantidad: item.cantidad,
+        stock_resultante: item.cantidad,
+        es_evento: false,
+        detalle: 'Carga de inventario general de sucursal'
+      }));
+
+      if (auditPayload.length > 0) {
+        const { error: auditErr } = await supabase.from('historial_movimientos').insert(auditPayload);
+        if (auditErr) {
+          console.error('Error registrando auditoría inventario:', auditErr);
+          showToast('Stock guardado, pero hubo un error al registrar en auditoría.', 'error');
+        } else {
+          showToast("Inventario guardado correctamente.", "success");
+        }
       } else {
         showToast("Inventario guardado correctamente.", "success");
       }
-    } else {
-      showToast("Inventario guardado correctamente.", "success");
+      await refreshStock();
+    } catch (err) {
+      showToast("Error al guardar inventario: " + err.message, "error");
+    } finally {
+      setLoading(false);
     }
-    await refreshStock();
-  } catch (err) {
-    showToast("Error al guardar inventario: " + err.message, "error");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const contextValue = {
     categories: React.useMemo(() => {
@@ -3313,6 +3330,7 @@ const handleSaveInventory = async (inventoryItems) => {
     normalizeWeight,
     user,
     setUser,
+    authLoading,
     usernameInput,
     setUsernameInput,
     passwordInput,
