@@ -58,3 +58,4 @@ export const useAutoUpdate = (showToast) => {
     };
   }, [showToast]);
 };
+

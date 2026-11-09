@@ -3,9 +3,10 @@ import { useData } from '../../context/DataContext';
 import { supabase } from '../../supabaseClient';
 import UnitCalculatorInput from '../../components/common/UnitCalculatorInput';
 import { formatQuantityShort } from '../../utils/formatters';
+import { validatePositiveId, validateNumber } from '../../utils/validators';
 
 const BranchInventoryCheckView = () => {
-  const { stockData, productos, categories, user, showToast, refreshStock } = useData();
+  const { stockData, productos, categories, user, showToast, refreshStock, enforceRateLimit } = useData();
   const [adjustedStock, setAdjustedStock] = useState({});
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -17,22 +18,30 @@ const BranchInventoryCheckView = () => {
   const handleSubmit = async () => {
     setLoading(true);
     try {
+      if (enforceRateLimit) await enforceRateLimit('forms');
       const stockUpserts = [];
       const auditInserts = [];
 
       for (const [prodIdStr, realQty] of Object.entries(adjustedStock)) {
         if (realQty === '' || realQty === undefined || realQty === null) continue;
-        const pId = parseInt(prodIdStr);
+        const pId = validatePositiveId(prodIdStr, 'Producto');
+        const prod = productos.find(p => p.id === pId);
+        const isWeight = prod?.unidad_medida === 'peso' || prod?.categoria === 'helados';
+        const validRealQty = validateNumber(realQty, `Stock de ${prod?.nombre || 'producto'}`, {
+          min: 0,
+          max: 100000,
+          allowDecimals: isWeight
+        });
         const currentStockItem = myStock.find(s => s.producto_id === pId);
         const currentQty = currentStockItem ? currentStockItem.cantidad : 0;
         
-        const diff = Number(realQty) - Number(currentQty);
+        const diff = Number((validRealQty - Number(currentQty)).toFixed(3));
         
         if (diff !== 0) {
           stockUpserts.push({
             sucursal_id: user.sucursal_id,
             producto_id: pId,
-            cantidad: realQty,
+            cantidad: validRealQty,
             es_evento: false
           });
 
@@ -42,7 +51,7 @@ const BranchInventoryCheckView = () => {
             usuario_id: user?.auth_id || null,
             tipo_movimiento: diff > 0 ? 'sobrante_inventario' : 'merma_inventario',
             cantidad: diff,
-            stock_resultante: realQty,
+            stock_resultante: validRealQty,
             detalle: 'Ajuste semanal de inventario'
           });
         }

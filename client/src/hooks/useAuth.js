@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
+import { enforceRateLimit } from '../utils/rateLimiter';
+import { validateLoginIdentifier, validateEmail } from '../utils/validators';
 
 export const ROLE_DEFAULT_TAB = {
   admin: 'matrix',
@@ -134,20 +136,38 @@ export const useAuth = (showToast, setActiveTab, setLoading) => {
     e.preventDefault();
     setLoading(true);
     try {
-      let resolvedEmail = usernameInput;
-      if (!usernameInput.includes('@')) {
-        const { data: emailData, error: rpcErr } = await supabase.rpc('get_user_email', { p_username: usernameInput });
-        if (rpcErr || !emailData) throw new Error('Usuario no encontrado.');
+      await enforceRateLimit('login');
+
+      const sanitizedIdentifier = validateLoginIdentifier(usernameInput);
+      const rawPassword = String(passwordInput || '');
+      if (rawPassword.length < 4 || rawPassword.length > 128) {
+        throw new Error('La contraseña debe tener entre 4 y 128 caracteres.');
+      }
+
+      let resolvedEmail = sanitizedIdentifier;
+      if (sanitizedIdentifier.includes('@')) {
+        resolvedEmail = validateEmail(sanitizedIdentifier, { required: true });
+      } else {
+        const { data: emailData, error: rpcErr } = await supabase.rpc('get_user_email', { p_username: sanitizedIdentifier });
+        if (rpcErr) {
+          if (rpcErr.message?.includes('Límite de solicitudes excedido')) throw new Error(rpcErr.message);
+          throw new Error('Usuario o contraseña incorrectos.');
+        }
+        if (!emailData) throw new Error('Usuario o contraseña incorrectos.');
         resolvedEmail = emailData;
       }
 
-
       const { data: authData, error: authErr } = await supabase.auth.signInWithPassword({
         email: resolvedEmail,
-        password: passwordInput,
+        password: rawPassword,
       });
 
-      if (authErr) throw new Error(`Credenciales inválidas para ${resolvedEmail}`);
+      if (authErr) {
+        if (authErr.status === 429 || authErr.message?.toLowerCase().includes('rate limit')) {
+          throw new Error('Límite de solicitudes de inicio de sesión excedido. Por favor, espera un minuto antes de volver a intentarlo.');
+        }
+        throw new Error('Usuario o contraseña incorrectos.');
+      }
 
       const { data: userData, error: userError } = await supabase.from('usuarios').select(`
             id,

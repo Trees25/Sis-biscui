@@ -2,6 +2,7 @@ import { useData } from '../../context/DataContext';
 import React from 'react';
 import { formatTipo, formatQuantityShort, getCategoryEmoji } from '../../utils/formatters';
 import { getFlavorGroup } from '../../utils/flavors';
+import { sanitizeSpreadsheetCell } from '../../utils/validators';
 import BranchStockView from '../sucursal/BranchStockView';
 const AdminStockView = () => {
   const [stockPastryFilter, setStockPastryFilter] = React.useState('Todos');
@@ -135,8 +136,8 @@ const AdminStockView = () => {
               catProdsExport.forEach(prod => {
                 const isHelado = prod.categoria === 'helados';
                 let rowHtml = `<tr>
-                  <td><strong>${prod.producto_nombre}</strong></td>
-                  <td style="text-transform: capitalize;">${formatTipo(prod.tipo)}</td>
+                  <td><strong>${sanitizeSpreadsheetCell(prod.producto_nombre)}</strong></td>
+                  <td style="text-transform: capitalize;">${sanitizeSpreadsheetCell(formatTipo(prod.tipo))}</td>
                 `;
                 let rowTotal = 0;
                 colsToExport.forEach(s => {

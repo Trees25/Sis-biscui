@@ -1,9 +1,16 @@
 import React, { useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { supabase } from '../../supabaseClient';
+import {
+  validateString,
+  validatePositiveId,
+  validateNumber,
+  validateDateISO,
+  validateEnum
+} from '../../utils/validators';
 
 const AdminProductionOrdersView = () => {
-  const { productos, user, productionOrders, showToast, isProductVisibleToRole, refreshProductionOrders } = useData();
+  const { productos, user, productionOrders, showToast, isProductVisibleToRole, refreshProductionOrders, enforceRateLimit } = useData();
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [fechaRequerida, setFechaRequerida] = useState('');
   const [notas, setNotas] = useState('');
@@ -14,18 +21,23 @@ const AdminProductionOrdersView = () => {
   const [loading, setLoading] = useState(false);
 
   const handleAddItem = () => {
-    if (!selectedProductId || !cantidad || cantidad <= 0) return;
-    const prod = productos.find(p => p.id === parseInt(selectedProductId));
-    if (!prod) return;
-    
-    const existing = items.find(i => i.producto_id === prod.id);
-    if (existing) {
-      setItems(items.map(i => i.producto_id === prod.id ? { ...i, cantidad: i.cantidad + parseInt(cantidad) } : i));
-    } else {
-      setItems([...items, { producto_id: prod.id, nombre: prod.nombre, categoria: prod.categoria, cantidad: parseInt(cantidad) }]);
+    try {
+      const validProdId = validatePositiveId(selectedProductId, 'Producto a fabricar');
+      const validQty = validateNumber(cantidad, 'Cantidad', { min: 1, max: 100000, allowDecimals: false });
+      const prod = productos.find(p => p.id === validProdId);
+      if (!prod) return;
+
+      const existing = items.find(i => i.producto_id === prod.id);
+      if (existing) {
+        setItems(items.map(i => i.producto_id === prod.id ? { ...i, cantidad: i.cantidad + validQty } : i));
+      } else {
+        setItems([...items, { producto_id: prod.id, nombre: prod.nombre, categoria: prod.categoria, cantidad: validQty }]);
+      }
+      setCantidad('');
+      setSelectedProductId('');
+    } catch (err) {
+      showToast(err.message, 'error');
     }
-    setCantidad('');
-    setSelectedProductId('');
   };
 
   const handleRemoveItem = (id) => {
@@ -39,8 +51,13 @@ const AdminProductionOrdersView = () => {
       }
       setItems([]);
     }
-    setSelectedDestino(e.target.value);
-    setSelectedProductId('');
+    try {
+      const validDestino = validateEnum(e.target.value, ['heladero', 'pastelero'], 'Destino de producción');
+      setSelectedDestino(validDestino);
+      setSelectedProductId('');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
   };
 
   const handleSubmitOrder = async (e) => {
@@ -56,12 +73,16 @@ const AdminProductionOrdersView = () => {
 
     setLoading(true);
     try {
+      if (enforceRateLimit) await enforceRateLimit('forms');
+      const validFecha = validateDateISO(fechaRequerida, 'Fecha requerida');
+      const validNotas = validateString(notas, 'Notas del evento', { required: false, maxLength: 300 });
+
       const { data: orderData, error: orderError } = await supabase
         .from('ordenes_produccion')
         .insert([{
           creado_por_id: user.id,
-          fecha_requerida: fechaRequerida,
-          notas: notas,
+          fecha_requerida: validFecha,
+          notas: validNotas,
           es_evento: true,
           estado: 'pendiente'
         }])
@@ -72,8 +93,8 @@ const AdminProductionOrdersView = () => {
 
       const detalles = items.map(i => ({
         orden_id: orderData.id,
-        producto_id: i.producto_id,
-        cantidad_solicitada: i.cantidad,
+        producto_id: validatePositiveId(i.producto_id, 'Producto'),
+        cantidad_solicitada: validateNumber(i.cantidad, 'Cantidad solicitada', { min: 1, max: 100000, allowDecimals: false }),
         cantidad_producida: 0
       }));
 

@@ -2,6 +2,7 @@ import { useData } from '../../context/DataContext';
 import React, { useState } from 'react';
 import { supabase } from '../../supabaseClient';
 import { formatQuantity, formatQuantityShort, formatTipo, getBadgeClass, translateState, formatDate } from '../../utils/formatters';
+import { sanitizeSpreadsheetCell, escapeHtml } from '../../utils/validators';
 const AdminProjectionsView = () => {
   const {
     prodReqSearch,
@@ -125,14 +126,14 @@ const AdminProjectionsView = () => {
 
                               htmlContent += `
                                 <tr>
-                                  <td class="td" style="font-family: monospace; font-size: 11px;">${l.codigo_lote}</td>
-                                  <td class="td-strong">${l.productos?.nombre}</td>
-                                  <td class="td">${formatTipo(l.productos?.tipo)}</td>
-                                  <td class="td-number" style="font-size: 11px;">${pesosBrutos}</td>
-                                  <td class="td-number">${stockFabrica}</td>
-                                  <td class="td-number">${stockEventos}</td>
-                                  <td class="td-number" style="font-weight: bold; color: #047857;">${pesoNetoLote}</td>
-                                  <td class="td">${fecha}</td>
+                                  <td class="td" style="font-family: monospace; font-size: 11px;">${sanitizeSpreadsheetCell(l.codigo_lote)}</td>
+                                  <td class="td-strong">${sanitizeSpreadsheetCell(l.productos?.nombre)}</td>
+                                  <td class="td">${sanitizeSpreadsheetCell(formatTipo(l.productos?.tipo))}</td>
+                                  <td class="td-number" style="font-size: 11px;">${escapeHtml(pesosBrutos)}</td>
+                                  <td class="td-number">${escapeHtml(stockFabrica)}</td>
+                                  <td class="td-number">${escapeHtml(stockEventos)}</td>
+                                  <td class="td-number" style="font-weight: bold; color: #047857;">${escapeHtml(pesoNetoLote)}</td>
+                                  <td class="td">${escapeHtml(fecha)}</td>
                                 </tr>
                               `;
                             });

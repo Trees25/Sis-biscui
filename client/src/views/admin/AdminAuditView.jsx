@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useData } from '../../context/DataContext';
 import { supabase } from '../../supabaseClient';
 import { formatTipo, formatQuantityShort } from '../../utils/formatters';
+import { sanitizeSpreadsheetCell, escapeHtml } from '../../utils/validators';
 
 const AdminAuditView = () => {
   const { sucursales, productos, categories, showToast } = useData();
@@ -391,20 +392,20 @@ const AdminAuditView = () => {
 
         htmlContent += `
           <tr>
-            <td>${new Date(log.fecha).toLocaleString()}</td>
-            <td>${log.sucursal_nombre || 'N/D'}</td>
-            <td><strong>${log.productos?.nombre || 'N/D'}</strong></td>
-            <td>${formatTipo(log.productos?.tipo) || '-'}</td>
-            <td style="text-transform: capitalize;">${log.productos?.categoria || '-'}</td>
-            <td>${unit}</td>
-            <td style="text-align: right;">${stockAnterior}</td>
+            <td>${escapeHtml(new Date(log.fecha).toLocaleString())}</td>
+            <td>${sanitizeSpreadsheetCell(log.sucursal_nombre || 'N/D')}</td>
+            <td><strong>${sanitizeSpreadsheetCell(log.productos?.nombre || 'N/D')}</strong></td>
+            <td>${sanitizeSpreadsheetCell(formatTipo(log.productos?.tipo) || '-')}</td>
+            <td style="text-transform: capitalize;">${sanitizeSpreadsheetCell(log.productos?.categoria || '-')}</td>
+            <td>${escapeHtml(unit)}</td>
+            <td style="text-align: right;">${escapeHtml(stockAnterior)}</td>
             <td style="text-align: right; color: ${log.cantidad > 0 ? '#10b981' : log.cantidad < 0 ? '#ef4444' : '#000'}; font-weight: bold;">
-              ${log.cantidad > 0 ? '+' : ''}${diffQty}
+              ${log.cantidad > 0 ? '+' : ''}${escapeHtml(diffQty)}
             </td>
-            <td style="text-align: right; font-weight: bold; background-color: #ecfdf5;">${stockActual}</td>
-            <td>${formatTipoMovimiento(log.tipo_movimiento)}</td>
-            <td>${log.usuario_nombre || 'Sistema'}</td>
-            <td>${log.detalle || '-'}</td>
+            <td style="text-align: right; font-weight: bold; background-color: #ecfdf5;">${escapeHtml(stockActual)}</td>
+            <td>${sanitizeSpreadsheetCell(formatTipoMovimiento(log.tipo_movimiento))}</td>
+            <td>${sanitizeSpreadsheetCell(log.usuario_nombre || 'Sistema')}</td>
+            <td>${sanitizeSpreadsheetCell(log.detalle || '-')}</td>
           </tr>
         `;
       });

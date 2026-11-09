@@ -1,0 +1,19 @@
+# Environment variables
+.env
+.env.*
+!.env.example
+client/.env
+client/.env.*
+!client/.env.example
+
+# Backups with database records
+backup.json
+client/backup.json
+
+# Dependencies & Build
+node_modules/
+client/node_modules/
+dist/
+client/dist/
+*.local
+

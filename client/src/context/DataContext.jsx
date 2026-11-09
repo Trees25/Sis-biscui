@@ -1,6 +1,24 @@
 import { formatDate, formatQuantity, formatQuantityShort, normalizeWeight } from '../utils/formatters';
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
+import { enforceRateLimit, invokeProtectedAI } from '../utils/rateLimiter';
+import {
+  sanitizeText,
+  sanitizeSpreadsheetCell,
+  validateString,
+  validatePositiveId,
+  validateNumber,
+  validateDateISO,
+  validateEmail,
+  validateCUIT,
+  validatePhone,
+  validateEnum,
+  ALLOWED_CATEGORIES,
+  ALLOWED_UNITS,
+  ALLOWED_MACHINE_TYPES,
+  ALLOWED_MACHINE_STATES,
+  ALLOWED_MAINTENANCE_TYPES
+} from '../utils/validators';
 import { useAuth } from '../hooks/useAuth';
 import { useUI } from '../hooks/useUI';
 import { useCatalog } from '../hooks/useCatalog';
@@ -1332,10 +1350,10 @@ export const DataProvider = ({ children }) => {
       const isWeight = row.unidad_medida === 'peso' || row.categoria === 'helados' || row.categoria?.toLowerCase().includes('fruta') || row.categoria?.toLowerCase().includes('verdura') || row.producto_nombre?.toLowerCase().includes('fruta') || row.producto_nombre?.toLowerCase().includes('verdura');
       const qty = isWeight ? parseFloat(row.cantidad).toFixed(3) : row.cantidad;
       const unit = isWeight ? "kg" : "unidades";
-      const pName = (row.producto_nombre || "Desconocido").replace(/,/g, '');
-      const sName = (row.sucursal_nombre || "Desconocido").replace(/,/g, '');
-      const fDate = formatDate(row.fecha).replace(/,/g, '');
-      const uName = (row.usuario_nombre || "").replace(/,/g, '');
+      const pName = sanitizeSpreadsheetCell(row.producto_nombre || "Desconocido", false);
+      const sName = sanitizeSpreadsheetCell(row.sucursal_nombre || "Desconocido", false);
+      const fDate = sanitizeSpreadsheetCell(formatDate(row.fecha), false);
+      const uName = sanitizeSpreadsheetCell(row.usuario_nombre || "", false);
       csvContent += `${fDate},${sName},${pName},${qty},${unit},${uName}\n`;
     });
     const encodedUri = encodeURI(csvContent);
@@ -1351,14 +1369,14 @@ export const DataProvider = ({ children }) => {
     if (!prodForm.producto_id || !prodForm.cantidad) return;
     setLoading(true);
     try {
-      const pId = parseInt(prodForm.producto_id);
-      const qty = parseFloat(prodForm.cantidad);
+      await enforceRateLimit('forms');
+      const pId = validatePositiveId(prodForm.producto_id, 'Producto');
+      const qty = validateNumber(prodForm.cantidad, 'Cantidad', { min: 0.001, max: 100000, allowDecimals: true });
       let pDate = new Date();
       if (prodForm.fecha) {
-        const [year, month, day] = prodForm.fecha.split('-');
-        if (year && month && day) {
-          pDate.setFullYear(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
-        }
+        const validIso = validateDateISO(prodForm.fecha, 'Fecha de producción');
+        const [year, month, day] = validIso.split('-');
+        pDate.setFullYear(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
       }
       const dateStr = pDate.toISOString().slice(0, 10).replace(/-/g, '');
       const rand = Math.floor(1000 + Math.random() * 9000);
@@ -1368,7 +1386,9 @@ export const DataProvider = ({ children }) => {
       let netKilos = qty; // Default to qty for non-ice cream
 
       if (selectedProd && selectedProd.categoria === 'helados') {
-        pesosArray = prodWeights.map(w => normalizeWeight(w));
+        pesosArray = prodWeights.map((w, idx) =>
+          validateNumber(normalizeWeight(w), `Peso de unidad #${idx + 1}`, { min: 0.01, max: 500, allowDecimals: true })
+        );
         if (pesosArray.length !== qty || pesosArray.some(w => w <= 0)) {
           throw new Error('Por favor, ingresa un peso válido mayor a 0 para cada unidad.');
         }
@@ -1381,7 +1401,7 @@ export const DataProvider = ({ children }) => {
           throw new Error('El peso neto total debe ser mayor a 0.');
         }
       }
-      const isEvent = selectedProd && selectedProd.categoria === 'helados' && selectedProd.tipo === 'vasqueta_5_6k' ? false : prodForm.es_evento || false;
+      const isEvent = selectedProd && selectedProd.categoria === 'helados' && selectedProd.tipo === 'vasqueta_5_6k' ? false : Boolean(prodForm.es_evento);
       const {
         error: rpcErr
       } = await supabase.rpc('registrar_produccion', {
@@ -1437,17 +1457,19 @@ export const DataProvider = ({ children }) => {
   const handleAssignEventStock = async (detailId, productId, qtyToAdd) => {
     try {
       setLoading(true);
-      const detailRes = await supabase.from('orden_produccion_detalles').select('cantidad_producida, cantidad_solicitada, orden_id').eq('id', detailId).single();
+      const validDetailId = validatePositiveId(detailId, 'Detalle de orden');
+      const validQty = validateNumber(qtyToAdd, 'Cantidad a asignar', { min: 1, max: 100000, allowDecimals: false });
+      const detailRes = await supabase.from('orden_produccion_detalles').select('cantidad_producida, cantidad_solicitada, orden_id').eq('id', validDetailId).single();
       if (detailRes.error) throw detailRes.error;
 
-      const newQty = detailRes.data.cantidad_producida + qtyToAdd;
+      const newQty = detailRes.data.cantidad_producida + validQty;
       if (newQty > detailRes.data.cantidad_solicitada) {
         throw new Error('La cantidad asignada supera la solicitada.');
       }
 
       const { error } = await supabase.from('orden_produccion_detalles')
         .update({ cantidad_producida: newQty })
-        .eq('id', detailId);
+        .eq('id', validDetailId);
       if (error) throw error;
 
       await supabase.from('ordenes_produccion').update({ estado: 'en_proceso' }).eq('id', detailRes.data.orden_id);
@@ -1516,9 +1538,11 @@ export const DataProvider = ({ children }) => {
     if (!adminHistForm.producto_id || !adminHistForm.cantidad || !adminHistForm.fecha) return;
     setLoading(true);
     try {
-      const pId = parseInt(adminHistForm.producto_id);
-      const qty = parseInt(adminHistForm.cantidad);
-      const pDate = new Date(adminHistForm.fecha);
+      await enforceRateLimit('forms');
+      const pId = validatePositiveId(adminHistForm.producto_id, 'Producto');
+      const qty = validateNumber(adminHistForm.cantidad, 'Cantidad', { min: 1, max: 100000, allowDecimals: false });
+      const validDateStr = validateDateISO(adminHistForm.fecha, 'Fecha histórica');
+      const pDate = new Date(validDateStr);
       const dateStr = pDate.toISOString().slice(0, 10).replace(/-/g, '');
       const rand = Math.floor(1000 + Math.random() * 9000);
       const codigo_lote = `L-${dateStr}-${rand}`;
@@ -1527,7 +1551,9 @@ export const DataProvider = ({ children }) => {
       let netKilos = qty; // Default to qty for non-ice cream
 
       if (selectedProd && selectedProd.categoria === 'helados') {
-        pesosArray = adminHistWeights.map(w => normalizeWeight(w));
+        pesosArray = adminHistWeights.map((w, idx) =>
+          validateNumber(normalizeWeight(w), `Peso de unidad #${idx + 1}`, { min: 0.01, max: 500, allowDecimals: true })
+        );
         if (pesosArray.length !== qty || pesosArray.some(w => w <= 0)) {
           throw new Error('Por favor, ingresa un peso válido mayor a 0 para cada unidad.');
         }
@@ -1539,7 +1565,7 @@ export const DataProvider = ({ children }) => {
           throw new Error('El peso neto total debe ser mayor a 0.');
         }
       }
-      const isEvent = selectedProd && selectedProd.categoria === 'helados' && selectedProd.tipo === 'vasqueta_5_6k' ? false : adminHistForm.es_evento || false;
+      const isEvent = selectedProd && selectedProd.categoria === 'helados' && selectedProd.tipo === 'vasqueta_5_6k' ? false : Boolean(adminHistForm.es_evento);
       const {
         error: rpcErr
       } = await supabase.rpc('registrar_produccion', {
@@ -1574,12 +1600,14 @@ export const DataProvider = ({ children }) => {
     if (!transpCargaForm.producto_id || !transpCargaForm.cantidad || !transpCargaForm.fecha) return;
     setLoading(true);
     try {
-      const pId = parseInt(transpCargaForm.producto_id);
-      const inputQty = parseFloat(transpCargaForm.cantidad);
-      const pDate = new Date(transpCargaForm.fecha);
+      await enforceRateLimit('forms');
+      const pId = validatePositiveId(transpCargaForm.producto_id, 'Producto');
+      const inputQty = validateNumber(transpCargaForm.cantidad, 'Cantidad', { min: 0.001, max: 100000, allowDecimals: true });
+      const validDateStr = validateDateISO(transpCargaForm.fecha, 'Fecha de ingreso');
+      const pDate = new Date(validDateStr);
       const selectedProd = productos.find(p => p.id === pId);
       const isWeight = selectedProd?.unidad_medida === 'peso' || selectedProd?.categoria === 'helados' || selectedProd?.categoria?.toLowerCase().includes('fruta') || selectedProd?.categoria?.toLowerCase().includes('verdura') || selectedProd?.nombre?.toLowerCase().includes('fruta') || selectedProd?.nombre?.toLowerCase().includes('verdura');
-      const finalQty = isWeight ? parseFloat(inputQty) : inputQty;
+      const finalQty = isWeight ? parseFloat(inputQty) : Math.trunc(inputQty);
       const dateStr = pDate.toISOString().slice(0, 10).replace(/-/g, '');
       const rand = Math.floor(1000 + Math.random() * 9000);
       const codigo_lote = `C-${dateStr}-${rand}`;
@@ -1613,20 +1641,22 @@ export const DataProvider = ({ children }) => {
   };
   const handleProvSubmit = async e => {
     e.preventDefault();
-    if (!provForm.nombre.trim()) return;
+    if (!provForm.nombre?.trim()) return;
     setLoading(true);
     try {
+      await enforceRateLimit('forms');
       const payload = {
-        nombre: provForm.nombre.trim(),
-        cuit: provForm.cuit?.trim() || null,
-        telefono: provForm.telefono?.trim() || null,
-        direccion: provForm.direccion?.trim() || null,
-        email: provForm.email?.trim() || null
+        nombre: validateString(provForm.nombre, 'Nombre del proveedor', { minLength: 2, maxLength: 120 }),
+        cuit: validateCUIT(provForm.cuit, { required: false }),
+        telefono: validatePhone(provForm.telefono, { required: false }),
+        direccion: validateString(provForm.direccion, 'Dirección', { required: false, maxLength: 200 }),
+        email: validateEmail(provForm.email, { required: false })
       };
       if (editingProv) {
+        const validProvId = validatePositiveId(editingProv.id, 'Proveedor');
         const {
           error
-        } = await supabase.from('proveedores').update(payload).eq('id', editingProv.id);
+        } = await supabase.from('proveedores').update(payload).eq('id', validProvId);
         if (error) throw error;
         showToast('Proveedor actualizado con éxito.');
       } else {
@@ -1830,11 +1860,17 @@ export const DataProvider = ({ children }) => {
     if (!consumoForm.producto_id || !consumoForm.cantidad) return;
     setLoading(true);
     try {
-      const pId = parseInt(consumoForm.producto_id);
+      await enforceRateLimit('forms');
+      const pId = validatePositiveId(consumoForm.producto_id, 'Producto');
       const selectedProd = productos.find(p => p.id === pId);
       const isWeight = selectedProd?.unidad_medida === 'peso' || selectedProd?.categoria === 'helados' || selectedProd?.categoria?.toLowerCase().includes('fruta') || selectedProd?.categoria?.toLowerCase().includes('verdura') || selectedProd?.nombre?.toLowerCase().includes('fruta') || selectedProd?.nombre?.toLowerCase().includes('verdura');
-      const qty = isWeight ? normalizeWeight(consumoForm.cantidad) : (parseInt(consumoForm.cantidad) || 0);
-      const isEvent = consumoForm.es_evento || false;
+      const rawQty = isWeight ? normalizeWeight(consumoForm.cantidad) : consumoForm.cantidad;
+      const qty = validateNumber(rawQty, 'Cantidad consumida', {
+        min: isWeight ? 0.001 : 1,
+        max: 100000,
+        allowDecimals: isWeight
+      });
+      const isEvent = Boolean(consumoForm.es_evento);
       const {
         error: rpcErr
       } = await supabase.rpc('registrar_consumo', {
@@ -2019,20 +2055,22 @@ export const DataProvider = ({ children }) => {
   };
 
   const handleCreateOrder = async () => {
-    const items = Object.entries(orderItems).map(([prodId, qty]) => ({
-      producto_id: parseInt(prodId),
-      cantidad_solicitada: parseInt(qty)
-    })).filter(item => item.cantidad_solicitada > 0);
-    if (items.length === 0) {
-      showToast('Por favor, selecciona al menos 1 producto con cantidad mayor a 0.', 'error');
-      return;
-    }
     setLoading(true);
     try {
+      const items = Object.entries(orderItems)
+        .filter(([_, qty]) => qty !== '' && qty !== null && qty !== undefined && Number(qty) > 0)
+        .map(([prodId, qty]) => ({
+          producto_id: validatePositiveId(prodId, 'Producto'),
+          cantidad_solicitada: validateNumber(qty, 'Cantidad solicitada', { min: 1, max: 100000, allowDecimals: false })
+        }));
+      if (items.length === 0) {
+        throw new Error('Por favor, selecciona al menos 1 producto con cantidad mayor a 0.');
+      }
+      await enforceRateLimit('forms');
       let pedido_id;
 
       if (editingOrderId) {
-        pedido_id = editingOrderId;
+        pedido_id = validatePositiveId(editingOrderId, 'Pedido');
         const { error: delErr } = await supabase.from('pedido_detalles').delete().eq('pedido_id', pedido_id);
         if (delErr) throw delErr;
       } else {
@@ -2042,7 +2080,7 @@ export const DataProvider = ({ children }) => {
         } = await supabase.from('pedidos').insert({
           sucursal_destino_id: user.sucursal_id,
           creado_por_id: user.id,
-          es_evento: user.rol === 'admin' || user.rol === 'heladero' ? orderIsEvent : false,
+          es_evento: user.rol === 'admin' || user.rol === 'heladero' ? Boolean(orderIsEvent) : false,
           estado: 'solicitado'
         }).select('id').single();
         if (insErr) throw insErr;
@@ -2062,7 +2100,7 @@ export const DataProvider = ({ children }) => {
       const orderedProdIds = items.map(item => item.producto_id);
       const {
         error: delPendErr
-      } = await supabase.from('items_pendientes').delete().eq('sucursal_id', user.sucursal_id).eq('es_evento', orderIsEvent).in('producto_id', orderedProdIds);
+      } = await supabase.from('items_pendientes').delete().eq('sucursal_id', user.sucursal_id).eq('es_evento', Boolean(orderIsEvent)).in('producto_id', orderedProdIds);
       if (delPendErr) throw delPendErr;
 
       if (editingOrderId) {
@@ -2083,27 +2121,33 @@ export const DataProvider = ({ children }) => {
     }
   };
   const handleAdminCreateOrder = async () => {
-    const items = Object.entries(adminOrderItems).map(([prodId, qty]) => ({
-      producto_id: parseInt(prodId),
-      cantidad_solicitada: parseInt(qty),
-      cantidad: parseInt(qty)
-    })).filter(item => item.cantidad_solicitada > 0);
     if (!adminOrderDestination) {
       showToast('Por favor, selecciona una sucursal o depósito de destino.', 'error');
       return;
     }
-    if (items.length === 0) {
-      showToast('Por favor, selecciona al menos 1 producto con cantidad mayor a 0.', 'error');
-      return;
-    }
     setLoading(true);
     try {
+      const destId = validatePositiveId(adminOrderDestination, 'Sucursal de destino');
+      const items = Object.entries(adminOrderItems)
+        .filter(([_, qty]) => qty !== '' && qty !== null && qty !== undefined && Number(qty) > 0)
+        .map(([prodId, qty]) => {
+          const validQty = validateNumber(qty, 'Cantidad', { min: 1, max: 100000, allowDecimals: false });
+          return {
+            producto_id: validatePositiveId(prodId, 'Producto'),
+            cantidad_solicitada: validQty,
+            cantidad: validQty
+          };
+        });
+      if (items.length === 0) {
+        throw new Error('Por favor, selecciona al menos 1 producto con cantidad mayor a 0.');
+      }
+      await enforceRateLimit('forms');
       if (adminOrderIsEvent && adminOrderSolicitFabrication) {
         const {
           data: newPedido,
           error: insErr
         } = await supabase.from('pedidos').insert({
-          sucursal_destino_id: parseInt(adminOrderDestination),
+          sucursal_destino_id: destId,
           creado_por_id: user.id,
           es_evento: true,
           estado: 'solicitado'
@@ -2126,9 +2170,9 @@ export const DataProvider = ({ children }) => {
           data: pedido_id,
           error: rpcErr
         } = await supabase.rpc('crear_y_preparar_pedido_admin', {
-          p_sucursal_destino_id: parseInt(adminOrderDestination),
+          p_sucursal_destino_id: destId,
           p_creado_por_id: user.id,
-          p_es_evento: adminOrderIsEvent,
+          p_es_evento: Boolean(adminOrderIsEvent),
           p_items: items
         });
         if (rpcErr) throw rpcErr;
@@ -2146,26 +2190,35 @@ export const DataProvider = ({ children }) => {
       setLoading(false);
     }
   };
-  const applyAllSuggestions = () => {
-    const items = {};
-    suggestions.forEach(s => {
-      items[s.producto_id] = s.cantidad_sugerida;
-    });
-    setOrderItems(items);
-    showToast('Sugerencias aplicadas. Revisa las cantidades antes de enviar.');
+  const applyAllSuggestions = async () => {
+    try {
+      await enforceRateLimit('ai');
+      const items = {};
+      suggestions.forEach(s => {
+        items[s.producto_id] = s.cantidad_sugerida;
+      });
+      setOrderItems(items);
+      showToast('Sugerencias aplicadas. Revisa las cantidades antes de enviar.');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
   };
   const handleRetiroInternoSubmit = async e => {
     e.preventDefault();
-    const itemsList = Object.entries(retiroItems).filter(([_, qty]) => qty > 0).map(([pId, qty]) => ({
-      producto_id: parseInt(pId),
-      cantidad: qty
-    }));
-    if (itemsList.length === 0) {
-      showToast('No has seleccionado ningún producto.', 'warning');
-      return;
-    }
     setLoading(true);
     try {
+      const itemsList = Object.entries(retiroItems)
+        .filter(([_, qty]) => qty !== '' && qty !== null && qty !== undefined && Number(qty) > 0)
+        .map(([pId, qty]) => ({
+          producto_id: validatePositiveId(pId, 'Producto'),
+          cantidad: validateNumber(qty, 'Cantidad a retirar', { min: 0.001, max: 100000, allowDecimals: true })
+        }));
+      if (itemsList.length === 0) {
+        showToast('No has seleccionado ningún producto.', 'warning');
+        setLoading(false);
+        return;
+      }
+      await enforceRateLimit('forms');
       const {
         data: pedido_id,
         error: rpcErr
@@ -2407,16 +2460,16 @@ export const DataProvider = ({ children }) => {
   };
   const handleConfirmLoad = async () => {
     if (!selectedPedido) return;
-    const items = Object.entries(loadItems).map(([prodId, qty]) => ({
-      producto_id: parseInt(prodId),
-      cantidad_cargada: parseInt(qty)
-    }));
     setLoading(true);
     try {
+      const items = Object.entries(loadItems).map(([prodId, qty]) => ({
+        producto_id: validatePositiveId(prodId, 'Producto'),
+        cantidad_cargada: validateNumber(qty, 'Cantidad cargada', { min: 0, max: 100000, allowDecimals: false })
+      }));
       const {
         error: rpcErr
       } = await supabase.rpc('confirmar_carga_pedido', {
-        p_pedido_id: selectedPedido.id,
+        p_pedido_id: validatePositiveId(selectedPedido.id, 'Pedido'),
         p_transportista_id: user.id,
         p_items: items
       });
@@ -2435,9 +2488,10 @@ export const DataProvider = ({ children }) => {
     if (!transitLoss.producto_id || !transitLoss.cantidad_perdida) return;
     setLoading(true);
     try {
-      const pId = parseInt(transitLoss.producto_id);
-      const qtyLost = parseInt(transitLoss.cantidad_perdida);
-      const motivo = transitLoss.motivo || 'Rotura en viaje';
+      await enforceRateLimit('forms');
+      const pId = validatePositiveId(transitLoss.producto_id, 'Producto');
+      const qtyLost = validateNumber(transitLoss.cantidad_perdida, 'Cantidad perdida', { min: 1, max: 100000, allowDecimals: false });
+      const motivo = validateString(transitLoss.motivo || 'Rotura en viaje', 'Motivo de merma', { minLength: 2, maxLength: 300 });
       const itemDetail = selectedPedido.items.find(it => it.producto_id === pId);
       const currentCargado = itemDetail ? itemDetail.cantidad_cargada : 0;
       const {
@@ -2497,17 +2551,17 @@ export const DataProvider = ({ children }) => {
   };
   const handleConfirmReceive = async () => {
     if (!selectedPedido) return;
-    const items = Object.entries(receiveItems).map(([prodId, qty]) => ({
-      producto_id: parseInt(prodId),
-      cantidad_recibida: parseFloat(qty) || 0,
-      motivo_diferencia: receiveReasons[prodId] || ''
-    }));
     setLoading(true);
     try {
+      const items = Object.entries(receiveItems).map(([prodId, qty]) => ({
+        producto_id: validatePositiveId(prodId, 'Producto'),
+        cantidad_recibida: validateNumber(qty === '' ? 0 : qty, 'Cantidad recibida', { min: 0, max: 100000, allowDecimals: true }),
+        motivo_diferencia: sanitizeText(receiveReasons[prodId] || '', 300)
+      }));
       const {
         error: rpcErr
       } = await supabase.rpc('recibir_pedido', {
-        p_pedido_id: selectedPedido.id,
+        p_pedido_id: validatePositiveId(selectedPedido.id, 'Pedido'),
         p_recibido_por_id: user.id,
         p_items: items
       });
@@ -2606,14 +2660,16 @@ export const DataProvider = ({ children }) => {
     }
   };
   const handleCreateSupplier = async () => {
-    if (!newSupplierName.trim()) return;
+    if (!newSupplierName?.trim()) return;
     setLoading(true);
     try {
+      await enforceRateLimit('forms');
+      const cleanName = validateString(newSupplierName, 'Nombre del proveedor', { minLength: 2, maxLength: 120 });
       const {
         data: newProv,
         error: insErr
       } = await supabase.from('proveedores').insert({
-        nombre: newSupplierName.trim()
+        nombre: cleanName
       }).select('*').single();
       if (insErr) throw insErr;
       showToast(`Proveedor "${newProv.nombre}" creado con éxito.`);
@@ -2635,18 +2691,32 @@ export const DataProvider = ({ children }) => {
     if (!newProductForm.nombre) return;
     setLoading(true);
     try {
+      await enforceRateLimit('forms');
+      const validNombre = validateString(newProductForm.nombre, 'Nombre del producto', { minLength: 2, maxLength: 120 });
+      const validCategoria = validateEnum(newProductForm.categoria, ALLOWED_CATEGORIES, 'Categoría');
+      const validTipo = validateString(newProductForm.tipo, 'Tipo / Formato', { required: false, maxLength: 80 });
+      const validClasif = validateString(newProductForm.clasificacion_sabor, 'Clasificación de sabor', { required: false, maxLength: 80 });
+      const validProvId = validatePositiveId(newProductForm.proveedor_id, 'Proveedor', { required: false });
+      const validUnidad = validateEnum(newProductForm.unidad_medida || 'unidad', ALLOWED_UNITS, 'Unidad de medida');
+      const validCantCaja = newProductForm.cant_por_caja !== '' && newProductForm.cant_por_caja !== null && newProductForm.cant_por_caja !== undefined
+        ? validateNumber(newProductForm.cant_por_caja, 'Cantidad por caja', { min: 1, max: 10000, allowDecimals: false })
+        : 24;
+      const validCantPack = newProductForm.cant_por_pack !== '' && newProductForm.cant_por_pack !== null && newProductForm.cant_por_pack !== undefined
+        ? validateNumber(newProductForm.cant_por_pack, 'Cantidad por pack', { min: 1, max: 10000, allowDecimals: false })
+        : null;
+
       const {
         data: newProd,
         error: insErr
       } = await supabase.from('productos').insert({
-        nombre: newProductForm.nombre,
-        categoria: newProductForm.categoria,
-        tipo: newProductForm.tipo,
-        clasificacion_sabor: newProductForm.clasificacion_sabor || null,
-        proveedor_id: newProductForm.proveedor_id ? parseInt(newProductForm.proveedor_id) : null,
-        unidad_medida: newProductForm.unidad_medida,
-        cant_por_caja: newProductForm.cant_por_caja ? parseInt(newProductForm.cant_por_caja) : 24,
-        cant_por_pack: newProductForm.cant_por_pack ? parseInt(newProductForm.cant_por_pack) : null
+        nombre: validNombre,
+        categoria: validCategoria,
+        tipo: validTipo,
+        clasificacion_sabor: validClasif,
+        proveedor_id: validProvId,
+        unidad_medida: validUnidad,
+        cant_por_caja: validCantCaja,
+        cant_por_pack: validCantPack
       }).select('id').single();
       if (insErr) throw insErr;
       const newProductId = newProd.id;
@@ -2687,18 +2757,33 @@ export const DataProvider = ({ children }) => {
     if (!newProductForm.nombre || !editingProduct) return;
     setLoading(true);
     try {
+      await enforceRateLimit('forms');
+      const validProdId = validatePositiveId(editingProduct.id, 'Producto');
+      const validNombre = validateString(newProductForm.nombre, 'Nombre del producto', { minLength: 2, maxLength: 120 });
+      const validCategoria = validateEnum(newProductForm.categoria, ALLOWED_CATEGORIES, 'Categoría');
+      const validTipo = validateString(newProductForm.tipo, 'Tipo / Formato', { required: false, maxLength: 80 });
+      const validClasif = validateString(newProductForm.clasificacion_sabor, 'Clasificación de sabor', { required: false, maxLength: 80 });
+      const validProvId = validatePositiveId(newProductForm.proveedor_id, 'Proveedor', { required: false });
+      const validUnidad = validateEnum(newProductForm.unidad_medida || 'unidad', ALLOWED_UNITS, 'Unidad de medida');
+      const validCantCaja = newProductForm.cant_por_caja !== '' && newProductForm.cant_por_caja !== null && newProductForm.cant_por_caja !== undefined
+        ? validateNumber(newProductForm.cant_por_caja, 'Cantidad por caja', { min: 1, max: 10000, allowDecimals: false })
+        : 24;
+      const validCantPack = newProductForm.cant_por_pack !== '' && newProductForm.cant_por_pack !== null && newProductForm.cant_por_pack !== undefined
+        ? validateNumber(newProductForm.cant_por_pack, 'Cantidad por pack', { min: 1, max: 10000, allowDecimals: false })
+        : null;
+
       const {
         error: updErr
       } = await supabase.from('productos').update({
-        nombre: newProductForm.nombre,
-        categoria: newProductForm.categoria,
-        tipo: newProductForm.tipo,
-        clasificacion_sabor: newProductForm.clasificacion_sabor || null,
-        proveedor_id: newProductForm.proveedor_id ? parseInt(newProductForm.proveedor_id) : null,
-        unidad_medida: newProductForm.unidad_medida,
-        cant_por_caja: newProductForm.cant_por_caja ? parseInt(newProductForm.cant_por_caja) : 24,
-        cant_por_pack: newProductForm.cant_por_pack ? parseInt(newProductForm.cant_por_pack) : null
-      }).eq('id', editingProduct.id);
+        nombre: validNombre,
+        categoria: validCategoria,
+        tipo: validTipo,
+        clasificacion_sabor: validClasif,
+        proveedor_id: validProvId,
+        unidad_medida: validUnidad,
+        cant_por_caja: validCantCaja,
+        cant_por_pack: validCantPack
+      }).eq('id', validProdId);
       if (updErr) throw updErr;
       showToast('Producto actualizado exitosamente.');
       setNewProductForm({
@@ -2767,15 +2852,16 @@ export const DataProvider = ({ children }) => {
   const handleToggleProductActive = async (prodId, currentActive) => {
     setLoading(true);
     try {
+      const validProdId = validatePositiveId(prodId, 'Producto');
       const nextActive = currentActive === 1 ? 0 : 1;
       const {
         error: updErr
       } = await supabase.from('productos').update({
         activo: nextActive
-      }).eq('id', prodId);
+      }).eq('id', validProdId);
       if (updErr) throw updErr;
       showToast(nextActive === 1 ? 'Producto reactivado.' : 'Producto desactivado / eliminado.');
-      if (editingProduct && editingProduct.id === prodId) {
+      if (editingProduct && editingProduct.id === validProdId) {
         cancelEditingProduct();
       }
       fetchData();
@@ -2790,13 +2876,16 @@ export const DataProvider = ({ children }) => {
     if (!branchOtrosForm.nombre) return;
     setLoading(true);
     try {
+      await enforceRateLimit('forms');
+      const validNombre = validateString(branchOtrosForm.nombre, 'Nombre del insumo/packaging', { minLength: 2, maxLength: 120 });
+      const validTipo = validateEnum(branchOtrosForm.tipo || 'packaging', ['packaging', 'insumo'], 'Tipo de insumo');
       const {
         data: newProd,
         error: insErr
       } = await supabase.from('productos').insert({
-        nombre: branchOtrosForm.nombre,
+        nombre: validNombre,
         categoria: 'otros',
-        tipo: branchOtrosForm.tipo
+        tipo: validTipo
       }).select('id').single();
       if (insErr) throw insErr;
       const newProductId = newProd.id;
@@ -2989,21 +3078,23 @@ export const DataProvider = ({ children }) => {
     }
     setLoading(true);
     try {
+      await enforceRateLimit('forms');
       const dataToSave = {
-        nombre: maquinaForm.nombre,
-        tipo_equipo: maquinaForm.tipo_equipo,
-        sucursal_id: parseInt(maquinaForm.sucursal_id),
-        marca: maquinaForm.marca || null,
-        modelo: maquinaForm.modelo || null,
-        numero_serie: maquinaForm.numero_serie || null,
-        fecha_adquisicion: maquinaForm.fecha_adquisicion || null,
-        estado: maquinaForm.estado,
-        descripcion: maquinaForm.descripcion || null
+        nombre: validateString(maquinaForm.nombre, 'Nombre del equipo', { minLength: 2, maxLength: 120 }),
+        tipo_equipo: validateEnum(maquinaForm.tipo_equipo, ALLOWED_MACHINE_TYPES, 'Tipo de equipo'),
+        sucursal_id: validatePositiveId(maquinaForm.sucursal_id, 'Sucursal'),
+        marca: validateString(maquinaForm.marca, 'Marca', { required: false, maxLength: 80 }),
+        modelo: validateString(maquinaForm.modelo, 'Modelo', { required: false, maxLength: 80 }),
+        numero_serie: validateString(maquinaForm.numero_serie, 'Número de serie', { required: false, maxLength: 80 }),
+        fecha_adquisicion: validateDateISO(maquinaForm.fecha_adquisicion, 'Fecha de adquisición', { required: false }),
+        estado: validateEnum(maquinaForm.estado || 'activo', ALLOWED_MACHINE_STATES, 'Estado del equipo'),
+        descripcion: validateString(maquinaForm.descripcion, 'Descripción', { required: false, maxLength: 500 })
       };
       if (editingMaquina) {
+        const validMaqId = validatePositiveId(editingMaquina.id, 'Máquina');
         const {
           error
-        } = await supabase.from('maquinas').update(dataToSave).eq('id', editingMaquina.id);
+        } = await supabase.from('maquinas').update(dataToSave).eq('id', validMaqId);
         if (error) throw error;
         showToast('Máquina actualizada con éxito.');
       } else {
@@ -3039,6 +3130,7 @@ export const DataProvider = ({ children }) => {
     }
     setLoading(true);
     try {
+      await enforceRateLimit('forms');
       const formData = (formDataOrEvent && formDataOrEvent.producto_id) ? formDataOrEvent : editStockForm;
       const {
         producto_id,
@@ -3047,15 +3139,23 @@ export const DataProvider = ({ children }) => {
         cantidad
       } = formData;
 
-      const prod = productos.find(p => p.id === producto_id);
-      const isWeight = prod?.unidad_medida === 'peso' || prod?.categoria === 'helados' || prod?.categoria?.toLowerCase().includes('fruta') || prod?.categoria?.toLowerCase().includes('verdura') || prod?.nombre?.toLowerCase().includes('fruta') || prod?.nombre?.toLowerCase().includes('verdura');
-      const numCant = isWeight ? normalizeWeight(cantidad) : (parseInt(cantidad) || 0);
+      const validProdId = validatePositiveId(producto_id, 'Producto');
+      const validSucId = validatePositiveId(sucursal_id, 'Sucursal');
+      const validEsEvento = Boolean(es_evento);
 
-      if (isNaN(numCant) || numCant < 0) throw new Error("La cantidad debe ser un número válido mayor o igual a cero.");
+      const prod = productos.find(p => p.id === validProdId);
+      const isWeight = prod?.unidad_medida === 'peso' || prod?.categoria === 'helados' || prod?.categoria?.toLowerCase().includes('fruta') || prod?.categoria?.toLowerCase().includes('verdura') || prod?.nombre?.toLowerCase().includes('fruta') || prod?.nombre?.toLowerCase().includes('verdura');
+      const rawCant = isWeight ? normalizeWeight(cantidad) : cantidad;
+      const numCant = validateNumber(rawCant, 'Cantidad de stock', {
+        min: 0,
+        max: 100000,
+        allowDecimals: isWeight
+      });
+
       const {
         data: existing,
         error: eErr
-      } = await supabase.from('stock_sucursales').select('*').eq('producto_id', producto_id).eq('sucursal_id', sucursal_id).eq('es_evento', es_evento);
+      } = await supabase.from('stock_sucursales').select('*').eq('producto_id', validProdId).eq('sucursal_id', validSucId).eq('es_evento', validEsEvento);
       if (eErr) throw eErr;
       if (existing && existing.length > 0) {
         const oldCant = parseFloat(existing[0].cantidad) || 0;
@@ -3064,18 +3164,18 @@ export const DataProvider = ({ children }) => {
           error: updErr
         } = await supabase.from('stock_sucursales').update({
           cantidad: numCant
-        }).eq('producto_id', producto_id).eq('sucursal_id', sucursal_id).eq('es_evento', es_evento);
+        }).eq('producto_id', validProdId).eq('sucursal_id', validSucId).eq('es_evento', validEsEvento);
         if (updErr) throw updErr;
 
         try {
           await supabase.from('historial_movimientos').insert({
-            sucursal_id,
-            producto_id,
+            sucursal_id: validSucId,
+            producto_id: validProdId,
             usuario_id: user?.auth_id || null,
             tipo_movimiento: 'ajuste_manual',
             cantidad: diff,
             stock_resultante: numCant,
-            es_evento,
+            es_evento: validEsEvento,
             detalle: 'Ajuste manual de stock por Admin (Anterior: ' + oldCant + ')'
           });
         } catch (aErr) {
@@ -3085,22 +3185,22 @@ export const DataProvider = ({ children }) => {
         const {
           error: insErr
         } = await supabase.from('stock_sucursales').insert({
-          producto_id,
-          sucursal_id,
-          es_evento,
+          producto_id: validProdId,
+          sucursal_id: validSucId,
+          es_evento: validEsEvento,
           cantidad: numCant
         });
         if (insErr) throw insErr;
 
         try {
           await supabase.from('historial_movimientos').insert({
-            sucursal_id,
-            producto_id,
+            sucursal_id: validSucId,
+            producto_id: validProdId,
             usuario_id: user?.auth_id || null,
             tipo_movimiento: 'ajuste_manual',
             cantidad: numCant,
             stock_resultante: numCant,
-            es_evento,
+            es_evento: validEsEvento,
             detalle: 'Inicialización de stock por Admin'
           });
         } catch (aErr) {
@@ -3136,9 +3236,10 @@ export const DataProvider = ({ children }) => {
     if (!window.confirm('¿Estás seguro de que deseas eliminar esta máquina? Se borrará también todo su historial de mantenimiento.')) return;
     setLoading(true);
     try {
+      const validId = validatePositiveId(id, 'Máquina');
       const {
         error
-      } = await supabase.from('maquinas').delete().eq('id', id);
+      } = await supabase.from('maquinas').delete().eq('id', validId);
       if (error) throw error;
       showToast('Máquina eliminada con éxito.');
       fetchMaquinasYMantenimientos();
@@ -3156,21 +3257,29 @@ export const DataProvider = ({ children }) => {
     }
     setLoading(true);
     try {
+      await enforceRateLimit('forms');
+      const validFecha = validateDateISO(maintenanceForm.fecha, 'Fecha de mantenimiento');
+      const validProxima = validateDateISO(maintenanceForm.proxima_fecha, 'Próxima fecha', { required: false });
       const dataToSave = {
-        maquina_id: parseInt(maintenanceForm.maquina_id),
-        fecha: maintenanceForm.fecha,
-        tipo: maintenanceForm.tipo,
-        descripcion: maintenanceForm.descripcion,
-        cambio_repuesto: maintenanceForm.cambio_repuesto,
-        repuesto_detalle: maintenanceForm.cambio_repuesto ? maintenanceForm.repuesto_detalle : null,
-        costo: maintenanceForm.costo ? parseFloat(maintenanceForm.costo) : 0,
-        realizado_por: maintenanceForm.realizado_por || null,
-        proxima_fecha: maintenanceForm.proxima_fecha || null
+        maquina_id: validatePositiveId(maintenanceForm.maquina_id, 'Máquina'),
+        fecha: validFecha,
+        tipo: validateEnum(maintenanceForm.tipo || 'revision_tecnica', ALLOWED_MAINTENANCE_TYPES, 'Tipo de mantenimiento'),
+        descripcion: validateString(maintenanceForm.descripcion, 'Descripción del trabajo', { minLength: 3, maxLength: 500 }),
+        cambio_repuesto: Boolean(maintenanceForm.cambio_repuesto),
+        repuesto_detalle: maintenanceForm.cambio_repuesto
+          ? validateString(maintenanceForm.repuesto_detalle, 'Detalle de repuestos', { required: false, maxLength: 300 })
+          : null,
+        costo: maintenanceForm.costo !== '' && maintenanceForm.costo !== null && maintenanceForm.costo !== undefined
+          ? validateNumber(maintenanceForm.costo, 'Costo', { min: 0, max: 100000000, allowDecimals: true })
+          : 0,
+        realizado_por: validateString(maintenanceForm.realizado_por, 'Realizado por', { required: false, maxLength: 120 }),
+        proxima_fecha: validProxima
       };
       if (editingMaintenance) {
+        const validMantId = validatePositiveId(editingMaintenance.id, 'Mantenimiento');
         const {
           error
-        } = await supabase.from('mantenimientos').update(dataToSave).eq('id', editingMaintenance.id);
+        } = await supabase.from('mantenimientos').update(dataToSave).eq('id', validMantId);
         if (error) throw error;
         showToast('Registro de mantenimiento actualizado.');
       } else {
@@ -3219,9 +3328,10 @@ export const DataProvider = ({ children }) => {
     if (!window.confirm('¿Estás seguro de que deseas eliminar este registro de mantenimiento?')) return;
     setLoading(true);
     try {
+      const validId = validatePositiveId(id, 'Mantenimiento');
       const {
         error
-      } = await supabase.from('mantenimientos').delete().eq('id', id);
+      } = await supabase.from('mantenimientos').delete().eq('id', validId);
       if (error) throw error;
       showToast('Registro de mantenimiento eliminado.');
       fetchMaquinasYMantenimientos();
@@ -3255,7 +3365,8 @@ export const DataProvider = ({ children }) => {
   const toggleInventoryLock = async (sucursal_id, habilitar) => {
     setLoading(true);
     try {
-      const { error } = await supabase.from('sucursales').update({ inventario_habilitado: habilitar }).eq('id', sucursal_id);
+      const validSucId = validatePositiveId(sucursal_id, 'Sucursal');
+      const { error } = await supabase.from('sucursales').update({ inventario_habilitado: Boolean(habilitar) }).eq('id', validSucId);
       if (error) throw error;
       showToast(`Inventario ${habilitar ? 'habilitado' : 'bloqueado'} para la sucursal.`, "success");
       fetchData();
@@ -3269,10 +3380,11 @@ export const DataProvider = ({ children }) => {
   const handleSaveInventory = async (inventoryItems) => {
     setLoading(true);
     try {
+      await enforceRateLimit('forms');
       const payload = inventoryItems.map(item => ({
-        sucursal_id: item.sucursal_id || user.sucursal_id,
-        producto_id: item.producto_id,
-        cantidad: typeof item.cantidad === 'number' ? Number(item.cantidad.toFixed(3)) : (parseFloat(item.cantidad) || 0),
+        sucursal_id: validatePositiveId(item.sucursal_id || user.sucursal_id, 'Sucursal'),
+        producto_id: validatePositiveId(item.producto_id, 'Producto'),
+        cantidad: validateNumber(item.cantidad, 'Cantidad de inventario', { min: 0, max: 100000, allowDecimals: true }),
         es_evento: false
       }));
 
@@ -3604,7 +3716,9 @@ export const DataProvider = ({ children }) => {
     handleDeleteMaintenance,
     handleClearTestData,
     toggleInventoryLock,
-    handleSaveInventory
+    handleSaveInventory,
+    enforceRateLimit,
+    invokeProtectedAI
   };
   return (
     <DataContext.Provider value={contextValue}>
