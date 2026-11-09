@@ -43,6 +43,7 @@ const AppContent = () => {
   const { 
     user, authLoading, activeTab, setActiveTab, loading, toast, handleLogout, 
     usernameInput, setUsernameInput, passwordInput, setPasswordInput, handleLogin,
+    sessionWarning, extendSession,
     showEditStockModal, showMaquinaModal, showMaintenanceModal, 
     selectedPedido, showLossModal, fetchData, showToast,
     handleClearTestData
@@ -323,6 +324,53 @@ const AppContent = () => {
         {showMaintenanceModal && <MaintenanceModal />}
 
       </main>
+
+      {sessionWarning && (
+        <div
+          role="alert"
+          style={{
+            position: 'fixed',
+            bottom: '1.25rem',
+            right: '1.25rem',
+            zIndex: 9999,
+            background: '#1e293b',
+            color: '#f8fafc',
+            border: '1px solid #f59e0b',
+            borderRadius: '10px',
+            padding: '0.9rem 1.1rem',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.35)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.85rem',
+            maxWidth: '420px'
+          }}
+        >
+          <span style={{ fontSize: '1.3rem' }}>⏳</span>
+          <div style={{ flex: 1, fontSize: '0.85rem', lineHeight: 1.4 }}>
+            {sessionWarning.warningType === 'inactivity' ? (
+              <>
+                <strong>Cierre por inactividad:</strong> tu sesión se cerrará en{' '}
+                <strong>{sessionWarning.remainingSeconds}s</strong>.
+              </>
+            ) : (
+              <>
+                <strong>Fin de turno:</strong> tu sesión alcanzará el tiempo máximo en{' '}
+                <strong>{sessionWarning.remainingSeconds}s</strong>.
+              </>
+            )}
+          </div>
+          {sessionWarning.warningType === 'inactivity' && (
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={extendSession}
+              style={{ whiteSpace: 'nowrap' }}
+            >
+              Seguir conectado
+            </button>
+          )}
+        </div>
+      )}
 
       {toast && <div className={`toast toast-${toast.type}`}>{toast.message}</div>}
     </div>

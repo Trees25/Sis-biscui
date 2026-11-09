@@ -1,7 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { enforceRateLimit } from '../utils/rateLimiter';
 import { validateLoginIdentifier, validateEmail } from '../utils/validators';
+import {
+  SESSION_STORAGE_KEY,
+  getSessionPolicyForRole,
+  evaluateSessionState
+} from '../utils/sessionPolicy';
 
 export const ROLE_DEFAULT_TAB = {
   admin: 'matrix',
@@ -32,16 +37,225 @@ export const useAuth = (showToast, setActiveTab, setLoading) => {
   const [authLoading, setAuthLoading] = useState(true);
   const [usernameInput, setUsernameInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
+  const [sessionWarning, setSessionWarning] = useState(null);
   const verifiedAuthIdRef = useRef(null);
+  const sessionTimingRef = useRef(null);
+  const lastActivityWriteRef = useRef(0);
+
+  // Lee o inicializa las marcas de tiempo de sesión (Graceful Rollout: no desconecta usuarios ya activos)
+  const ensureSessionTiming = useCallback((authId, forceResetLogin = false) => {
+    const now = Date.now();
+    try {
+      if (!forceResetLogin) {
+        const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && parsed.auth_id === authId && Number(parsed.loginAt) > 0) {
+            const hydrated = {
+              auth_id: authId,
+              loginAt: Number(parsed.loginAt),
+              lastActivityAt: Number(parsed.lastActivityAt) || now
+            };
+            sessionTimingRef.current = hydrated;
+            return hydrated;
+          }
+        }
+      }
+    } catch {
+      // Si hay datos corruptos en localStorage, reinicializar de forma segura
+    }
+
+    const freshTiming = {
+      auth_id: authId,
+      loginAt: now,
+      lastActivityAt: now
+    };
+    sessionTimingRef.current = freshTiming;
+    try {
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(freshTiming));
+    } catch {
+      // Ignorar errores de cuota de localStorage
+    }
+    return freshTiming;
+  }, []);
+
+  const clearSessionTiming = useCallback(() => {
+    sessionTimingRef.current = null;
+    setSessionWarning(null);
+    try {
+      localStorage.removeItem(SESSION_STORAGE_KEY);
+    } catch {
+      // Ignorar
+    }
+  }, []);
+
+  // Permite al usuario renovar su ventana de inactividad desde el banner de aviso
+  const extendSession = useCallback(() => {
+    if (!user?.auth_id) return;
+    const now = Date.now();
+    const current = sessionTimingRef.current || ensureSessionTiming(user.auth_id, false);
+    const updated = {
+      ...current,
+      auth_id: user.auth_id,
+      lastActivityAt: now
+    };
+    sessionTimingRef.current = updated;
+    lastActivityWriteRef.current = now;
+    setSessionWarning(null);
+    try {
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(updated));
+    } catch {
+      // Ignorar
+    }
+  }, [user?.auth_id, ensureSessionTiming]);
 
   useEffect(() => {
     if (user) {
-      localStorage.setItem('biscui_user', JSON.stringify(user));
+      // Guardar únicamente metadatos básicos de sesión en localStorage (nunca email, password ni tokens)
+      const safeSessionMeta = {
+        id: user.id,
+        auth_id: user.auth_id,
+        nombre: user.nombre,
+        rol: user.rol,
+        sucursal_id: user.sucursal_id,
+        sucursal_nombre: user.sucursal_nombre
+      };
+      localStorage.setItem('biscui_user', JSON.stringify(safeSessionMeta));
+      ensureSessionTiming(user.auth_id, false);
     } else {
       localStorage.removeItem('biscui_user');
       localStorage.removeItem('biscui_tab');
+      clearSessionTiming();
     }
-  }, [user]);
+  }, [user, ensureSessionTiming, clearSessionTiming]);
+
+  // Monitor de Inactividad (Idle Timeout: 60 min) y Expiración Absoluta de Turno (8h admin / 12h operativos)
+  useEffect(() => {
+    if (!user?.auth_id || !user?.rol) {
+      setSessionWarning(null);
+      return;
+    }
+
+    // Limpiar cualquier parámetro de prueba que haya quedado en la URL del navegador
+    if (typeof window !== 'undefined' && window.location.search && window.history?.replaceState) {
+      try {
+        const cleanUrl = new URL(window.location.href);
+        if (cleanUrl.searchParams.has('test_idle_sec') || cleanUrl.searchParams.has('test_max_sec')) {
+          cleanUrl.searchParams.delete('test_idle_sec');
+          cleanUrl.searchParams.delete('test_max_sec');
+          window.history.replaceState({}, document.title, cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
+        }
+      } catch {
+        // Ignorar
+      }
+    }
+
+    // Usar siempre la política real de producción en el navegador (60 minutos de inactividad)
+    const policy = getSessionPolicyForRole(user.rol);
+    const throttleMs = 3000;
+
+    const recordUserActivity = () => {
+      const now = Date.now();
+      if (now - lastActivityWriteRef.current < throttleMs) return;
+      lastActivityWriteRef.current = now;
+
+      const current = sessionTimingRef.current || ensureSessionTiming(user.auth_id, false);
+      const updated = {
+        ...current,
+        auth_id: user.auth_id,
+        lastActivityAt: now
+      };
+      sessionTimingRef.current = updated;
+      setSessionWarning(prev => (prev?.warningType === 'inactivity' ? null : prev));
+      try {
+        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(updated));
+      } catch {
+        // Ignorar
+      }
+    };
+
+    const checkSessionExpiration = async () => {
+      const now = Date.now();
+      // Sincronizar con localStorage por si el usuario estuvo activo en otra pestaña
+      try {
+        const storedRaw = localStorage.getItem(SESSION_STORAGE_KEY);
+        if (storedRaw) {
+          const parsed = JSON.parse(storedRaw);
+          if (parsed?.auth_id === user.auth_id) {
+            sessionTimingRef.current = parsed;
+          }
+        }
+      } catch {
+        // Ignorar
+      }
+
+      const timing = sessionTimingRef.current || ensureSessionTiming(user.auth_id, false);
+      const evaluation = evaluateSessionState({
+        loginAt: timing.loginAt,
+        lastActivityAt: timing.lastActivityAt,
+        now,
+        policy
+      });
+
+      if (evaluation.status === 'EXPIRED_ABSOLUTE' || evaluation.status === 'EXPIRED_IDLE') {
+        verifiedAuthIdRef.current = null;
+        clearSessionTiming();
+        // Si estaba en modo de prueba por URL (?test_idle_sec o ?test_max_sec),
+        // limpiar el parámetro de la barra de direcciones tras completar la prueba
+        // para que no siga cerrando la sesión cada pocos segundos.
+        if (policy.isTestOverride && typeof window !== 'undefined' && window.history?.replaceState) {
+          try {
+            const cleanUrl = new URL(window.location.href);
+            cleanUrl.searchParams.delete('test_idle_sec');
+            cleanUrl.searchParams.delete('test_max_sec');
+            window.history.replaceState({}, document.title, cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
+          } catch {
+            // Ignorar
+          }
+        }
+        await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+        setUser(null);
+        setUsernameInput('');
+        setPasswordInput('');
+        if (showToast) {
+          showToast(evaluation.message, 'error');
+        }
+        return;
+      }
+
+      if (evaluation.status === 'WARNING') {
+        setSessionWarning({
+          warningType: evaluation.warningType,
+          remainingSeconds: evaluation.remainingSeconds,
+          isTestOverride: policy.isTestOverride
+        });
+      } else {
+        setSessionWarning(null);
+      }
+    };
+
+    const activityEvents = ['mousedown', 'mousemove', 'keydown', 'touchstart', 'scroll', 'click'];
+    activityEvents.forEach(evt => window.addEventListener(evt, recordUserActivity, { passive: true }));
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        checkSessionExpiration();
+      }
+    };
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+
+    const intervalMs = policy.isTestOverride ? 1000 : 5000;
+    const timerId = setInterval(checkSessionExpiration, intervalMs);
+    checkSessionExpiration();
+
+    return () => {
+      clearInterval(timerId);
+      activityEvents.forEach(evt => window.removeEventListener(evt, recordUserActivity));
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+    };
+  }, [user?.auth_id, user?.rol, ensureSessionTiming, clearSessionTiming, showToast]);
 
   // Sincronizar sesión real de Supabase Auth y verificar rol desde la BD
   useEffect(() => {
@@ -194,6 +408,7 @@ export const useAuth = (showToast, setActiveTab, setLoading) => {
         sucursal_nombre: userData.sucursales?.nombre
       };
       verifiedAuthIdRef.current = userData.auth_id;
+      ensureSessionTiming(userData.auth_id, true);
       setUser(sessionUser);
       showToast(`¡Bienvenido, ${sessionUser.nombre}!`);
 
@@ -207,6 +422,7 @@ export const useAuth = (showToast, setActiveTab, setLoading) => {
 
   const handleLogout = async () => {
     verifiedAuthIdRef.current = null;
+    clearSessionTiming();
     await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
     setUser(null);
     setUsernameInput('');
@@ -219,6 +435,7 @@ export const useAuth = (showToast, setActiveTab, setLoading) => {
     authLoading,
     usernameInput, setUsernameInput,
     passwordInput, setPasswordInput,
+    sessionWarning, extendSession,
     handleLogin, handleLogout
   };
 };

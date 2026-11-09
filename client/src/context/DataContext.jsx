@@ -266,6 +266,7 @@ export const DataProvider = ({ children }) => {
     authLoading,
     usernameInput, setUsernameInput,
     passwordInput, setPasswordInput,
+    sessionWarning, extendSession,
     handleLogin, handleLogout
   } = useAuth(showToast, setActiveTab, setLoading);
   const [dashboardStats, setDashboardStats] = useState(null);
@@ -3447,6 +3448,8 @@ export const DataProvider = ({ children }) => {
     setUsernameInput,
     passwordInput,
     setPasswordInput,
+    sessionWarning,
+    extendSession,
     toast,
     setToast,
     activeTab,

@@ -162,6 +162,14 @@ RETURNS TRIGGER AS $$
 DECLARE
     v_role TEXT := public.get_current_user_role();
 BEGIN
+    -- Permitir migraciones internas ejecutadas desde el SQL Editor (postgres / service_role)
+    IF current_user IN ('postgres', 'supabase_admin', 'service_role') AND auth.uid() IS NULL THEN
+        IF TG_OP = 'DELETE' THEN
+            RETURN OLD;
+        END IF;
+        RETURN NEW;
+    END IF;
+
     -- Solo el rol 'admin' puede CREAR, EDITAR o ELIMINAR proveedores, máquinas o mantenimientos/costos
     IF v_role IS DISTINCT FROM 'admin' THEN
         RAISE EXCEPTION 'Acceso denegado en servidor: solo un administrador puede % en la tabla %.',
