@@ -38,8 +38,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 
--- Verifica que un texto no supere la longitud máxima, no contenga etiquetas HTML/XSS (< >),
--- null bytes ni inyección de fórmulas de hojas de cálculo (=, +, @ al inicio)
+-- Verifica que un texto no supere la longitud máxima, no contenga etiquetas HTML/XSS (< >)
+-- ni inyección de fórmulas de hojas de cálculo (=, +, @ al inicio).
+-- Nota: PostgreSQL rechaza bytes nulos a nivel de protocolo/tipo TEXT de forma nativa
+-- (invocar chr(0) lanza 54000: "null character not permitted").
 CREATE OR REPLACE FUNCTION public.is_safe_text(val TEXT, max_len INT DEFAULT 255)
 RETURNS BOOLEAN AS $$
 BEGIN
@@ -48,7 +50,6 @@ BEGIN
     END IF;
     RETURN char_length(val) <= max_len
        AND val !~ '[<>]'
-       AND position(chr(0) in val) = 0
        AND val !~ '^[=+@]';
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;

@@ -1,7 +1,7 @@
 import { useData } from '../../context/DataContext';
 import React from 'react';
 import UnitCalculatorInput from '../../components/common/UnitCalculatorInput';
-import { formatQuantity, formatQuantityShort, formatTipo, getBadgeClass, translateState, formatDate } from '../../utils/formatters';
+import { formatQuantity, formatQuantityShort, formatTipo, getBadgeClass, translateState, formatDate, normalizeWeight } from '../../utils/formatters';
 const AdminHistoricalView = () => {
   const {
     histCargaMode,
@@ -15,7 +15,6 @@ const AdminHistoricalView = () => {
     setAdminHistWeights,
     adminHistSearch,
     setAdminHistSearch,
-    String,
     adminHistDefaultWeight,
     getTareByTipo,
     setAdminHistDefaultWeight,
