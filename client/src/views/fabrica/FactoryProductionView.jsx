@@ -27,7 +27,8 @@ const FactoryProductionView = () => {
     showToast,
     handleDeleteLote,
     handleEditLote,
-    categories
+    categories,
+    clientes
   } = useData();
 
   const [assignModalData, setAssignModalData] = React.useState(null);
@@ -347,22 +348,44 @@ const FactoryProductionView = () => {
           })} required />
                     </div>
 
-                    {/* Event Checkbox */}
+                    {/* Destino del Stock (Fábrica, Eventos o Clientes Específicos) */}
                     {(() => {
           const selectedProd = productos.find(p => p.id === parseInt(prodForm.producto_id));
           const isVasqueta = selectedProd && selectedProd.categoria === 'helados' && selectedProd.tipo === 'vasqueta_5_6k';
-          if (isVasqueta) return null;
+          const currentDestValue = prodForm.cliente_id
+            ? `cliente:${prodForm.cliente_id}`
+            : (prodForm.es_evento && !isVasqueta ? 'evento' : 'fabrica');
+
           return <div className="form-group" style={{
             margin: '0.8rem 0'
           }}>
                           <label style={{ fontSize: "0.9rem", marginBottom: "0.4rem", display: "block", fontWeight: 600 }}>Destino del Stock</label>
                           <select 
                             className="form-control"
-                            value={prodForm.es_evento ? "evento" : "fabrica"}
-                            onChange={e => setProdForm({
-                              ...prodForm,
-                              es_evento: e.target.value === "evento"
-                            })}
+                            value={currentDestValue}
+                            onChange={e => {
+                              const val = e.target.value;
+                              if (val.startsWith('cliente:')) {
+                                const cId = val.replace('cliente:', '');
+                                setProdForm({
+                                  ...prodForm,
+                                  es_evento: false,
+                                  cliente_id: cId
+                                });
+                              } else if (val === 'evento') {
+                                setProdForm({
+                                  ...prodForm,
+                                  es_evento: true,
+                                  cliente_id: ''
+                                });
+                              } else {
+                                setProdForm({
+                                  ...prodForm,
+                                  es_evento: false,
+                                  cliente_id: ''
+                                });
+                              }
+                            }}
                             style={{
                               padding: "0.8rem",
                               fontSize: "0.95rem",
@@ -372,8 +395,17 @@ const FactoryProductionView = () => {
                               color: "var(--text-dark)"
                             }}
                           >
-                            <option value="fabrica">Stock de Fábrica / Sucursales</option>
-                            <option value="evento">Stock de Eventos</option>
+                            <option value="fabrica">🏭 Stock de Fábrica / Sucursales</option>
+                            {!isVasqueta && <option value="evento">🎉 Stock de Eventos</option>}
+                            {clientes && clientes.length > 0 && (
+                              <optgroup label="Clientes Específicos (Stock Propio)">
+                                {clientes.map(c => (
+                                  <option key={c.id} value={`cliente:${c.id}`}>
+                                    👤 Cliente: {c.nombre}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            )}
                           </select>
                         </div>;
         })()}
@@ -524,6 +556,21 @@ const FactoryProductionView = () => {
                   }}>{l.codigo_lote}</code></td>
                                 <td>
                                   <strong>{l.productos?.nombre}</strong>
+                                  <div style={{ marginTop: '3px' }}>
+                                    {l.cliente_id ? (
+                                      <span className="badge badge-preparado" style={{ fontSize: '0.7rem', padding: '0.15rem 0.45rem' }}>
+                                        👤 Cliente: {(clientes || []).find(c => c.id === l.cliente_id)?.nombre || `#${l.cliente_id}`}
+                                      </span>
+                                    ) : l.es_evento ? (
+                                      <span className="badge badge-en_transito" style={{ fontSize: '0.7rem', padding: '0.15rem 0.45rem' }}>
+                                        🎉 Stock Eventos
+                                      </span>
+                                    ) : (
+                                      <span className="badge badge-solicitado" style={{ fontSize: '0.7rem', padding: '0.15rem 0.45rem' }}>
+                                        🏭 Stock Fábrica
+                                      </span>
+                                    )}
+                                  </div>
                                   {l.pesos && l.pesos.length > 0 && <div style={{
                     fontSize: '0.75rem',
                     color: 'var(--text-light)',

@@ -187,11 +187,15 @@ export const DataProvider = ({ children }) => {
     productos, setProductos,
     sucursales, setSucursales,
     proveedores, setProveedores,
+    clientes, setClientes,
+    stockClientes, setStockClientes,
     allProducts, setAllProducts,
     editingProduct, setEditingProduct,
     showProductModal, setShowProductModal,
     editingProv, setEditingProv,
     showProvModal, setShowProvModal,
+    editingCliente, setEditingCliente,
+    showClienteModal, setShowClienteModal,
     catalogSearch, setCatalogSearch,
     catalogCategory, setCatalogCategory,
     catalogSupplier, setCatalogSupplier,
@@ -299,7 +303,8 @@ export const DataProvider = ({ children }) => {
     producto_id: '',
     cantidad: '',
     fecha: getLocalDateString(),
-    es_evento: false
+    es_evento: false,
+    cliente_id: ''
   });
   const [prodWeights, setProdWeights] = useState([]);
   const [discrepancias, setDiscrepancias] = useState([]);
@@ -335,6 +340,13 @@ export const DataProvider = ({ children }) => {
     cant_por_pack: ''
   });
   const [provForm, setProvForm] = useState({
+    nombre: '',
+    cuit: '',
+    telefono: '',
+    direccion: '',
+    email: ''
+  });
+  const [clienteForm, setClienteForm] = useState({
     nombre: '',
     cuit: '',
     telefono: '',
@@ -682,6 +694,23 @@ export const DataProvider = ({ children }) => {
         }
         setAdminStockMatriz(buildAdminStockMatriz(stockD, branchList, prodList));
       }
+
+      if (['admin', 'heladero', 'pastelero', 'transportista'].includes(user.rol)) {
+        const { data: scData, error: scErr } = await supabase
+          .from('stock_clientes')
+          .select(`
+            id,
+            cliente_id,
+            producto_id,
+            cantidad,
+            updated_at,
+            clientes ( nombre ),
+            productos ( nombre, tipo, categoria, unidad_medida )
+          `);
+        if (!scErr) {
+          setStockClientes(scData || []);
+        }
+      }
     } catch (err) {
       console.error('Error refreshing stock:', err);
     }
@@ -865,10 +894,36 @@ export const DataProvider = ({ children }) => {
       const {
         data: provData,
         error: provErr
-      } = await supabase.from('proveedores').select('*').order('nombre');
+      } = await supabase.from('proveedores').select('id, nombre, cuit, telefono, direccion, email').order('nombre');
       if (version !== fetchVersionRef.current) return;
       if (!provErr) {
         setProveedores(provData || []);
+      }
+      const {
+        data: cliData,
+        error: cliErr
+      } = await supabase.from('clientes').select('id, nombre, cuit, telefono, direccion, email, created_at').order('nombre');
+      if (version !== fetchVersionRef.current) return;
+      if (!cliErr) {
+        setClientes(cliData || []);
+      }
+      if (['admin', 'heladero', 'pastelero', 'transportista'].includes(user.rol)) {
+        const {
+          data: scData,
+          error: scErr
+        } = await supabase.from('stock_clientes').select(`
+            id,
+            cliente_id,
+            producto_id,
+            cantidad,
+            updated_at,
+            clientes ( nombre ),
+            productos ( nombre, tipo, categoria, unidad_medida )
+          `);
+        if (version !== fetchVersionRef.current) return;
+        if (!scErr) {
+          setStockClientes(scData || []);
+        }
       }
       if (['admin', 'heladero', 'pastelero'].includes(user.rol)) {
         const {
@@ -1208,6 +1263,9 @@ export const DataProvider = ({ children }) => {
         }
         debounceRealtime('stock', refreshStock);
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_clientes' }, () => {
+        debounceRealtime('stock', refreshStock);
+      })
       .subscribe();
     channels.push(stockChannel);
 
@@ -1402,21 +1460,30 @@ export const DataProvider = ({ children }) => {
           throw new Error('El peso neto total debe ser mayor a 0.');
         }
       }
-      const isEvent = selectedProd && selectedProd.categoria === 'helados' && selectedProd.tipo === 'vasqueta_5_6k' ? false : Boolean(prodForm.es_evento);
-      const {
-        error: rpcErr
-      } = await supabase.rpc('registrar_produccion', {
+      const validClienteId = prodForm.cliente_id
+        ? validatePositiveId(prodForm.cliente_id, 'Cliente de destino', { required: false })
+        : null;
+      const isEvent = validClienteId
+        ? false
+        : (selectedProd && selectedProd.categoria === 'helados' && selectedProd.tipo === 'vasqueta_5_6k' ? false : Boolean(prodForm.es_evento));
+
+      const rpcPayload = {
         p_codigo_lote: codigo_lote,
         p_producto_id: pId,
         p_cantidad: netKilos,
         p_pesos: pesosArray,
         p_fecha_produccion: pDate.toISOString(),
         p_creado_por: user.id,
-        p_es_evento: isEvent
-      });
+        p_es_evento: isEvent,
+        p_cliente_id: validClienteId || null
+      };
+
+      const {
+        error: rpcErr
+      } = await supabase.rpc('registrar_produccion', rpcPayload);
       if (rpcErr) throw rpcErr;
 
-      if (isEvent) {
+      if (isEvent && !validClienteId) {
         let remainingQty = qty;
         const pendingOrders = productionOrders.filter(o => o.estado === 'pendiente' || o.estado === 'en_proceso');
         for (const order of pendingOrders) {
@@ -1439,12 +1506,18 @@ export const DataProvider = ({ children }) => {
         }
       }
 
-      showToast(`Producción registrada con Lote ${codigo_lote}. Stock de fábrica actualizado.`);
+      if (validClienteId) {
+        const clienteObj = clientes.find(c => c.id === validClienteId);
+        showToast(`Producción registrada con Lote ${codigo_lote}. Stock del cliente "${clienteObj?.nombre || validClienteId}" actualizado.`);
+      } else {
+        showToast(`Producción registrada con Lote ${codigo_lote}. Stock de fábrica actualizado.`);
+      }
       setProdForm({
         producto_id: '',
         cantidad: '',
         fecha: getLocalDateString(),
-        es_evento: false
+        es_evento: false,
+        cliente_id: ''
       });
       setProdWeights([]);
       await Promise.all([refreshStock(), refreshLotes(), isEvent ? refreshProductionOrders() : Promise.resolve()]);
@@ -1703,6 +1776,90 @@ export const DataProvider = ({ children }) => {
       setLoading(false);
     }
   };
+  const handleClienteSubmit = async e => {
+    e.preventDefault();
+    if (!clienteForm.nombre?.trim()) return;
+    setLoading(true);
+    try {
+      await enforceRateLimit('forms');
+      const payload = {
+        nombre: validateString(clienteForm.nombre, 'Nombre del cliente', { minLength: 2, maxLength: 120 }),
+        cuit: validateCUIT(clienteForm.cuit, { required: false }),
+        telefono: validatePhone(clienteForm.telefono, { required: false }),
+        direccion: validateString(clienteForm.direccion, 'Dirección', { required: false, maxLength: 200 }),
+        email: validateEmail(clienteForm.email, { required: false })
+      };
+      if (editingCliente) {
+        const validClienteId = validatePositiveId(editingCliente.id, 'Cliente');
+        const {
+          error
+        } = await supabase.from('clientes').update(payload).eq('id', validClienteId);
+        if (error) throw error;
+        showToast('Cliente actualizado con éxito.');
+      } else {
+        const {
+          error
+        } = await supabase.from('clientes').insert(payload);
+        if (error) throw error;
+        showToast('Cliente creado con éxito.');
+      }
+      setShowClienteModal(false);
+      setEditingCliente(null);
+      setClienteForm({
+        nombre: '',
+        cuit: '',
+        telefono: '',
+        direccion: '',
+        email: ''
+      });
+      fetchData();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleClienteDelete = async (id, nombre) => {
+    if (!window.confirm(`¿Estás seguro de eliminar el cliente "${nombre}" y su registro de stock propio?`)) return;
+    setLoading(true);
+    try {
+      const validId = validatePositiveId(id, 'Cliente');
+      const {
+        error
+      } = await supabase.from('clientes').delete().eq('id', validId);
+      if (error) throw error;
+      showToast('Cliente eliminado con éxito.');
+      fetchData();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleAdjustClienteStock = async (clienteId, productoId, nuevaCantidad) => {
+    setLoading(true);
+    try {
+      await enforceRateLimit('forms');
+      const validClienteId = validatePositiveId(clienteId, 'Cliente');
+      const validProdId = validatePositiveId(productoId, 'Producto');
+      const validQty = validateNumber(nuevaCantidad, 'Cantidad de stock del cliente', { min: 0, max: 100000, allowDecimals: true });
+      const { error } = await supabase
+        .from('stock_clientes')
+        .upsert({
+          cliente_id: validClienteId,
+          producto_id: validProdId,
+          cantidad: validQty,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'cliente_id,producto_id' });
+      if (error) throw error;
+      showToast('Stock del cliente actualizado.');
+      await refreshStock();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
   const handleDownloadHistTemplate = () => {
     const prods = productos.filter(p => p.categoria === histBulkCategory && p.activo === 1);
     const headers = ['ID_Producto', 'Nombre', 'Formato', 'Cantidad', 'Peso_Bruto_Unitario_Opcional', 'Fecha_Opcional', 'Destinar_A_Eventos_SI_NO'];
@@ -1922,34 +2079,52 @@ export const DataProvider = ({ children }) => {
     try {
       const isEvent = lote.es_evento || false;
 
-      // Fetch current stock to subtract
-      const { data: currentStock, error: stockFetchErr } = await supabase
-        .from('stock_sucursales')
-        .select('cantidad, id')
-        .eq('producto_id', lote.producto_id)
-        .eq('sucursal_id', 1)
-        .eq('es_evento', isEvent)
-        .single();
+      if (lote.cliente_id) {
+        const { data: currentCliStock, error: cliFetchErr } = await supabase
+          .from('stock_clientes')
+          .select('cantidad, id')
+          .eq('cliente_id', lote.cliente_id)
+          .eq('producto_id', lote.producto_id)
+          .single();
 
-      if (!stockFetchErr && currentStock) {
-        const newQty = Math.max(0, parseFloat(currentStock.cantidad) - parseFloat(lote.cantidad));
-        const { error: stockUpdateErr } = await supabase
+        if (!cliFetchErr && currentCliStock) {
+          const newQty = Math.max(0, parseFloat(currentCliStock.cantidad) - parseFloat(lote.cantidad));
+          const { error: cliUpdErr } = await supabase
+            .from('stock_clientes')
+            .update({ cantidad: newQty, updated_at: new Date().toISOString() })
+            .eq('id', currentCliStock.id);
+          if (cliUpdErr) throw cliUpdErr;
+        }
+      } else {
+        // Fetch current stock to subtract
+        const { data: currentStock, error: stockFetchErr } = await supabase
           .from('stock_sucursales')
-          .update({ cantidad: newQty })
-          .eq('id', currentStock.id);
+          .select('cantidad, id')
+          .eq('producto_id', lote.producto_id)
+          .eq('sucursal_id', 1)
+          .eq('es_evento', isEvent)
+          .single();
 
-        if (stockUpdateErr) throw stockUpdateErr;
+        if (!stockFetchErr && currentStock) {
+          const newQty = Math.max(0, parseFloat(currentStock.cantidad) - parseFloat(lote.cantidad));
+          const { error: stockUpdateErr } = await supabase
+            .from('stock_sucursales')
+            .update({ cantidad: newQty })
+            .eq('id', currentStock.id);
 
-        // Register Audit Log
-        const { error: auditErr } = await supabase.from('historial_movimientos').insert({
-          sucursal_id: 1,
-          producto_id: lote.producto_id,
-          tipo_movimiento: 'ajuste_inventario',
-          cantidad: -parseFloat(lote.cantidad),
-          stock_resultante: newQty,
-          detalle: `Eliminación de carga/lote: ${lote.codigo_lote}`
-        });
-        if (auditErr) console.error("Error registrando auditoría:", auditErr);
+          if (stockUpdateErr) throw stockUpdateErr;
+
+          // Register Audit Log
+          const { error: auditErr } = await supabase.from('historial_movimientos').insert({
+            sucursal_id: 1,
+            producto_id: lote.producto_id,
+            tipo_movimiento: 'ajuste_inventario',
+            cantidad: -parseFloat(lote.cantidad),
+            stock_resultante: newQty,
+            detalle: `Eliminación de carga/lote: ${lote.codigo_lote}`
+          });
+          if (auditErr) console.error("Error registrando auditoría:", auditErr);
+        }
       }
 
       // Now delete the lote
@@ -2016,34 +2191,52 @@ export const DataProvider = ({ children }) => {
         }
       }
 
-      // Update stock
-      const { data: currentStock, error: stockFetchErr } = await supabase
-        .from('stock_sucursales')
-        .select('cantidad, id')
-        .eq('producto_id', lote.producto_id)
-        .eq('sucursal_id', 1)
-        .eq('es_evento', isEvent)
-        .single();
+      if (lote.cliente_id) {
+        const { data: currentCliStock, error: cliFetchErr } = await supabase
+          .from('stock_clientes')
+          .select('cantidad, id')
+          .eq('cliente_id', lote.cliente_id)
+          .eq('producto_id', lote.producto_id)
+          .single();
 
-      if (!stockFetchErr && currentStock) {
-        const updatedStockQty = Math.max(0, parseFloat(currentStock.cantidad) + diff);
-        const { error: stockUpdateErr } = await supabase
+        if (!cliFetchErr && currentCliStock) {
+          const updatedStockQty = Math.max(0, parseFloat(currentCliStock.cantidad) + diff);
+          const { error: cliUpdErr } = await supabase
+            .from('stock_clientes')
+            .update({ cantidad: updatedStockQty, updated_at: new Date().toISOString() })
+            .eq('id', currentCliStock.id);
+          if (cliUpdErr) throw cliUpdErr;
+        }
+      } else {
+        // Update stock
+        const { data: currentStock, error: stockFetchErr } = await supabase
           .from('stock_sucursales')
-          .update({ cantidad: updatedStockQty })
-          .eq('id', currentStock.id);
+          .select('cantidad, id')
+          .eq('producto_id', lote.producto_id)
+          .eq('sucursal_id', 1)
+          .eq('es_evento', isEvent)
+          .single();
 
-        if (stockUpdateErr) throw stockUpdateErr;
+        if (!stockFetchErr && currentStock) {
+          const updatedStockQty = Math.max(0, parseFloat(currentStock.cantidad) + diff);
+          const { error: stockUpdateErr } = await supabase
+            .from('stock_sucursales')
+            .update({ cantidad: updatedStockQty })
+            .eq('id', currentStock.id);
 
-        // Register Audit Log
-        const { error: auditErr } = await supabase.from('historial_movimientos').insert({
-          sucursal_id: 1,
-          producto_id: lote.producto_id,
-          tipo_movimiento: 'ajuste_inventario',
-          cantidad: diff,
-          stock_resultante: updatedStockQty,
-          detalle: `Edición de carga/lote: ${lote.codigo_lote}`
-        });
-        if (auditErr) console.error("Error registrando auditoría:", auditErr);
+          if (stockUpdateErr) throw stockUpdateErr;
+
+          // Register Audit Log
+          const { error: auditErr } = await supabase.from('historial_movimientos').insert({
+            sucursal_id: 1,
+            producto_id: lote.producto_id,
+            tipo_movimiento: 'ajuste_inventario',
+            cantidad: diff,
+            stock_resultante: updatedStockQty,
+            detalle: `Edición de carga/lote: ${lote.codigo_lote}`
+          });
+          if (auditErr) console.error("Error registrando auditoría:", auditErr);
+        }
       }
 
       showToast(`Lote ${lote.codigo_lote} actualizado correctamente.`, 'success');
@@ -3549,6 +3742,19 @@ export const DataProvider = ({ children }) => {
     setShowProvModal,
     provForm,
     setProvForm,
+    clientes,
+    setClientes,
+    stockClientes,
+    setStockClientes,
+    editingCliente,
+    setEditingCliente,
+    showClienteModal,
+    setShowClienteModal,
+    clienteForm,
+    setClienteForm,
+    handleClienteSubmit,
+    handleClienteDelete,
+    handleAdjustClienteStock,
     catalogSearch,
     setCatalogSearch,
     catalogCategory,
