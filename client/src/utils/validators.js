@@ -254,3 +254,20 @@ export const ALLOWED_MAINTENANCE_TYPES = [
   'otro'
 ];
 
+export const MOTIVOS_BAJA_STOCK = [
+  { id: 'vencimiento', label: 'Vencimiento / Caducado' },
+  { id: 'lote_malo', label: 'Lote en mal estado / Defecto de calidad' },
+  { id: 'descongelamiento', label: 'Falla de frío / Descongelado' },
+  { id: 'rotura', label: 'Rotura / Daño de envase' },
+  { id: 'otro', label: 'Otra observación' }
+];
+
+export const MOTIVOS_DEVOLUCION_FABRICA = [
+  { id: 'rotacion_sabor', label: 'Rotación de sabores / Fin de temporada' },
+  { id: 'exceso_stock', label: 'Exceso de stock / Poco movimiento' },
+  { id: 'inspeccion_calidad', label: 'Devolución para inspección de calidad' },
+  { id: 'cambio_mercaderia', label: 'Cambio por otro producto' },
+  { id: 'otro', label: 'Otra observación' }
+];
+
+

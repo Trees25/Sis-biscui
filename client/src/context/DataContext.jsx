@@ -214,6 +214,12 @@ export const DataProvider = ({ children }) => {
     showEventStock, setShowEventStock,
     showEventStockDepot, setShowEventStockDepot,
     showEditStockModal, setShowEditStockModal,
+    showBajaModal, setShowBajaModal,
+    bajaForm, setBajaForm,
+    bajasList, setBajasList,
+    showDevolucionModal, setShowDevolucionModal,
+    devolucionForm, setDevolucionForm,
+    devolucionesList, setDevolucionesList,
     editStockForm, setEditStockForm,
     editStockItemDetails, setEditStockItemDetails,
     adminStockSupplierFilter, setAdminStockSupplierFilter
@@ -945,6 +951,21 @@ export const DataProvider = ({ children }) => {
           setRecentLotes(mappedLotes);
         }
       }
+
+      // Cargar registros de bajas de stock y devoluciones a fábrica
+      try {
+        const [bajasRes, devRes] = await Promise.all([
+          supabase.from('bajas_stock').select('*').order('created_at', { ascending: false }).limit(200),
+          supabase.from('devoluciones_fabrica').select('*').order('created_at', { ascending: false }).limit(200)
+        ]);
+        if (version === fetchVersionRef.current) {
+          if (!bajasRes.error) setBajasList(bajasRes.data || []);
+          if (!devRes.error) setDevolucionesList(devRes.data || []);
+        }
+      } catch (errBajas) {
+        console.warn('Tablas de bajas o devoluciones no listas aún:', errBajas);
+      }
+
       let rawStock = [];
       let stockD = [];
       let stockQuery = supabase.from('stock_sucursales').select(`
@@ -3615,6 +3636,119 @@ export const DataProvider = ({ children }) => {
     }
   };
 
+  const fetchBajasYDevoluciones = useCallback(async () => {
+    try {
+      const [bajasRes, devRes] = await Promise.all([
+        supabase.from('bajas_stock').select('*').order('created_at', { ascending: false }).limit(200),
+        supabase.from('devoluciones_fabrica').select('*').order('created_at', { ascending: false }).limit(200)
+      ]);
+      if (!bajasRes.error) setBajasList(bajasRes.data || []);
+      if (!devRes.error) setDevolucionesList(devRes.data || []);
+    } catch (e) {
+      console.warn('Error al consultar bajas o devoluciones:', e);
+    }
+  }, [setBajasList, setDevolucionesList]);
+
+  const openBajaModal = useCallback((productoId = null, sucursalId = null) => {
+    setBajaForm({
+      producto_id: productoId ? String(productoId) : '',
+      sucursal_id: sucursalId ? String(sucursalId) : String(user?.sucursal_id || 1),
+      cantidad: '',
+      motivo: 'vencimiento',
+      observaciones: '',
+      es_evento: false
+    });
+    setShowBajaModal(true);
+  }, [user?.sucursal_id, setBajaForm, setShowBajaModal]);
+
+  const openDevolucionModal = useCallback((productoId = null, sucursalId = null) => {
+    setDevolucionForm({
+      producto_id: productoId ? String(productoId) : '',
+      sucursal_origen_id: sucursalId ? String(sucursalId) : String(user?.sucursal_id || 2),
+      cantidad: '',
+      motivo: 'rotacion_sabor',
+      observaciones: '',
+      es_evento: false
+    });
+    setShowDevolucionModal(true);
+  }, [user?.sucursal_id, setDevolucionForm, setShowDevolucionModal]);
+
+  const handleRegistrarBajaStock = async ({ sucursal_id, producto_id, cantidad, motivo, observaciones, es_evento }) => {
+    setLoading(true);
+    try {
+      await enforceRateLimit('forms');
+      const validSucId = validatePositiveId(sucursal_id, 'Sucursal');
+      const validProdId = validatePositiveId(producto_id, 'Producto');
+      const prod = productos.find(p => p.id === validProdId);
+      const isWeight = prod?.unidad_medida === 'peso' || prod?.categoria === 'helados' || prod?.categoria?.toLowerCase().includes('fruta') || prod?.categoria?.toLowerCase().includes('verdura');
+      const validQty = validateNumber(cantidad, 'Cantidad a dar de baja', {
+        min: isWeight ? 0.001 : 1,
+        max: 100000,
+        allowDecimals: isWeight
+      });
+      const validMotivo = validateString(motivo || 'vencimiento', 'Motivo de baja', { minLength: 2, maxLength: 50 });
+      const validObs = validateString(observaciones || '', 'Observaciones', { required: false, maxLength: 500 });
+
+      const { error: rpcErr } = await supabase.rpc('registrar_baja_stock', {
+        p_sucursal_id: validSucId,
+        p_producto_id: validProdId,
+        p_cantidad: validQty,
+        p_motivo: validMotivo,
+        p_observaciones: validObs || null,
+        p_es_evento: Boolean(es_evento)
+      });
+      if (rpcErr) throw rpcErr;
+
+      showToast(`Baja registrada con éxito (-${validQty} ${isWeight ? 'kg' : 'u'}). Stock actualizado.`);
+      setShowBajaModal(false);
+      await Promise.all([refreshStock(), fetchBajasYDevoluciones()]);
+    } catch (err) {
+      console.error('Error al registrar baja de stock:', err);
+      showToast(err.message, 'error');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegistrarDevolucionFabrica = async ({ sucursal_origen_id, producto_id, cantidad, motivo, observaciones, es_evento }) => {
+    setLoading(true);
+    try {
+      await enforceRateLimit('forms');
+      const validSucId = validatePositiveId(sucursal_origen_id, 'Sucursal de origen');
+      const validProdId = validatePositiveId(producto_id, 'Producto');
+      const prod = productos.find(p => p.id === validProdId);
+      const isWeight = prod?.unidad_medida === 'peso' || prod?.categoria === 'helados' || prod?.categoria?.toLowerCase().includes('fruta') || prod?.categoria?.toLowerCase().includes('verdura');
+      const validQty = validateNumber(cantidad, 'Cantidad a devolver', {
+        min: isWeight ? 0.001 : 1,
+        max: 100000,
+        allowDecimals: isWeight
+      });
+      const validMotivo = validateString(motivo || 'rotacion_sabor', 'Motivo de devolución', { minLength: 2, maxLength: 50 });
+      const validObs = validateString(observaciones || '', 'Observaciones', { required: false, maxLength: 500 });
+
+      const { error: rpcErr } = await supabase.rpc('registrar_devolucion_fabrica', {
+        p_sucursal_origen_id: validSucId,
+        p_producto_id: validProdId,
+        p_cantidad: validQty,
+        p_motivo: validMotivo,
+        p_observaciones: validObs || null,
+        p_es_evento: Boolean(es_evento)
+      });
+      if (rpcErr) throw rpcErr;
+
+      showToast(`Devolución registrada con éxito (${validQty} ${isWeight ? 'kg' : 'u'}). Stock transferido a Fábrica.`);
+      setShowDevolucionModal(false);
+      await Promise.all([refreshStock(), fetchBajasYDevoluciones()]);
+    } catch (err) {
+      console.error('Error al registrar devolución a fábrica:', err);
+      showToast(err.message, 'error');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const contextValue = {
     categories: React.useMemo(() => {
       const cats = [...categories];
@@ -3815,6 +3949,23 @@ export const DataProvider = ({ children }) => {
     setShowEventStockDepot,
     showEditStockModal,
     setShowEditStockModal,
+    showBajaModal,
+    setShowBajaModal,
+    bajaForm,
+    setBajaForm,
+    bajasList,
+    setBajasList,
+    showDevolucionModal,
+    setShowDevolucionModal,
+    devolucionForm,
+    setDevolucionForm,
+    devolucionesList,
+    setDevolucionesList,
+    openBajaModal,
+    openDevolucionModal,
+    fetchBajasYDevoluciones,
+    handleRegistrarBajaStock,
+    handleRegistrarDevolucionFabrica,
     editStockForm,
     setEditStockForm,
     editStockItemDetails,

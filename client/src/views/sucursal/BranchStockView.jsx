@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { formatTipo, formatQuantity, normalizeWeight, getTareByTipo, calculateNetWeight } from '../../utils/formatters';
+import BajasYDevolucionesHistory from '../../components/common/BajasYDevolucionesHistory';
 
 const BranchStockView = ({ adminSelectedBranchId }) => {
   const {
@@ -12,6 +13,8 @@ const BranchStockView = ({ adminSelectedBranchId }) => {
     setBranchStockSearch,
     sucursales,
     handleSaveInventory,
+    openBajaModal,
+    openDevolucionModal,
     showToast
   } = useData();
 
@@ -19,6 +22,7 @@ const BranchStockView = ({ adminSelectedBranchId }) => {
   const myBranch = (sucursales || []).find(s => s.id === targetBranchId);
   const canTakeInventory = adminSelectedBranchId ? true : myBranch?.inventario_habilitado;
 
+  const [stockSubTab, setStockSubTab] = useState('stock'); // 'stock' or 'historial'
   const [inventoryMode, setInventoryMode] = useState(false);
   const [inventoryForm, setInventoryForm] = useState({});
   const [inventoryContainers, setInventoryContainers] = useState({});
@@ -28,7 +32,7 @@ const BranchStockView = ({ adminSelectedBranchId }) => {
 
   const onSave = () => {
     const items = Object.entries(inventoryForm)
-      .filter(([_, val]) => {
+      .filter(([, val]) => {
         if (Array.isArray(val)) return val.some(v => v !== '' && !isNaN(normalizeWeight(v)) && normalizeWeight(v) > 0);
         return val !== '' && val !== null && !isNaN(Number(val.toString().replace(',', '.'))) && Number(val.toString().replace(',', '.')) !== 0;
       })
@@ -91,27 +95,84 @@ const BranchStockView = ({ adminSelectedBranchId }) => {
             </p>
           )}
         </div>
-        
-        {canTakeInventory && !inventoryMode && (
-          <button className="btn btn-primary btn-sm" onClick={() => {
-            setInventoryForm({});
-            setInventoryMode(true);
+
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          {/* Subtabs: Stock vs Historial */}
+          <div style={{
+            display: 'flex',
+            background: 'rgba(0,0,0,0.05)',
+            padding: '3px',
+            borderRadius: '8px'
           }}>
-            📋 Agregar / Hacer Inventario
-          </button>
-        )}
-        {inventoryMode && (
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button className="btn btn-outline btn-sm" onClick={() => {
-              setInventoryForm({});
-              setInventoryMode(false);
-            }}>Cancelar</button>
-            <button className="btn btn-primary btn-sm" onClick={onSave}>
-              Guardar Inventario
+            <button
+              type="button"
+              className={`btn btn-sm ${stockSubTab === 'stock' ? 'btn-primary' : 'btn-outline'}`}
+              style={{ border: 'none', padding: '0.35rem 0.85rem', fontSize: '0.8rem' }}
+              onClick={() => setStockSubTab('stock')}
+            >
+              📦 Stock Actual
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${stockSubTab === 'historial' ? 'btn-primary' : 'btn-outline'}`}
+              style={{ border: 'none', padding: '0.35rem 0.85rem', fontSize: '0.8rem' }}
+              onClick={() => setStockSubTab('historial')}
+            >
+              📜 Historial Bajas / Devoluciones
             </button>
           </div>
-        )}
+
+          {!inventoryMode && stockSubTab === 'stock' && (
+            <>
+              <button
+                type="button"
+                className="btn btn-danger btn-sm"
+                onClick={() => openBajaModal(null, targetBranchId)}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                title="Eliminar kilos por vencimiento, lote malo o incidencia"
+              >
+                <span>🗑️</span> Baja / Descarte
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => openDevolucionModal(null, targetBranchId)}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                title="Devolver helado a fábrica con observación"
+              >
+                <span>↩️</span> Devolver a Fábrica
+              </button>
+            </>
+          )}
+
+          {canTakeInventory && !inventoryMode && stockSubTab === 'stock' && (
+            <button className="btn btn-outline btn-sm" onClick={() => {
+              setInventoryForm({});
+              setInventoryMode(true);
+            }}>
+              📋 Hacer Inventario
+            </button>
+          )}
+
+          {inventoryMode && (
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button className="btn btn-outline btn-sm" onClick={() => {
+                setInventoryForm({});
+                setInventoryMode(false);
+              }}>Cancelar</button>
+              <button className="btn btn-primary btn-sm" onClick={onSave}>
+                Guardar Inventario
+              </button>
+            </div>
+          )}
+        </div>
       </div>
+
+      {stockSubTab === 'historial' ? (
+        <BajasYDevolucionesHistory defaultSucursalId={targetBranchId} />
+      ) : (
+        <>
 
       <div style={{
       display: 'flex',
@@ -354,20 +415,56 @@ const BranchStockView = ({ adminSelectedBranchId }) => {
                       )}
                     </div>
                   ) : (
-                    <div style={{
-                      fontSize: '2rem',
-                      fontWeight: 700,
-                      color: cantidadActual > 0 ? 'var(--text-dark)' : 'var(--danger)',
-                      marginBottom: '0.5rem'
-                    }}>
-                      {formatQuantity(cantidadActual, { ...p, unidad_medida: p.categoria === 'helados' ? 'peso' : p.unidad_medida })}
-                    </div>
+                    <>
+                      <div style={{
+                        fontSize: '2rem',
+                        fontWeight: 700,
+                        color: cantidadActual > 0 ? 'var(--text-dark)' : 'var(--danger)',
+                        marginBottom: '0.5rem'
+                      }}>
+                        {formatQuantity(cantidadActual, { ...p, unidad_medida: p.categoria === 'helados' ? 'peso' : p.unidad_medida })}
+                      </div>
+                      {cantidadActual > 0 && (
+                        <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'center', marginTop: '0.4rem' }}>
+                          <button
+                            type="button"
+                            className="btn btn-outline btn-sm"
+                            style={{
+                              fontSize: '0.72rem',
+                              padding: '0.2rem 0.5rem',
+                              color: 'var(--danger)',
+                              borderColor: 'rgba(220, 53, 69, 0.35)'
+                            }}
+                            onClick={() => openBajaModal(p.id, targetBranchId)}
+                            title="Eliminar kilos por vencimiento, lote malo o descarte"
+                          >
+                            🗑️ Baja
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-outline btn-sm"
+                            style={{
+                              fontSize: '0.72rem',
+                              padding: '0.2rem 0.5rem',
+                              color: 'var(--primary)',
+                              borderColor: 'rgba(52, 152, 219, 0.35)'
+                            }}
+                            onClick={() => openDevolucionModal(p.id, targetBranchId)}
+                            title="Devolver helado a fábrica con observación"
+                          >
+                            ↩️ Devolver
+                          </button>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               })}
             </div>
           </div>;
     })}
+      </>
+    )}
     </div>;
 };
 export default BranchStockView;

@@ -14,6 +14,30 @@ export const useStock = () => {
   const [showEditStockModal, setShowEditStockModal] = useState(false);
   const [adminStockSupplierFilter, setAdminStockSupplierFilter] = useState('');
   
+  // Bajas de stock (vencimiento, mal estado, rotura, etc.)
+  const [showBajaModal, setShowBajaModal] = useState(false);
+  const [bajaForm, setBajaForm] = useState({
+    producto_id: '',
+    sucursal_id: '',
+    cantidad: '',
+    motivo: 'vencimiento',
+    observaciones: '',
+    es_evento: false
+  });
+  const [bajasList, setBajasList] = useState([]);
+
+  // Devoluciones de helado a fábrica desde sucursales
+  const [showDevolucionModal, setShowDevolucionModal] = useState(false);
+  const [devolucionForm, setDevolucionForm] = useState({
+    producto_id: '',
+    sucursal_origen_id: '',
+    cantidad: '',
+    motivo: 'rotacion_sabor',
+    observaciones: '',
+    es_evento: false
+  });
+  const [devolucionesList, setDevolucionesList] = useState([]);
+  
   const [editStockForm, setEditStockForm] = useState({
     producto_id: '',
     sucursal_id: '',
@@ -38,6 +62,12 @@ export const useStock = () => {
     showEventStock, setShowEventStock,
     showEventStockDepot, setShowEventStockDepot,
     showEditStockModal, setShowEditStockModal,
+    showBajaModal, setShowBajaModal,
+    bajaForm, setBajaForm,
+    bajasList, setBajasList,
+    showDevolucionModal, setShowDevolucionModal,
+    devolucionForm, setDevolucionForm,
+    devolucionesList, setDevolucionesList,
     editStockForm, setEditStockForm,
     editStockItemDetails, setEditStockItemDetails,
     adminStockSupplierFilter, setAdminStockSupplierFilter

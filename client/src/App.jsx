@@ -4,6 +4,8 @@ import TransitLossModal from './components/modals/TransitLossModal';
 import MachineModal from './components/modals/MachineModal';
 import EditStockModal from './components/modals/EditStockModal';
 import MaintenanceModal from './components/modals/MaintenanceModal';
+import BajaStockModal from './components/modals/BajaStockModal';
+import DevolucionFabricaModal from './components/modals/DevolucionFabricaModal';
 import AdminConsumptionAuditView from './views/admin/AdminConsumptionAuditView';
 import AdminProjectionsView from './views/admin/AdminProjectionsView';
 import AdminAuditView from './views/admin/AdminAuditView';
@@ -45,6 +47,7 @@ const AppContent = () => {
     usernameInput, setUsernameInput, passwordInput, setPasswordInput, handleLogin,
     sessionWarning, extendSession,
     showEditStockModal, showMaquinaModal, showMaintenanceModal, 
+    showBajaModal, showDevolucionModal,
     selectedPedido, showLossModal, fetchData, showToast,
     handleClearTestData
   } = useData();
@@ -322,6 +325,8 @@ const AppContent = () => {
         {showEditStockModal && <EditStockModal />}
         {showMaquinaModal && <MachineModal />}
         {showMaintenanceModal && <MaintenanceModal />}
+        {showBajaModal && <BajaStockModal />}
+        {showDevolucionModal && <DevolucionFabricaModal />}
 
       </main>
 
