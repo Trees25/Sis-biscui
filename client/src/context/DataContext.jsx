@@ -1,4 +1,4 @@
-import { formatDate, formatQuantity, formatQuantityShort, normalizeWeight } from '../utils/formatters';
+import { formatDate, formatQuantity, formatQuantityShort, normalizeWeight, isWeightProduct } from '../utils/formatters';
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { enforceRateLimit, invokeProtectedAI } from '../utils/rateLimiter';
@@ -113,7 +113,7 @@ const UnitCalculatorInput = ({
   disabled = false,
   min = 0
 }) => {
-  const isWeight = product?.unidad_medida === 'peso' || product?.categoria === 'helados' || product?.categoria?.toLowerCase().includes('fruta') || product?.categoria?.toLowerCase().includes('verdura') || product?.nombre?.toLowerCase().includes('fruta') || product?.nombre?.toLowerCase().includes('verdura');
+  const isWeight = isWeightProduct(product);
   if (isWeight) {
     const displayVal = value !== undefined && value !== null ? value : '';
     return <div style={{
@@ -1427,7 +1427,7 @@ export const DataProvider = ({ children }) => {
     let csvContent = "data:text/csv;charset=utf-8,";
     csvContent += "Fecha,Sucursal,Producto,Cantidad,Unidad,Registrado Por\n";
     auditoriaData.forEach(row => {
-      const isWeight = row.unidad_medida === 'peso' || row.categoria === 'helados' || row.categoria?.toLowerCase().includes('fruta') || row.categoria?.toLowerCase().includes('verdura') || row.producto_nombre?.toLowerCase().includes('fruta') || row.producto_nombre?.toLowerCase().includes('verdura');
+      const isWeight = isWeightProduct(row);
       const qty = isWeight ? parseFloat(row.cantidad).toFixed(3) : row.cantidad;
       const unit = isWeight ? "kg" : "unidades";
       const pName = sanitizeSpreadsheetCell(row.producto_nombre || "Desconocido", false);
@@ -1701,7 +1701,7 @@ export const DataProvider = ({ children }) => {
       const validDateStr = validateDateISO(transpCargaForm.fecha, 'Fecha de ingreso');
       const pDate = new Date(validDateStr);
       const selectedProd = productos.find(p => p.id === pId);
-      const isWeight = selectedProd?.unidad_medida === 'peso' || selectedProd?.categoria === 'helados' || selectedProd?.categoria?.toLowerCase().includes('fruta') || selectedProd?.categoria?.toLowerCase().includes('verdura') || selectedProd?.nombre?.toLowerCase().includes('fruta') || selectedProd?.nombre?.toLowerCase().includes('verdura');
+      const isWeight = isWeightProduct(selectedProd);
       const finalQty = isWeight ? parseFloat(inputQty) : Math.trunc(inputQty);
       const dateStr = pDate.toISOString().slice(0, 10).replace(/-/g, '');
       const rand = Math.floor(1000 + Math.random() * 9000);
@@ -2042,7 +2042,7 @@ export const DataProvider = ({ children }) => {
       await enforceRateLimit('forms');
       const pId = validatePositiveId(consumoForm.producto_id, 'Producto');
       const selectedProd = productos.find(p => p.id === pId);
-      const isWeight = selectedProd?.unidad_medida === 'peso' || selectedProd?.categoria === 'helados' || selectedProd?.categoria?.toLowerCase().includes('fruta') || selectedProd?.categoria?.toLowerCase().includes('verdura') || selectedProd?.nombre?.toLowerCase().includes('fruta') || selectedProd?.nombre?.toLowerCase().includes('verdura');
+      const isWeight = isWeightProduct(selectedProd);
       const rawQty = isWeight ? normalizeWeight(consumoForm.cantidad) : consumoForm.cantidad;
       const qty = validateNumber(rawQty, 'Cantidad consumida', {
         min: isWeight ? 0.001 : 1,
@@ -2885,7 +2885,7 @@ export const DataProvider = ({ children }) => {
         error: insErr
       } = await supabase.from('proveedores').insert({
         nombre: cleanName
-      }).select('*').single();
+      }).select('id, nombre, cuit, telefono, direccion, email').single();
       if (insErr) throw insErr;
       showToast(`Proveedor "${newProv.nombre}" creado con éxito.`);
       setNewSupplierName('');
@@ -3359,7 +3359,7 @@ export const DataProvider = ({ children }) => {
       const validEsEvento = Boolean(es_evento);
 
       const prod = productos.find(p => p.id === validProdId);
-      const isWeight = prod?.unidad_medida === 'peso' || prod?.categoria === 'helados' || prod?.categoria?.toLowerCase().includes('fruta') || prod?.categoria?.toLowerCase().includes('verdura') || prod?.nombre?.toLowerCase().includes('fruta') || prod?.nombre?.toLowerCase().includes('verdura');
+      const isWeight = isWeightProduct(prod);
       const rawCant = isWeight ? normalizeWeight(cantidad) : cantidad;
       const numCant = validateNumber(rawCant, 'Cantidad de stock', {
         min: 0,
@@ -3680,7 +3680,7 @@ export const DataProvider = ({ children }) => {
       const validSucId = validatePositiveId(sucursal_id, 'Sucursal');
       const validProdId = validatePositiveId(producto_id, 'Producto');
       const prod = productos.find(p => p.id === validProdId);
-      const isWeight = prod?.unidad_medida === 'peso' || prod?.categoria === 'helados' || prod?.categoria?.toLowerCase().includes('fruta') || prod?.categoria?.toLowerCase().includes('verdura');
+      const isWeight = isWeightProduct(prod);
       const validQty = validateNumber(cantidad, 'Cantidad a dar de baja', {
         min: isWeight ? 0.001 : 1,
         max: 100000,
@@ -3718,7 +3718,7 @@ export const DataProvider = ({ children }) => {
       const validSucId = validatePositiveId(sucursal_origen_id, 'Sucursal de origen');
       const validProdId = validatePositiveId(producto_id, 'Producto');
       const prod = productos.find(p => p.id === validProdId);
-      const isWeight = prod?.unidad_medida === 'peso' || prod?.categoria === 'helados' || prod?.categoria?.toLowerCase().includes('fruta') || prod?.categoria?.toLowerCase().includes('verdura');
+      const isWeight = isWeightProduct(prod);
       const validQty = validateNumber(cantidad, 'Cantidad a devolver', {
         min: isWeight ? 0.001 : 1,
         max: 100000,

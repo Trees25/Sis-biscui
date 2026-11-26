@@ -5,7 +5,7 @@
 
 import { readFileSync } from 'fs';
 import { MOTIVOS_BAJA_STOCK, MOTIVOS_DEVOLUCION_FABRICA, validatePositiveId, validateNumber, validateString } from './src/utils/validators.js';
-import { normalizeWeight, calculateNetWeight, getTareByTipo } from './src/utils/formatters.js';
+import { normalizeWeight, calculateNetWeight, getTareByTipo, isFrutaVerdura, isWeightProduct, formatQuantity, formatQuantityShort } from './src/utils/formatters.js';
 
 let passed = 0;
 let failed = 0;
@@ -94,6 +94,60 @@ assert(vasquetaTare === 0.63, 'Tara de vasqueta es 0.630 kg');
 
 const netCalc = calculateNetWeight(5.630, 'vasqueta_5_6k', true, 1);
 assert(netCalc.net === 5.0, 'Peso neto con tara de vasqueta descontada (5.630 - 0.630 = 5.000 kg)');
+
+// 5. Verificación de Frutas y Verduras como Unidades (No Helados)
+console.log('\n📌 Test 5: Manejo de Frutas y Verduras en Unidades y diferenciación con Helados');
+const frutaItem = { categoria: 'frutas', nombre: 'Limón' };
+const verduraItem = { categoria: 'verduras', nombre: 'Zanahoria' };
+const frutaVerduraCatItem = { categoria: 'frutas_verduras', nombre: 'Tomate' };
+const heladoFrutilla = { categoria: 'helados', nombre: 'Frutilla a la crema' };
+const heladoLimon = { categoria: 'helados', nombre: 'Limón al agua' };
+const postreItem = { categoria: 'postres', nombre: 'Torta de Frutilla' };
+
+assert(isFrutaVerdura(frutaItem) === true, 'Limón (categoria: frutas) es fruta/verdura');
+assert(isFrutaVerdura(verduraItem) === true, 'Zanahoria (categoria: verduras) es fruta/verdura');
+assert(isFrutaVerdura(frutaVerduraCatItem) === true, 'Tomate (categoria: frutas_verduras) es fruta/verdura');
+assert(isFrutaVerdura(heladoFrutilla) === false, 'Helado "Frutilla a la crema" NO es clasificado como fruta/verdura genérica');
+assert(isFrutaVerdura(heladoLimon) === false, 'Helado "Limón al agua" NO es clasificado como fruta/verdura genérica');
+
+assert(isWeightProduct(frutaItem) === false, 'Fruta se mide por unidad (isWeightProduct = false)');
+assert(isWeightProduct(verduraItem) === false, 'Verdura se mide por unidad (isWeightProduct = false)');
+assert(isWeightProduct(heladoFrutilla) === true, 'Helado Frutilla se mide por peso (isWeightProduct = true)');
+assert(isWeightProduct(heladoLimon) === true, 'Helado Limón se mide por peso (isWeightProduct = true)');
+
+assert(formatQuantity(5, frutaItem) === '5 u', 'Formato de 5 frutas es "5 u"');
+assert(formatQuantity(5.5, heladoFrutilla).endsWith('kg') && formatQuantity(5.5, heladoFrutilla).includes('500'), 'Formato de 5.5 helado incluye 500 kg');
+assert(formatQuantityShort(12, verduraItem) === '12 u', 'Formato corto de 12 verduras es "12 u"');
+
+// 6. Verificación de corrección de error HTML5 (step vs min) en Modales de Baja y Devolución
+console.log('\n📌 Test 6: Validación de min y step para evitar error "0,001 y 1,001"');
+function getModalInputAttrs(product) {
+  const isWeight = isWeightProduct(product);
+  return {
+    step: isWeight ? "0.001" : "1",
+    min: isWeight ? "0.001" : "1"
+  };
+}
+
+const unitAttrs = getModalInputAttrs(frutaItem);
+assert(unitAttrs.min === "1" && unitAttrs.step === "1", 'Producto por unidad tiene min="1" y step="1"');
+// Validación HTML5: (valor - min) % step === 0
+const isHtml5ValidForUnit1 = ((1 - Number(unitAttrs.min)) % Number(unitAttrs.step)) === 0;
+const isHtml5ValidForUnit2 = ((2 - Number(unitAttrs.min)) % Number(unitAttrs.step)) === 0;
+assert(isHtml5ValidForUnit1 && isHtml5ValidForUnit2, 'Valores enteros 1 y 2 son válidos en HTML5 sin error 0,001/1,001');
+
+const weightAttrs = getModalInputAttrs(heladoLimon);
+assert(weightAttrs.min === "0.001" && weightAttrs.step === "0.001", 'Producto por peso tiene min="0.001" y step="0.001"');
+const stepCount = (5.250 - Number(weightAttrs.min)) / Number(weightAttrs.step);
+const isHtml5ValidForWeight = Math.abs(stepCount - Math.round(stepCount)) < 1e-9;
+assert(isHtml5ValidForWeight, 'Valores decimales de peso son válidos en HTML5');
+
+// 7. Verificación del script de migración SQL para frutas y verduras
+console.log('\n📌 Test 7: Verificación del script SQL update_frutas_verduras_unidades.sql');
+const updateFrutasSql = readFileSync('./supabase/update_frutas_verduras_unidades.sql', 'utf8');
+assert(updateFrutasSql.includes("UPDATE public.productos"), 'Script actualiza public.productos');
+assert(updateFrutasSql.includes("unidad_medida = 'unidad'"), "Establece unidad_medida = 'unidad'");
+assert(updateFrutasSql.includes("categoria <> 'helados'"), 'Excluye helados de la actualización');
 
 // Resumen final
 console.log(`\n==================================================`);

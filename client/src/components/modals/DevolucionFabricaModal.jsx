@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
-import { formatTipo, formatQuantity, normalizeWeight } from '../../utils/formatters';
+import { formatTipo, formatQuantity, normalizeWeight, isWeightProduct } from '../../utils/formatters';
 import { MOTIVOS_DEVOLUCION_FABRICA } from '../../utils/validators';
 
 const DevolucionFabricaModal = () => {
@@ -36,7 +36,7 @@ const DevolucionFabricaModal = () => {
   const origenBranch = sucursales.find(s => s.id === targetOrigenId);
   const selectedProd = productos.find(p => p.id === parseInt(devolucionForm.producto_id, 10));
 
-  const isWeight = selectedProd?.unidad_medida === 'peso' || selectedProd?.categoria === 'helados' || selectedProd?.categoria?.toLowerCase().includes('fruta') || selectedProd?.categoria?.toLowerCase().includes('verdura');
+  const isWeight = isWeightProduct(selectedProd);
 
   // Stock actual en la sucursal de origen
   const stockItemOrigen = (stockData || []).find(
@@ -267,7 +267,7 @@ const DevolucionFabricaModal = () => {
               <input
                 type="number"
                 step={isWeight ? "0.001" : "1"}
-                min="0.001"
+                min={isWeight ? "0.001" : "1"}
                 max="100000"
                 className="form-control"
                 placeholder={isWeight ? "Ej. 5.600 (o 5600)" : "Ej. 3"}
@@ -285,9 +285,13 @@ const DevolucionFabricaModal = () => {
                 {isWeight ? 'kg' : 'u'}
               </span>
             </div>
-            {isWeight && (
+            {isWeight ? (
               <small style={{ color: 'var(--text-light)', fontSize: '0.75rem', marginTop: '0.2rem', display: 'block' }}>
                 💡 Puedes ingresar gramos (ej: <code>5600</code> = 5.600 kg) o kilos directos con punto/coma.
+              </small>
+            ) : (
+              <small style={{ color: 'var(--text-light)', fontSize: '0.75rem', marginTop: '0.2rem', display: 'block' }}>
+                💡 Ingresa la cantidad en números enteros de unidades (ej: <code>1</code>, <code>2</code>, <code>5</code>).
               </small>
             )}
           </div>

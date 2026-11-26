@@ -35,7 +35,7 @@ export const calculateNetWeight = (rawInput, tipo, discountTare = true, explicit
   }
   const tarePerUnit = discountTare ? getTareByTipo(tipo) : 0;
   const rawStr = String(rawInput).trim();
-  const parts = rawStr.split(/[\+\s;]+/).filter(p => p.trim() !== '');
+  const parts = rawStr.split(/[+\s;]+/).filter(p => p.trim() !== '');
 
   if (parts.length === 0) {
     return { gross: 0, tare: 0, net: 0, count: 0 };
@@ -73,26 +73,52 @@ export const calculateNetWeight = (rawInput, tipo, discountTare = true, explicit
   };
 };
 
+/**
+ * Determina si un producto es fruta o verdura.
+ * En Biscui, las frutas y verduras en stock de sucursales se gestionan por UNIDAD (no por peso).
+ * Nota: Los sabores de helado (ej. Frutilla al agua) pertenecen a la categoría 'helados' y se pesan en kg.
+ */
+export const isFrutaVerdura = (p) => {
+  if (!p) return false;
+  const cat = (p.categoria || '').toLowerCase();
+  const name = (p.nombre || p.producto_nombre || '').toLowerCase();
+  if (cat === 'helados') return false; // Los helados siempre son por peso
+  return cat.includes('fruta') || cat.includes('verdura') || name.includes('fruta') || name.includes('verdura');
+};
+
+/**
+ * Determina si un producto se mide en peso (kg) o en unidades (u).
+ * - Helados y productos con unidad_medida='peso' se pesan en kg.
+ * - Frutas y verduras en sucursales se miden SIEMPRE por unidad ('u').
+ */
+export const isWeightProduct = (p) => {
+  if (!p) return false;
+  if (isFrutaVerdura(p)) return false;
+  return p.unidad_medida === 'peso' || p.categoria === 'helados';
+};
+
 export const formatQuantity = (cantidad, p) => {
   if (cantidad === undefined || cantidad === null) return '-';
   if (!p) return `${cantidad}`;
-  if (p.unidad_medida === 'peso' || p.categoria === 'helados' || p.categoria?.toLowerCase().includes('fruta') || p.categoria?.toLowerCase().includes('verdura') || p.nombre?.toLowerCase().includes('fruta') || p.nombre?.toLowerCase().includes('verdura')) {
+  if (isWeightProduct(p)) {
     const num = typeof cantidad === 'string' ? parseFloat(cantidad.replace(',', '.')) : Number(cantidad);
     const kg = isNaN(num) ? 0 : num;
     return `${kg.toLocaleString('es-AR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} kg`;
   }
-  return `${cantidad} u`;
+  const num = typeof cantidad === 'string' ? parseFloat(cantidad.replace(',', '.')) : Number(cantidad);
+  return `${Number.isInteger(num) ? num : (isNaN(num) ? cantidad : num.toFixed(2))} u`;
 };
 
 export const formatQuantityShort = (cantidad, p) => {
   if (cantidad === undefined || cantidad === null) return '-';
   if (!p) return `${cantidad}`;
-  if (p.unidad_medida === 'peso' || p.categoria === 'helados' || p.categoria?.toLowerCase().includes('fruta') || p.categoria?.toLowerCase().includes('verdura') || p.nombre?.toLowerCase().includes('fruta') || p.nombre?.toLowerCase().includes('verdura')) {
+  if (isWeightProduct(p)) {
     const num = typeof cantidad === 'string' ? parseFloat(cantidad.replace(',', '.')) : Number(cantidad);
     const kg = isNaN(num) ? 0 : num;
     return `${kg.toLocaleString('es-AR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} kg`;
   }
-  return `${cantidad} u`;
+  const num = typeof cantidad === 'string' ? parseFloat(cantidad.replace(',', '.')) : Number(cantidad);
+  return `${Number.isInteger(num) ? num : (isNaN(num) ? cantidad : num.toFixed(2))} u`;
 };
 
 export const formatTipo = (tipo) => {
@@ -121,7 +147,7 @@ export const formatDate = (dateString) => {
   if (!dateString) return '-';
   let ds = dateString;
   // If the date string doesn't specify a timezone, assume it's UTC from the database
-  if (!ds.includes('Z') && !ds.match(/[\+\-]\d{2}:\d{2}$/)) {
+  if (!ds.includes('Z') && !ds.match(/[+-]\d{2}:\d{2}$/)) {
     if (!ds.includes('T')) {
       ds = ds.replace(' ', 'T');
     }

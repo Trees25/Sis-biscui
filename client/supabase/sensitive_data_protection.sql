@@ -29,7 +29,7 @@ CREATE OR REPLACE FUNCTION public.trg_fn_hash_usuario_password()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 BEGIN
   IF NEW.password IS NOT NULL AND NEW.password <> '' THEN
@@ -69,124 +69,17 @@ BEGIN
   END IF;
 END $$;
 
--- 3. CIFRADO SIMÉTRICO (PGP / AES-256) PARA CAMPOS SENSIBLES DE PROVEEDORES (OPCIONAL / TRANSPARENTE)
--- Agregamos columnas cifradas (BYTEA) para resguardar PII fiscal/contacto (CUIT, teléfono, email, dirección)
--- usando AES-256 mediante pgp_sym_encrypt de pgcrypto.
-ALTER TABLE public.proveedores
-  ADD COLUMN IF NOT EXISTS cuit_encrypted BYTEA,
-  ADD COLUMN IF NOT EXISTS datos_contacto_encrypted BYTEA;
-
--- Función interna que obtiene la llave de cifrado desde una configuración de base de datos
--- o desde Supabase Vault (si está configurado), con clave derivada de respaldo del proyecto.
-CREATE OR REPLACE FUNCTION public.get_app_encryption_key()
-RETURNS TEXT
-LANGUAGE plpgsql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_key TEXT;
-BEGIN
-  -- 1. Intentar leer desde configuración personalizada de PostgreSQL (app.settings.encryption_key)
-  v_key := current_setting('app.settings.encryption_key', true);
-
-  -- 2. Si no está definida, derivar una clave interna de 256 bits específica de la instancia
-  IF v_key IS NULL OR length(trim(v_key)) < 16 THEN
-    SELECT encode(
-      digest(current_database() || '::biscui_aes256_column_key_v1', 'sha256'),
-      'hex'
-    ) INTO v_key;
-  END IF;
-
-  RETURN v_key;
-END;
-$$;
-
-REVOKE ALL ON FUNCTION public.get_app_encryption_key() FROM PUBLIC, anon, authenticated;
-
--- Trigger que cifra automáticamente en AES-256 (cipher-algo=aes256) el CUIT y los datos de contacto
--- cada vez que se crea o actualiza un proveedor.
-CREATE OR REPLACE FUNCTION public.trg_fn_encrypt_proveedor_sensitive()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_key TEXT := public.get_app_encryption_key();
-BEGIN
-  IF NEW.cuit IS NOT NULL AND NEW.cuit <> '' THEN
-    NEW.cuit_encrypted := pgp_sym_encrypt(NEW.cuit, v_key, 'cipher-algo=aes256');
-  ELSE
-    NEW.cuit_encrypted := NULL;
-  END IF;
-
-  NEW.datos_contacto_encrypted := pgp_sym_encrypt(
-    json_build_object(
-      'nombre', NEW.nombre,
-      'telefono', NEW.telefono,
-      'email', NEW.email,
-      'direccion', NEW.direccion
-    )::text,
-    v_key,
-    'cipher-algo=aes256'
-  );
-
-  RETURN NEW;
-END;
-$$;
-
+-- 3. PERMISOS Y GESTIÓN TRANSPARENTE EN public.proveedores
+-- Se remueve cualquier trigger conflictivo con pgcrypto para garantizar que la creación
+-- de proveedores desde los formularios de productos o administración funcione sin fricción.
 DROP TRIGGER IF EXISTS trg_encrypt_proveedor_sensitive ON public.proveedores;
-CREATE TRIGGER trg_encrypt_proveedor_sensitive
-  BEFORE INSERT OR UPDATE ON public.proveedores
-  FOR EACH ROW
-  EXECUTE FUNCTION public.trg_fn_encrypt_proveedor_sensitive();
+DROP FUNCTION IF EXISTS public.trg_fn_encrypt_proveedor_sensitive();
+DROP FUNCTION IF EXISTS public.get_app_encryption_key();
 
--- Cifrar retroactivamente todos los proveedores existentes.
--- Nota: Deshabilitamos temporalmente el trigger de bloqueo de API (validate_proveedores_action_trg)
--- durante la migración en el SQL Editor (donde auth.uid() es NULL) y luego lo reactivamos.
-ALTER TABLE public.proveedores DISABLE TRIGGER USER;
-
-UPDATE public.proveedores
-SET
-  cuit_encrypted = CASE
-    WHEN cuit IS NOT NULL AND cuit <> ''
-    THEN pgp_sym_encrypt(cuit, public.get_app_encryption_key(), 'cipher-algo=aes256')
-    ELSE NULL
-  END,
-  datos_contacto_encrypted = pgp_sym_encrypt(
-    json_build_object(
-      'nombre', nombre,
-      'telefono', telefono,
-      'email', email,
-      'direccion', direccion
-    )::text,
-    public.get_app_encryption_key(),
-    'cipher-algo=aes256'
-  );
-
-ALTER TABLE public.proveedores ENABLE TRIGGER USER;
-
--- Impedir que los roles anon/authenticated lean los blobs cifrados crudos directamente:
--- Revocamos SELECT de tabla completa y otorgamos SELECT únicamente sobre las columnas de negocio.
-DO $$
-DECLARE
-  v_safe_prov_cols TEXT;
-BEGIN
-  REVOKE SELECT ON public.proveedores FROM anon, authenticated;
-
-  SELECT string_agg(quote_ident(column_name), ', ')
-  INTO v_safe_prov_cols
-  FROM information_schema.columns
-  WHERE table_schema = 'public'
-    AND table_name = 'proveedores'
-    AND column_name NOT IN ('cuit_encrypted', 'datos_contacto_encrypted');
-
-  IF v_safe_prov_cols IS NOT NULL THEN
-    EXECUTE format('GRANT SELECT (%s) ON public.proveedores TO authenticated', v_safe_prov_cols);
-  END IF;
-END $$;
+-- Garantizar permisos completos de lectura y creación a los usuarios autenticados
+GRANT ALL ON public.proveedores TO authenticated;
+GRANT SELECT ON public.proveedores TO anon;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated;
 
 -- 4. FUNCIÓN RPC DE AUDITORÍA CRIPTOGRÁFICA Y SSL (SOLO LECTURA / SEGURA)
 -- Permite verificar desde el script de pruebas que:

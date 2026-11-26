@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
-import { formatTipo, formatQuantity, normalizeWeight, getTareByTipo, calculateNetWeight } from '../../utils/formatters';
+import { formatTipo, formatQuantity, normalizeWeight, getTareByTipo, calculateNetWeight, isWeightProduct } from '../../utils/formatters';
 import BajasYDevolucionesHistory from '../../components/common/BajasYDevolucionesHistory';
 
 const BranchStockView = ({ adminSelectedBranchId }) => {
@@ -38,7 +38,7 @@ const BranchStockView = ({ adminSelectedBranchId }) => {
       })
       .map(([pId, addVal]) => {
         const prod = productos.find(x => x.id === Number(pId));
-        const isW = prod?.unidad_medida === 'peso' || prod?.categoria === 'helados' || prod?.categoria?.toLowerCase().includes('fruta') || prod?.categoria?.toLowerCase().includes('verdura') || prod?.nombre?.toLowerCase().includes('fruta') || prod?.nombre?.toLowerCase().includes('verdura');
+        const isW = isWeightProduct(prod);
         const sData = stockData.find(s => s.producto_id === Number(pId) && s.sucursal_id === targetBranchId && s.es_evento === false);
         const current = sData ? Number(sData.cantidad) : 0;
         
@@ -254,7 +254,7 @@ const BranchStockView = ({ adminSelectedBranchId }) => {
               {catProds.map(p => {
                 const sData = (stockData || []).find(s => s.producto_id === p.id && s.sucursal_id === targetBranchId && s.es_evento === false);
                 const cantidadActual = sData ? Number(sData.cantidad) : 0;
-                const isWeight = p.unidad_medida === 'peso' || p.categoria === 'helados' || p.categoria?.toLowerCase().includes('fruta') || p.categoria?.toLowerCase().includes('verdura') || p.nombre?.toLowerCase().includes('fruta') || p.nombre?.toLowerCase().includes('verdura');
+                const isWeight = isWeightProduct(p);
                 const tareVal = getTareByTipo(p.tipo);
                 const enteredVal = inventoryForm[p.id];
                 const enteredContainers = inventoryContainers[p.id] !== undefined ? inventoryContainers[p.id] : 0;

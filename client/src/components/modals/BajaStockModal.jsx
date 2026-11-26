@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
-import { formatTipo, formatQuantity, normalizeWeight } from '../../utils/formatters';
+import { formatTipo, formatQuantity, normalizeWeight, isWeightProduct } from '../../utils/formatters';
 import { MOTIVOS_BAJA_STOCK } from '../../utils/validators';
 
 const BajaStockModal = () => {
@@ -36,7 +36,7 @@ const BajaStockModal = () => {
   const currentBranch = sucursales.find(s => s.id === targetSucursalId);
   const selectedProd = productos.find(p => p.id === parseInt(bajaForm.producto_id, 10));
 
-  const isWeight = selectedProd?.unidad_medida === 'peso' || selectedProd?.categoria === 'helados' || selectedProd?.categoria?.toLowerCase().includes('fruta') || selectedProd?.categoria?.toLowerCase().includes('verdura');
+  const isWeight = isWeightProduct(selectedProd);
 
   // Obtener stock actual disponible en esta sucursal
   const stockItem = (stockData || []).find(
@@ -239,7 +239,7 @@ const BajaStockModal = () => {
               <input
                 type="number"
                 step={isWeight ? "0.001" : "1"}
-                min="0.001"
+                min={isWeight ? "0.001" : "1"}
                 max="100000"
                 className="form-control"
                 placeholder={isWeight ? "Ej. 4.500 (o 4500)" : "Ej. 2"}
@@ -257,9 +257,13 @@ const BajaStockModal = () => {
                 {isWeight ? 'kg' : 'u'}
               </span>
             </div>
-            {isWeight && (
+            {isWeight ? (
               <small style={{ color: 'var(--text-light)', fontSize: '0.75rem', marginTop: '0.2rem', display: 'block' }}>
                 💡 Puedes ingresar gramos (ej: <code>4500</code> = 4.500 kg) o kilos directos con punto/coma.
+              </small>
+            ) : (
+              <small style={{ color: 'var(--text-light)', fontSize: '0.75rem', marginTop: '0.2rem', display: 'block' }}>
+                💡 Ingresa la cantidad en números enteros de unidades (ej: <code>1</code>, <code>2</code>, <code>5</code>).
               </small>
             )}
           </div>

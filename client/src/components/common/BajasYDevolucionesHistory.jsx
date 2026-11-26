@@ -202,7 +202,6 @@ const BajasYDevolucionesHistory = ({ defaultSucursalId = null, filterType = 'all
           </thead>
           <tbody>
             {filteredRecords.map(item => {
-              const isWeight = item.producto_categoria === 'helados' || item.producto_obj?.unidad_medida === 'peso';
               return (
                 <tr key={item.id}>
                   <td style={{ fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
@@ -224,7 +223,7 @@ const BajasYDevolucionesHistory = ({ defaultSucursalId = null, filterType = 'all
                     whiteSpace: 'nowrap'
                   }}>
                     {item.tipo === 'baja' ? '-' : ''}
-                    {formatQuantity(item.cantidad, { ...item.producto_obj, unidad_medida: isWeight ? 'peso' : item.producto_obj?.unidad_medida })}
+                    {formatQuantity(item.cantidad, item.producto_obj)}
                   </td>
                   <td>
                     <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>
